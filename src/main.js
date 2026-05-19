@@ -174,53 +174,62 @@ class GameApp {
     
     _renderStats() {
         const statsEl = document.querySelector('.stats-panel');
-        if (!statsEl) {
-            // 如果不存在，在菜单中创建一个
-            const menuContainer = document.querySelector('.menu-container');
-            if (menuContainer) {
-                const panel = document.createElement('div');
-                panel.className = 'stats-panel';
-                panel.innerHTML = `
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <span class="stat-value">${this.stats.gamesPlayed}</span>
-                            <span class="stat-label">总局数</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-value" style="color:#4caf50">${this.stats.wins}</span>
-                            <span class="stat-label">胜场</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-value" style="color:#f44336">${this.stats.losses}</span>
-                            <span class="stat-label">负场</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-value">${this.stats.streak > 0 ? '+' : ''}${this.stats.streak}</span>
-                            <span class="stat-label">连胜</span>
-                        </div>
-                    </div>
-                    <button id="btn-clear-stats" class="btn-small" style="margin-top:8px;font-size:0.7rem">重置记录</button>
-                `;
-                menuContainer.insertBefore(panel, menuContainer.querySelector('.settings-panel'));
-                
-                panel.querySelector('#btn-clear-stats')?.addEventListener('click', () => {
-                    if (confirm('确定要清除所有游戏记录吗？')) {
-                        Storage.clearAll();
-                        location.reload();
-                    }
-                });
+        if (statsEl) {
+            // 更新已有面板
+            const values = statsEl.querySelectorAll('.stat-value');
+            if (values.length >= 4) {
+                values[0].textContent = this.stats.gamesPlayed;
+                values[1].textContent = this.stats.wins;
+                values[2].textContent = this.stats.losses;
+                values[3].textContent = (this.stats.streak > 0 ? '+' : '') + this.stats.streak;
             }
+            return;
+        }
+        // 如果不存在，在菜单中创建一个
+        const menuContainer = document.querySelector('.menu-container');
+        if (menuContainer) {
+            const panel = document.createElement('div');
+            panel.className = 'stats-panel';
+            panel.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-value">${this.stats.gamesPlayed}</span>
+                        <span class="stat-label">总局数</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" style="color:#4caf50">${this.stats.wins}</span>
+                        <span class="stat-label">胜场</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" style="color:#f44336">${this.stats.losses}</span>
+                        <span class="stat-label">负场</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value">${this.stats.streak > 0 ? '+' : ''}${this.stats.streak}</span>
+                        <span class="stat-label">连胜</span>
+                    </div>
+                </div>
+                <button id="btn-clear-stats" class="btn-small" style="margin-top:8px;font-size:0.7rem">重置记录</button>
+            `;
+            menuContainer.insertBefore(panel, menuContainer.querySelector('.settings-panel'));
+            
+            panel.querySelector('#btn-clear-stats')?.addEventListener('click', () => {
+                if (confirm('确定要清除所有游戏记录吗？')) {
+                    Storage.clearAll();
+                    location.reload();
+                }
+            });
         }
     }
     
     _saveGameResult(data) {
         const gs = this.currentMode?.gameState;
         const humanIdx = this.currentMode?.humanIndex ?? -1;
-        let isHumanWin = false;
-        if (humanIdx >= 0) {
-            isHumanWin = data.winnerIndex === humanIdx ||
-                (data.winnerIndex !== gs?.landlordIndex && humanIdx !== gs?.landlordIndex);
-        }
+        // 观战模式（humanIndex=-1）不更新统计
+        if (humanIdx < 0) return;
+        
+        let isHumanWin = data.winnerIndex === humanIdx ||
+            (data.winnerIndex !== gs?.landlordIndex && humanIdx !== gs?.landlordIndex);
         
         this.stats.gamesPlayed++;
         if (isHumanWin) {
@@ -230,7 +239,7 @@ class GameApp {
             this.stats.losses++;
             this.stats.streak = Math.min(-1, this.stats.streak - 1);
         }
-        this.stats.totalScore += data.scores[this.currentMode?.humanIndex] || 0;
+        this.stats.totalScore += data.scores[humanIdx] || 0;
         Storage.saveStats(this.stats);
         
         // 保存对局记录
@@ -381,14 +390,17 @@ class GameApp {
         const custom = document.getElementById('custom-screen');
         const replay = document.getElementById('replay-screen');
         
-        // 停止当前游戏循环
+        // 停止当前游戏循环并清理 renderer
         if (this.currentMode) {
             this.currentMode.isRunning = false;
         }
+        const audio = this.renderer?.audio;
+        this.renderer?.destroy?.();
+        this.renderer = null;
         
         // 切换回菜单BGM
-        this.renderer?.audio?.stopBGM();
-        setTimeout(() => this.renderer?.audio?.playMenuBGM(), 300);
+        audio?.stopBGM();
+        setTimeout(() => audio?.playMenuBGM(), 300);
         
         // 淡出当前屏幕
         [game, lan, custom, replay].forEach(s => {
@@ -482,8 +494,10 @@ class GameApp {
 
     // ---- AI模式 ----
     async startAIMode() {
-        // 停止旧游戏
+        // 停止旧游戏并清理 renderer
         if (this.currentMode) this.currentMode.isRunning = false;
+        this.renderer?.destroy?.();
+        this.renderer = null;
         
         const diff = document.getElementById('difficulty')?.value || this.settings.difficulty || 'normal';
         const rounds = parseInt(document.getElementById('match-rounds')?.value || this.settings.matchRounds || 1);

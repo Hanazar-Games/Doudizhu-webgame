@@ -357,8 +357,8 @@ class Renderer {
                     if (isGrab && isGrabPhase) {
                         this.showToast('抢地主请按 2', 'info');
                     } else {
-                        this.mode.humanCall(1);
-                        this.hideCallControls();
+                        const success = this.mode.humanCall(1);
+                        if (success) this.hideCallControls();
                     }
                 }
                 if (e.key === '2') {
@@ -368,8 +368,8 @@ class Renderer {
                     if (isGrab && !isGrabPhase) {
                         this.showToast('叫地主请按 1', 'info');
                     } else {
-                        this.mode.humanCall(2);
-                        this.hideCallControls();
+                        const success = this.mode.humanCall(2);
+                        if (success) this.hideCallControls();
                     }
                 }
                 if (e.key === '3') {
@@ -378,15 +378,15 @@ class Renderer {
                     if (isGrab) {
                         this.showToast('抢地主模式不支持 3 分', 'info');
                     } else {
-                        this.mode.humanCall(3);
-                        this.hideCallControls();
+                        const success = this.mode.humanCall(3);
+                        if (success) this.hideCallControls();
                     }
                 }
                 if (e.key === '0' || e.key === 'Escape') {
                     e.preventDefault();
                     this.audio.playButtonClick();
-                    this.mode.humanCall(0);
-                    this.hideCallControls();
+                    const success = this.mode.humanCall(0);
+                    if (success) this.hideCallControls();
                 }
                 return;
             }
@@ -442,9 +442,12 @@ class Renderer {
         this.audio.playHint();
         
         const lastPattern = this.gameState?.lastPlay?.pattern;
+        const isNewRound = !lastPattern || lastPattern.type === 'INVALID' ||
+                           (this.gameState?.passCount >= 2) ||
+                           (this.gameState?.lastPlay?.playerIndex === this.mode?.humanIndex);
         const ai = new AIPlayer('hint', 'hard');
         ai.hand = player.hand;
-        const hint = ai.getHint(player.hand, lastPattern);
+        const hint = ai.getHint(player.hand, lastPattern, isNewRound);
         
         if (hint.length === 0) {
             this.showToast('建议：不出');
@@ -497,7 +500,8 @@ class Renderer {
         if (player.isAuto && this.gameState?.currentTurn === this.mode?.humanIndex) {
             this.hideCallControls();
             this.hidePlayControls();
-            // base-mode 的 _waitForHumanCall/_waitForHumanPlay 会检测到 isAuto 并自动处理
+            // 通知模式触发自动处理
+            this.mode?.triggerAutoIfNeeded?.();
         }
     }
     
@@ -730,6 +734,7 @@ class Renderer {
         this.selectedCards.clear();
         const selected = this.container.querySelectorAll('.card.selected');
         for (const el of selected) el.classList.remove('selected');
+        this._clearHint();
         this._updateHandHint([]);
     }
 
@@ -857,6 +862,7 @@ class Renderer {
         const area = this._getPlayerArea(data.playerIndex);
         const bubble = document.createElement('div');
         bubble.className = 'call-bubble';
+        bubble.dataset.animFx = 'true';
         
         if (data.mode === 'grab') {
             if (data.phase === 'call') {
@@ -977,7 +983,7 @@ class Renderer {
         } else if (pattern.type === 'STRAIGHT') {
             this.audio.playStraight();
             this.anim.glowBurst(centerX, centerY, 'rgba(100,200,255,0.4)');
-        } else if (pattern.type === 'TRIPLE_STRAIGHT' || pattern.type?.includes('PLANE')) {
+        } else if (pattern.type?.includes('TRIPLE_STRAIGHT')) {
             this.audio.playPlane();
             this.anim.glowBurst(centerX, centerY, 'rgba(255,100,200,0.4)');
             this.anim.sparkleBurst(centerX, centerY, 10);
@@ -1010,6 +1016,7 @@ class Renderer {
         const area = this._getPlayerArea(playerIndex);
         const bubble = document.createElement('div');
         bubble.className = 'pass-bubble';
+        bubble.dataset.animFx = 'true';
         bubble.textContent = '不出';
         area?.appendChild(bubble);
         setTimeout(() => {
@@ -1034,6 +1041,7 @@ class Renderer {
         
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble';
+        bubble.dataset.animFx = 'true';
         bubble.textContent = text;
         bubble.style.opacity = '0';
         bubble.style.transform = 'translateX(-50%) scale(0.5)';

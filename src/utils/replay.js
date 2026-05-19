@@ -107,7 +107,7 @@ class ReplayManager {
             audio.playRocket();
         } else if (action.pattern?.type === 'STRAIGHT') {
             audio.playStraight();
-        } else if (action.pattern?.type === 'TRIPLE_STRAIGHT' || action.pattern?.type?.includes('PLANE')) {
+        } else if (action.pattern?.type?.includes('TRIPLE_STRAIGHT')) {
             audio.playPlane();
         } else if (action.pattern?.type === 'PAIR') {
             audio.playPair();

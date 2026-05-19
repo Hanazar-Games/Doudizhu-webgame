@@ -204,6 +204,18 @@ class BaseMode {
         }
     }
     
+    // 托管切换后触发自动处理（renderer 调用）
+    triggerAutoIfNeeded() {
+        const idx = this.gameState.currentTurn;
+        const player = this.gameState.players[idx];
+        if (!player?.isAuto) return;
+        if (this.gameState.phase === PHASE.PLAYING) {
+            this._autoPlayForHuman(idx);
+        } else if (this.gameState.phase === PHASE.CALLING) {
+            this._processCalling();
+        }
+    }
+    
     async _autoPlayForHuman(playerIndex) {
         await this._delay(1200);
         const player = this.gameState.players[playerIndex];
@@ -317,7 +329,7 @@ class BaseMode {
             if (type === 'BOMB') context = 'bomb';
             else if (type === 'ROCKET') context = 'rocket';
             else if (type === 'STRAIGHT') context = 'straight';
-            else if (type === 'TRIPLE_STRAIGHT' || type?.includes('PLANE')) context = 'plane';
+            else if (type?.includes('TRIPLE_STRAIGHT')) context = 'plane';
             else if (type === 'PAIR') context = 'pair';
             else if (type === 'TRIPLE') context = 'triple';
             const phrase = AIPlayer.getPhrase(context);

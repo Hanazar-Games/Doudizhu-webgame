@@ -750,9 +750,9 @@ class Animations {
      * 春天/反春天全屏庆祝（花瓣 + 彩纸）
      */
     springCelebrate() {
-        if (this._isCelebrating) return;
-        this._isCelebrating = true;
-        setTimeout(() => { this._isCelebrating = false; }, 3000);
+        if (this._isSpringCelebrating) return;
+        this._isSpringCelebrating = true;
+        setTimeout(() => { this._isSpringCelebrating = false; }, 3000);
         const w = window.innerWidth;
         const h = window.innerHeight;
 
@@ -809,9 +809,9 @@ class Animations {
      * @param {number} winnerIndex - 0=地主, 1=农民1, 2=农民2
      */
     winCelebrate(isLandlordWin, winnerIndex) {
-        if (this._isCelebrating) return;
-        this._isCelebrating = true;
-        setTimeout(() => { this._isCelebrating = false; }, 4000);
+        if (this._isWinCelebrating) return;
+        this._isWinCelebrating = true;
+        setTimeout(() => { this._isWinCelebrating = false; }, 4000);
         
         const w = window.innerWidth;
         const h = window.innerHeight;

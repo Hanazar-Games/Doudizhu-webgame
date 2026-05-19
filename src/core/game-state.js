@@ -101,6 +101,7 @@ class GameState {
         this.grabPhase = 'call';
         this.hasCalled = [false, false, false];
         this.callRound = 0;
+        this.laiziEnabled = false;
         this.laiziValue = -1;
         
         for (const p of this.players) {

@@ -139,7 +139,43 @@ docker-compose up -d
 
 ## 版本公告
 
-### v1.1.0 (当前版本) — UI/UX/BGM/SFX 全面升级
+### v1.1.2 (当前版本) — 深度全面修复
+
+**Bug 修复**
+- 🎹 **键盘快捷键可靠性**：叫分快捷键（1/2/3/0/ESC）现在会检查 `humanCall` 返回值后再隐藏面板，防止在非法状态下错误关闭控制面板
+- 💡 **提示功能精准化**：修复提示（H键）未正确判断新轮次的问题，现在会结合 `passCount >= 2` 和上一轮出牌者身份给出正确建议
+- 🎊 **庆祝动画分离**：修复 `springCelebrate` 与 `winCelebrate` 共享同一防抖标志导致“春天+胜利”时春天动画被吞掉的 bug
+- 🤖 **托管即时响应**：修复出牌/叫分阶段中途点击“托管”后 AI 不立即接管的 bug，新增 `triggerAutoIfNeeded` 机制
+- 🎵 **飞机带翅膀音效**：修复飞机带单/带对（`TRIPLE_STRAIGHT_WITH_SINGLES/PAIRS`）未被识别为飞机音效和 AI 短语的问题
+- 🧹 **Renderer 生命周期**：修复 `showMenu()` 和 `startAIMode()` 未调用 `destroy()` 导致键盘事件监听器泄漏的隐患
+- 📊 **观战模式统计隔离**：修复观战模式（`humanIndex = -1`）仍被计入总局数和负场的 bug
+- 📈 **统计面板实时更新**：修复已有统计面板时 `_renderStats()` 不刷新数值的问题
+- 🃏 **重选清除提示**：修复按 R 重选时 `.hint` 高亮 class 未被清除的问题
+- 🧼 **癞子状态清理**：修复 `resetRound()` 未重置 `laiziEnabled` 标志的隐患
+- 🫧 **气泡元素标记**：为 `call-bubble`、`pass-bubble`、`chat-bubble` 统一添加 `data-anim-fx` 标记，确保返回菜单后正确清理
+
+---
+
+## 历史公告
+
+### v1.1.1 — 人机交互与回放修复
+
+**Bug 修复（13项）**
+- 修复人类玩家出牌后手牌未实时更新（`renderHands` 在 `animatePlay` 中补调）
+- 修复地主获得底牌后手牌未实时更新（`renderHands` 在 `showLandlord` 中补调）
+- 修复 AI 牌背显示为空白（补充 `.card-inner` 子元素）
+- 修复叫分按钮点击后无条件隐藏面板（增加 `success` 检查）
+- 修复抢地主模式按钮 `dataset.call` 状态残留导致按钮消失
+- 修复结算弹窗缩放动画只能播放一次（移除并重新添加 `modal-scale-in`）
+- 修复返回菜单后侧边面板仍然显示（`destroy()` 中主动隐藏）
+- 修复抢地主模式键盘快捷键与按钮状态不匹配（动态提示 + Toast）
+- 修复 LAN 观战模式 `humanIndex=-1` 时 `isHumanWin` 统计错误
+- 修复 `_sequence` 音符在 AudioContext 未解锁时全部同时播放（改为 `async` + `_ensureContext`）
+- 修复回放切换旧局时旧 `playTimer` 仍在运行（`startReplay` 中先 `stop()`）
+- 修复回放全程无音效（新增 `_playStepSound` 映射牌型到 SFX）
+- 修复回放 slider 拖动时音效 spam（新增 `goToStepSilent` 静默跳转）
+
+### v1.1.0 — UI/UX/BGM/SFX 全面升级
 
 **新增功能**
 - 🎵 **BGM 循环系统**：菜单/游戏/胜利/失败四种场景 BGM，自动切换循环
@@ -163,10 +199,6 @@ docker-compose up -d
 - 修复动画元素切换屏幕后残留的问题（统一标记清理）
 - 修复观战模式下 onRoundEnd isHumanWin 计算错误
 - 修复 dealFromCenter 创建双重元素的问题
-
----
-
-## 历史公告
 
 ### v1.0.0 — 初始版本
 - 人机对战、局域网联机、自定义模式三大玩法
