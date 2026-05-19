@@ -1,0 +1,855 @@
+/**
+ * Animations - 特效动画管理类
+ * 纯 CSS / JS 实现的视觉特效集合，服务于斗地主游戏
+ */
+
+class Animations {
+    constructor(container) {
+        this.container = container || document.body;
+    }
+    
+    _createAnimElement(tag = 'div') {
+        const el = document.createElement(tag);
+        el.dataset.animFx = 'true';
+        return el;
+    }
+
+    // ==================== 现有方法（保留并微调）====================
+
+    /**
+     * 炸弹爆炸粒子特效
+     * @param {number} x - 爆炸中心 X 坐标
+     * @param {number} y - 爆炸中心 Y 坐标
+     * @param {boolean} flash - 是否附带全屏闪光（默认 true）
+     */
+    explode(x, y, flash = true) {
+        const count = 20;
+        const colors = ['#ff4444', '#ff8844', '#ffcc00', '#ffffff', '#ff6644'];
+
+        for (let i = 0; i < count; i++) {
+            const particle = this._createAnimElement('div');
+            particle.className = 'particle';
+            particle.style.position = 'absolute';
+            particle.style.left = x + 'px';
+            particle.style.top = y + 'px';
+            particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+            particle.style.width = (4 + Math.random() * 8) + 'px';
+            particle.style.height = particle.style.width;
+            particle.style.borderRadius = '50%';
+            particle.style.pointerEvents = 'none';
+            particle.style.zIndex = '9999';
+
+            const angle = (Math.PI * 2 * i) / count;
+            const distance = 60 + Math.random() * 100;
+            const tx = Math.cos(angle) * distance;
+            const ty = Math.sin(angle) * distance;
+
+            particle.style.setProperty('--tx', tx + 'px');
+            particle.style.setProperty('--ty', ty + 'px');
+
+            this.container.appendChild(particle);
+            setTimeout(() => particle.remove(), 800);
+        }
+
+        // 冲击波
+        const shockwave = this._createAnimElement('div');
+        shockwave.className = 'shockwave';
+        shockwave.style.position = 'absolute';
+        shockwave.style.left = (x - 75) + 'px';
+        shockwave.style.top = (y - 75) + 'px';
+        shockwave.style.width = '150px';
+        shockwave.style.height = '150px';
+        shockwave.style.borderRadius = '50%';
+        shockwave.style.border = '3px solid rgba(255,100,50,0.8)';
+        shockwave.style.pointerEvents = 'none';
+        shockwave.style.zIndex = '9998';
+        this.container.appendChild(shockwave);
+        setTimeout(() => shockwave.remove(), 600);
+
+        if (flash) {
+            this.flashScreen('rgba(255, 200, 100, 0.25)', 300);
+        }
+    }
+
+    /**
+     * 火箭飞行特效
+     * @param {number} startX - 起始 X
+     * @param {number} startY - 起始 Y
+     * @param {number} endX - 目标 X
+     * @param {number} endY - 目标 Y
+     */
+    rocketFly(startX, startY, endX, endY) {
+        const rocket = this._createAnimElement('div');
+        rocket.className = 'rocket-anim';
+        rocket.textContent = '🚀';
+        rocket.style.position = 'absolute';
+        rocket.style.left = startX + 'px';
+        rocket.style.top = startY + 'px';
+        rocket.style.fontSize = '32px';
+        rocket.style.pointerEvents = 'none';
+        rocket.style.zIndex = '9999';
+        rocket.style.setProperty('--end-x', (endX - startX) + 'px');
+        rocket.style.setProperty('--end-y', (endY - startY) + 'px');
+
+        this.container.appendChild(rocket);
+        setTimeout(() => rocket.remove(), 1000);
+
+        // 尾焰粒子
+        for (let i = 0; i < 10; i++) {
+            setTimeout(() => {
+                const flame = this._createAnimElement('div');
+                flame.className = 'flame-particle';
+                flame.style.position = 'absolute';
+                const progress = i / 10;
+                flame.style.left = (startX + (endX - startX) * progress) + 'px';
+                flame.style.top = (startY + (endY - startY) * progress) + 'px';
+                flame.style.width = '8px';
+                flame.style.height = '8px';
+                flame.style.background = 'rgba(255, 150, 50, 0.8)';
+                flame.style.borderRadius = '50%';
+                flame.style.pointerEvents = 'none';
+                flame.style.zIndex = '9998';
+                this.container.appendChild(flame);
+                setTimeout(() => flame.remove(), 400);
+            }, i * 60);
+        }
+    }
+
+    /**
+     * 飘字特效（分数、提示等）
+     * @param {number} x
+     * @param {number} y
+     * @param {string} text
+     * @param {string} color
+     */
+    floatingText(x, y, text, color = '#f0c040') {
+        const el = this._createAnimElement('div');
+        el.className = 'floating-text';
+        el.textContent = text;
+        el.style.position = 'absolute';
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.style.color = color;
+        el.style.fontSize = '24px';
+        el.style.fontWeight = 'bold';
+        el.style.pointerEvents = 'none';
+        el.style.zIndex = '9999';
+        el.style.textShadow = '0 2px 4px rgba(0,0,0,0.5)';
+        el.style.setProperty('--float-y', '-50px');
+
+        this.container.appendChild(el);
+        setTimeout(() => el.remove(), 1200);
+    }
+
+    /**
+     * 地主皇冠弹出特效
+     * @param {number} x
+     * @param {number} y
+     */
+    landlordCrown(x, y) {
+        const crown = this._createAnimElement('div');
+        crown.className = 'landlord-crown';
+        crown.textContent = '👑';
+        crown.style.position = 'absolute';
+        crown.style.left = x + 'px';
+        crown.style.top = y + 'px';
+        crown.style.fontSize = '40px';
+        crown.style.pointerEvents = 'none';
+        crown.style.zIndex = '9999';
+
+        this.container.appendChild(crown);
+        setTimeout(() => crown.remove(), 2000);
+    }
+
+    // ==================== 全新特效方法 ====================
+
+    /**
+     * 全屏震动
+     * @param {number} intensity - 震动幅度（px）
+     * @param {number} duration - 持续时间（ms）
+     */
+    screenShake(intensity = 5, duration = 400) {
+        // 使用引用计数安全地修改 body transform
+        if (!this._shakeCount) this._shakeCount = 0;
+        // 每次开始震动时都重新获取当前 transform，确保准确
+        if (this._shakeCount === 0) {
+            this._shakeOriginalTransform = document.body.style.transform || '';
+        }
+        this._shakeCount++;
+
+        const startTime = performance.now();
+
+        const shake = (now) => {
+            const elapsed = now - startTime;
+            if (elapsed >= duration) {
+                this._shakeCount--;
+                if (this._shakeCount <= 0) {
+                    document.body.style.transform = this._shakeOriginalTransform;
+                    this._shakeCount = 0;
+                    this._shakeOriginalTransform = null;
+                }
+                return;
+            }
+            const decay = 1 - elapsed / duration;
+            const dx = (Math.random() - 0.5) * 2 * intensity * decay;
+            const dy = (Math.random() - 0.5) * 2 * intensity * decay;
+            document.body.style.transform = `${this._shakeOriginalTransform} translate(${dx}px, ${dy}px)`.trim();
+            requestAnimationFrame(shake);
+        };
+
+        requestAnimationFrame(shake);
+    }
+
+    /**
+     * 全屏闪光遮罩
+     * @param {string} color - 闪光颜色
+     * @param {number} duration - 持续时间（ms）
+     */
+    flashScreen(color = 'rgba(255,255,255,0.3)', duration = 200) {
+        const overlay = this._createAnimElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.background = color;
+        overlay.style.pointerEvents = 'none';
+        overlay.style.zIndex = '99999';
+        overlay.style.transition = `opacity ${duration}ms ease-out`;
+        overlay.style.opacity = '1';
+
+        this.container.appendChild(overlay);
+
+        // 强制重绘后淡出
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                overlay.style.opacity = '0';
+            });
+        });
+
+        setTimeout(() => overlay.remove(), duration + 50);
+    }
+
+    /**
+     * 卡牌弧线飞行动画
+     * @param {number} fromX
+     * @param {number} fromY
+     * @param {number} toX
+     * @param {number} toY
+     * @param {HTMLElement|string|null} card - 已有元素、HTML字符串或null
+     * @param {number} duration
+     * @param {Function|null} onComplete
+     */
+    cardFly(fromX, fromY, toX, toY, card = null, duration = 500, onComplete = null) {
+        let el;
+        let isTemp = false;
+
+        if (card instanceof HTMLElement) {
+            el = card;
+        } else if (typeof card === 'string') {
+            isTemp = true;
+            el = this._createAnimElement('div');
+            el.innerHTML = card;
+            el.style.position = 'fixed';
+            el.style.left = fromX + 'px';
+            el.style.top = fromY + 'px';
+            el.style.pointerEvents = 'none';
+            el.style.zIndex = '9999';
+            this.container.appendChild(el);
+        } else {
+            isTemp = true;
+            el = this._createAnimElement('div');
+            el.className = 'deal-fly-card';
+            el.style.position = 'fixed';
+            el.style.left = fromX + 'px';
+            el.style.top = fromY + 'px';
+            el.style.pointerEvents = 'none';
+            el.style.zIndex = '9999';
+            this.container.appendChild(el);
+        }
+
+        const startTime = performance.now();
+        const midX = (fromX + toX) / 2;
+        const midY = Math.min(fromY, toY) - 100; // 弧线顶点
+
+        const animate = (now) => {
+            const t = Math.min((now - startTime) / duration, 1);
+            // 二次贝塞尔曲线插值
+            const x = (1 - t) * (1 - t) * fromX + 2 * (1 - t) * t * midX + t * t * toX;
+            const y = (1 - t) * (1 - t) * fromY + 2 * (1 - t) * t * midY + t * t * toY;
+            const rot = t < 0.5 ? t * 40 : (1 - t) * 40;
+
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            el.style.transform = `rotate(${rot}deg)`;
+
+            if (t < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                if (onComplete) onComplete();
+                if (isTemp) setTimeout(() => el.remove(), 0);
+            }
+        };
+
+        requestAnimationFrame(animate);
+    }
+
+    /**
+     * 从牌桌中心向三方发牌动画
+     * @param {number} centerX
+     * @param {number} centerY
+     * @param {Array<{x:number,y:number}>} targets - 三个目标位置
+     * @param {number} count - 每个目标发几张
+     */
+    dealFromCenter(centerX, centerY, targets, count = 17) {
+        targets.forEach((target, idx) => {
+            for (let i = 0; i < count; i++) {
+                const delay = (idx * count + i) * 40;
+                setTimeout(() => {
+                    const card = this._createAnimElement('div');
+                    card.className = 'deal-fly-card';
+                    card.style.position = 'absolute';
+                    card.style.left = centerX + 'px';
+                    card.style.top = centerY + 'px';
+                    card.style.pointerEvents = 'none';
+                    card.style.zIndex = '9999';
+                    this.container.appendChild(card);
+
+                    this.cardFly(centerX, centerY, target.x, target.y, card, 300, () => {
+                        card.remove();
+                    });
+                }, delay);
+            }
+        });
+    }
+
+    /**
+     * 元素弹跳进入（0 → 1.2 → 1）
+     * @param {HTMLElement} element
+     * @param {number} duration
+     */
+    popIn(element, duration = 300) {
+        element.style.display = '';
+        element.style.opacity = '0';
+        element.style.transform = 'scale(0)';
+        element.style.transition = `transform ${duration}ms cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity ${duration}ms ease-out`;
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                element.style.opacity = '1';
+                element.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    element.style.transition = `transform ${duration * 0.4}ms ease-out`;
+                    element.style.transform = 'scale(1)';
+                }, duration);
+            });
+        });
+    }
+
+    /**
+     * 元素弹出消失
+     * @param {HTMLElement} element
+     * @param {number} duration
+     */
+    popOut(element, duration = 200) {
+        element.style.transition = `transform ${duration}ms ease-in, opacity ${duration}ms ease-in`;
+        element.style.transform = 'scale(0)';
+        element.style.opacity = '0';
+        setTimeout(() => {
+            element.style.display = 'none';
+        }, duration);
+    }
+
+    /**
+     * 扩散光环脉冲
+     * @param {number} x
+     * @param {number} y
+     * @param {string} color
+     * @param {number} size
+     */
+    pulseRing(x, y, color = '#f0c040', size = 100) {
+        const ring = this._createAnimElement('div');
+        ring.style.position = 'absolute';
+        ring.style.left = x + 'px';
+        ring.style.top = y + 'px';
+        ring.style.width = '0px';
+        ring.style.height = '0px';
+        ring.style.border = `3px solid ${color}`;
+        ring.style.borderRadius = '50%';
+        ring.style.transform = 'translate(-50%, -50%)';
+        ring.style.pointerEvents = 'none';
+        ring.style.zIndex = '9998';
+        ring.style.transition = `all 600ms ease-out`;
+        ring.style.opacity = '1';
+
+        this.container.appendChild(ring);
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                ring.style.width = size + 'px';
+                ring.style.height = size + 'px';
+                ring.style.opacity = '0';
+            });
+        });
+
+        setTimeout(() => ring.remove(), 650);
+    }
+
+    /**
+     * 彩纸屑爆发
+     * @param {number} x
+     * @param {number} y
+     * @param {number} count
+     */
+    confetti(x, y, count = 30) {
+        const colors = ['#ff4444', '#44ff44', '#4444ff', '#ffcc00', '#ff44ff', '#00ffff'];
+
+        for (let i = 0; i < count; i++) {
+            const piece = this._createAnimElement('div');
+            piece.style.position = 'absolute';
+            piece.style.left = x + 'px';
+            piece.style.top = y + 'px';
+            piece.style.width = (6 + Math.random() * 6) + 'px';
+            piece.style.height = (6 + Math.random() * 6) + 'px';
+            piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+            piece.style.pointerEvents = 'none';
+            piece.style.zIndex = '9999';
+
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 100 + Math.random() * 200;
+            const vx = Math.cos(angle) * speed;
+            const vy = Math.sin(angle) * speed - 150; // 初始向上抛
+
+            const startTime = performance.now();
+            const duration = 1000 + Math.random() * 1000;
+
+            const animate = (now) => {
+                const t = (now - startTime) / duration;
+                if (t >= 1) {
+                    piece.remove();
+                    return;
+                }
+                const px = x + vx * t;
+                const py = y + vy * t + 300 * t * t; // 重力
+                const rot = t * 720;
+                piece.style.left = px + 'px';
+                piece.style.top = py + 'px';
+                piece.style.transform = `rotate(${rot}deg)`;
+                piece.style.opacity = String(1 - t);
+                requestAnimationFrame(animate);
+            };
+
+            this.container.appendChild(piece);
+            requestAnimationFrame(animate);
+        }
+    }
+
+    /**
+     * 星星/闪光粒子爆发
+     * @param {number} x
+     * @param {number} y
+     * @param {number} count
+     */
+    sparkleBurst(x, y, count = 15) {
+        for (let i = 0; i < count; i++) {
+            const star = this._createAnimElement('div');
+            star.textContent = '✦';
+            star.style.position = 'absolute';
+            star.style.left = x + 'px';
+            star.style.top = y + 'px';
+            star.style.color = '#fff';
+            star.style.fontSize = (12 + Math.random() * 12) + 'px';
+            star.style.pointerEvents = 'none';
+            star.style.zIndex = '9999';
+
+            const angle = (Math.PI * 2 * i) / count;
+            const distance = 40 + Math.random() * 80;
+            const tx = Math.cos(angle) * distance;
+            const ty = Math.sin(angle) * distance;
+
+            const startTime = performance.now();
+            const duration = 500 + Math.random() * 400;
+
+            const animate = (now) => {
+                const t = Math.min((now - startTime) / duration, 1);
+                star.style.transform = `translate(${tx * t}px, ${ty * t}px) scale(${1 - t})`;
+                star.style.opacity = String(1 - t);
+                if (t < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    star.remove();
+                }
+            };
+
+            this.container.appendChild(star);
+            requestAnimationFrame(animate);
+        }
+    }
+
+    /**
+     * 径向光晕扩散
+     * @param {number} x
+     * @param {number} y
+     * @param {string} color
+     */
+    glowBurst(x, y, color = '#f0c040') {
+        const glow = this._createAnimElement('div');
+        glow.style.position = 'absolute';
+        glow.style.left = x + 'px';
+        glow.style.top = y + 'px';
+        glow.style.width = '0px';
+        glow.style.height = '0px';
+        glow.style.transform = 'translate(-50%, -50%)';
+        glow.style.borderRadius = '50%';
+        glow.style.background = `radial-gradient(circle, ${color} 0%, transparent 70%)`;
+        glow.style.pointerEvents = 'none';
+        glow.style.zIndex = '9998';
+        glow.style.transition = 'all 500ms ease-out';
+
+        this.container.appendChild(glow);
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                glow.style.width = '200px';
+                glow.style.height = '200px';
+                glow.style.opacity = '0';
+            });
+        });
+
+        setTimeout(() => glow.remove(), 550);
+    }
+
+    /**
+     * 短暂发光轨迹点
+     * @param {number} x
+     * @param {number} y
+     * @param {string} color
+     */
+    trailEffect(x, y, color = '#fff') {
+        const dot = this._createAnimElement('div');
+        dot.style.position = 'absolute';
+        dot.style.left = (x - 3) + 'px';
+        dot.style.top = (y - 3) + 'px';
+        dot.style.width = '6px';
+        dot.style.height = '6px';
+        dot.style.background = color;
+        dot.style.borderRadius = '50%';
+        dot.style.boxShadow = `0 0 6px 2px ${color}`;
+        dot.style.pointerEvents = 'none';
+        dot.style.zIndex = '9997';
+        dot.style.transition = 'opacity 300ms ease-out';
+        dot.style.opacity = '1';
+
+        this.container.appendChild(dot);
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                dot.style.opacity = '0';
+            });
+        });
+
+        setTimeout(() => dot.remove(), 350);
+    }
+
+    /**
+     * 数字滚动增长
+     * @param {HTMLElement} element
+     * @param {number} from
+     * @param {number} to
+     * @param {number} duration
+     */
+    countUp(element, from, to, duration = 600) {
+        const startTime = performance.now();
+        const diff = to - from;
+
+        const update = (now) => {
+            const t = Math.min((now - startTime) / duration, 1);
+            // easeOutQuad
+            const ease = 1 - (1 - t) * (1 - t);
+            const current = Math.round(from + diff * ease);
+            element.textContent = String(current);
+            if (t < 1) {
+                requestAnimationFrame(update);
+            }
+        };
+
+        requestAnimationFrame(update);
+    }
+
+    /**
+     * 3D 卡牌翻转
+     * @param {HTMLElement} element
+     * @param {Function|null} onComplete
+     */
+    flipCard(element, onComplete = null) {
+        element.style.transition = 'transform 400ms ease-in-out';
+        element.style.transformStyle = 'preserve-3d';
+
+        requestAnimationFrame(() => {
+            element.style.transform = 'rotateY(90deg)';
+            setTimeout(() => {
+                element.style.transform = 'rotateY(0deg)';
+                setTimeout(() => {
+                    if (onComplete) onComplete();
+                }, 400);
+            }, 200);
+        });
+    }
+
+    /**
+     * 弹跳文字（弹入后上浮消失）
+     * @param {number} x
+     * @param {number} y
+     * @param {string} text
+     * @param {string} color
+     */
+    bounceText(x, y, text, color = '#fff') {
+        const el = this._createAnimElement('div');
+        el.textContent = text;
+        el.style.position = 'absolute';
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.style.color = color;
+        el.style.fontSize = '28px';
+        el.style.fontWeight = 'bold';
+        el.style.pointerEvents = 'none';
+        el.style.zIndex = '9999';
+        el.style.textShadow = '0 2px 6px rgba(0,0,0,0.6)';
+        el.style.opacity = '0';
+        el.style.transform = 'scale(0.3) translateY(20px)';
+        el.style.transition = 'transform 400ms cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 300ms ease-out';
+
+        this.container.appendChild(el);
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                el.style.opacity = '1';
+                el.style.transform = 'scale(1.1) translateY(0)';
+                setTimeout(() => {
+                    el.style.transition = 'transform 800ms ease-out, opacity 800ms ease-in';
+                    el.style.transform = 'scale(1) translateY(-60px)';
+                    el.style.opacity = '0';
+                }, 400);
+            });
+        });
+
+        setTimeout(() => el.remove(), 1300);
+    }
+
+    /**
+     * 元素从指定方向滑入
+     * @param {HTMLElement} element
+     * @param {string} direction - 'top' | 'bottom' | 'left' | 'right'
+     * @param {number} duration
+     */
+    slideInFrom(element, direction = 'bottom', duration = 400) {
+        const dist = 100;
+        let tx = 0, ty = 0;
+        switch (direction) {
+            case 'top': ty = -dist; break;
+            case 'bottom': ty = dist; break;
+            case 'left': tx = -dist; break;
+            case 'right': tx = dist; break;
+        }
+
+        element.style.opacity = '0';
+        element.style.transform = `translate(${tx}px, ${ty}px)`;
+        element.style.transition = `transform ${duration}ms ease-out, opacity ${duration}ms ease-out`;
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                element.style.opacity = '1';
+                element.style.transform = 'translate(0, 0)';
+            });
+        });
+    }
+
+    /**
+     * 元素旋转淡出
+     * @param {HTMLElement} element
+     * @param {number} duration
+     */
+    rotateOut(element, duration = 300) {
+        element.style.transition = `transform ${duration}ms ease-in, opacity ${duration}ms ease-in`;
+        element.style.transform = 'rotate(180deg) scale(0.5)';
+        element.style.opacity = '0';
+        setTimeout(() => {
+            element.style.display = 'none';
+        }, duration);
+    }
+
+    /**
+     * 表情/图标围绕中心点轨道旋转
+     * @param {number} centerX
+     * @param {number} centerY
+     * @param {string} emoji
+     * @param {number} radius
+     * @param {number} duration
+     */
+    orbitEffect(centerX, centerY, emoji = '⭐', radius = 60, duration = 2000) {
+        const el = this._createAnimElement('div');
+        el.textContent = emoji;
+        el.style.position = 'absolute';
+        el.style.fontSize = '24px';
+        el.style.pointerEvents = 'none';
+        el.style.zIndex = '9999';
+        el.style.transform = 'translate(-50%, -50%)';
+
+        this.container.appendChild(el);
+
+        const startTime = performance.now();
+
+        const animate = (now) => {
+            const t = (now - startTime) / duration;
+            if (t >= 1) {
+                el.remove();
+                return;
+            }
+            const angle = t * Math.PI * 2;
+            const x = centerX + Math.cos(angle) * radius;
+            const y = centerY + Math.sin(angle) * radius;
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            requestAnimationFrame(animate);
+        };
+
+        requestAnimationFrame(animate);
+    }
+
+    /**
+     * 点击/触碰涟漪效果
+     * @param {number} x
+     * @param {number} y
+     * @param {string} color
+     */
+    ripple(x, y, color = 'rgba(255,255,255,0.3)') {
+        const ripple = this._createAnimElement('div');
+        ripple.style.position = 'absolute';
+        ripple.style.left = x + 'px';
+        ripple.style.top = y + 'px';
+        ripple.style.width = '0px';
+        ripple.style.height = '0px';
+        ripple.style.borderRadius = '50%';
+        ripple.style.background = color;
+        ripple.style.transform = 'translate(-50%, -50%)';
+        ripple.style.pointerEvents = 'none';
+        ripple.style.zIndex = '9998';
+        ripple.style.transition = 'all 600ms ease-out';
+
+        this.container.appendChild(ripple);
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                ripple.style.width = '150px';
+                ripple.style.height = '150px';
+                ripple.style.opacity = '0';
+            });
+        });
+
+        setTimeout(() => ripple.remove(), 650);
+    }
+
+    /**
+     * 春天/反春天全屏庆祝（花瓣 + 彩纸）
+     */
+    springCelebrate() {
+        if (this._isCelebrating) return;
+        this._isCelebrating = true;
+        setTimeout(() => { this._isCelebrating = false; }, 3000);
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+
+        // 彩纸
+        for (let i = 0; i < 60; i++) {
+            setTimeout(() => {
+                this.confetti(w / 2, h / 2, 1);
+            }, i * 30);
+        }
+
+        // 花瓣飘落
+        const petalColors = ['#ffb7c5', '#ffc0cb', '#ff69b4', '#fff0f5'];
+        for (let i = 0; i < 30; i++) {
+            const petal = this._createAnimElement('div');
+            petal.textContent = '🌸';
+            petal.style.position = 'fixed';
+            petal.style.left = (Math.random() * w) + 'px';
+            petal.style.top = '-30px';
+            petal.style.fontSize = (16 + Math.random() * 14) + 'px';
+            petal.style.pointerEvents = 'none';
+            petal.style.zIndex = '9999';
+            petal.style.opacity = '0.8';
+
+            this.container.appendChild(petal);
+
+            const startTime = performance.now();
+            const duration = 2000 + Math.random() * 2000;
+            const sway = 30 + Math.random() * 50;
+
+            const fall = (now) => {
+                const t = (now - startTime) / duration;
+                if (t >= 1) {
+                    petal.remove();
+                    return;
+                }
+                const px = parseFloat(petal.style.left) + Math.sin(t * Math.PI * 4) * sway * 0.02;
+                const py = t * (h + 60);
+                const rot = t * 360;
+                petal.style.left = px + 'px';
+                petal.style.top = (py - 30) + 'px';
+                petal.style.transform = `rotate(${rot}deg)`;
+                requestAnimationFrame(fall);
+            };
+
+            setTimeout(() => requestAnimationFrame(fall), i * 150);
+        }
+
+        this.bounceText(w / 2, h / 3, '🎉 春天！', '#ffeb3b');
+    }
+
+    /**
+     * 胜利庆祝（根据身份显示不同效果）
+     * @param {boolean} isLandlordWin
+     * @param {number} winnerIndex - 0=地主, 1=农民1, 2=农民2
+     */
+    winCelebrate(isLandlordWin, winnerIndex) {
+        if (this._isCelebrating) return;
+        this._isCelebrating = true;
+        setTimeout(() => { this._isCelebrating = false; }, 4000);
+        
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const colors = isLandlordWin ? ['#ffd700', '#ff8c00', '#ff4500'] : ['#00ff88', '#00ccff', '#aaeeff'];
+
+        // 全屏闪光
+        this.flashScreen(isLandlordWin ? 'rgba(255,200,50,0.2)' : 'rgba(50,200,255,0.2)', 400);
+
+        // 屏幕震动
+        this.screenShake(4, 300);
+
+        // 彩纸爆发（多点）
+        const burstPoints = [
+            { x: w * 0.2, y: h * 0.3 },
+            { x: w * 0.5, y: h * 0.2 },
+            { x: w * 0.8, y: h * 0.3 },
+        ];
+        burstPoints.forEach((pt, idx) => {
+            setTimeout(() => {
+                this.confetti(pt.x, pt.y, 25);
+            }, idx * 200);
+        });
+
+        // 胜利文字
+        const text = isLandlordWin ? '👑 地主胜利！' : '👨‍🌾 农民胜利！';
+        const color = isLandlordWin ? '#ffd700' : '#00ff88';
+        this.bounceText(w / 2, h / 2 - 40, text, color);
+
+        // 光环脉冲
+        setTimeout(() => {
+            this.pulseRing(w / 2, h / 2, color, 300);
+        }, 300);
+
+        // 星星爆发
+        setTimeout(() => {
+            this.sparkleBurst(w / 2, h / 2, 30);
+        }, 500);
+    }
+}
+
+export { Animations };

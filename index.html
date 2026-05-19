@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>斗地主 - WebGame</title>
+    <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+    <!-- 加载画面 -->
+    <div id="loading-screen" class="screen">
+        <div class="loading-container">
+            <div class="loading-spinner">🃏</div>
+            <h2>斗地主</h2>
+            <p>正在加载...</p>
+        </div>
+    </div>
+    
+    <!-- 菜单界面 -->
+    <div id="menu-screen" class="screen">
+        <div class="menu-container">
+            <h1 class="game-title">🃏 斗地主</h1>
+            <p class="game-subtitle">网页版</p>
+            
+            <div class="menu-buttons">
+                <button id="btn-ai-mode" class="btn-primary">
+                    <span class="icon">🤖</span>
+                    <span class="text">人机对战</span>
+                    <span class="desc">1人 vs 2个AI</span>
+                </button>
+                
+                <button id="btn-lan-mode" class="btn-primary">
+                    <span class="icon">🌐</span>
+                    <span class="text">局域网联机</span>
+                    <span class="desc">3人P2P对战</span>
+                </button>
+                
+                <button id="btn-custom-mode" class="btn-primary">
+                    <span class="icon">⚙️</span>
+                    <span class="text">自定义模式</span>
+                    <span class="desc">自定义规则与牌局</span>
+                </button>
+                
+                <button id="btn-replay-mode" class="btn-primary">
+                    <span class="icon">📹</span>
+                    <span class="text">牌局回放</span>
+                    <span class="desc">查看历史对局</span>
+                </button>
+            </div>
+            
+            <div class="settings-panel">
+                <label>AI难度:
+                    <select id="difficulty">
+                        <option value="easy">简单</option>
+                        <option value="normal" selected>普通</option>
+                        <option value="hard">困难</option>
+                    </select>
+                </label>
+                <label>牌桌主题:
+                    <select id="theme">
+                        <option value="green" selected>经典绿</option>
+                        <option value="redwood">红木</option>
+                        <option value="night">夜空蓝</option>
+                    </select>
+                </label>
+                <label>局数:
+                    <select id="match-rounds">
+                        <option value="1" selected>1局</option>
+                        <option value="4">4局</option>
+                        <option value="8">8局</option>
+                        <option value="16">16局</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- 回放界面 -->
+    <div id="replay-screen" class="screen hidden">
+        <div id="replay-container"></div>
+    </div>
+
+    <!-- 游戏界面 -->
+    <div id="game-screen" class="screen hidden">
+        <div class="game-header">
+            <button id="btn-back" class="btn-small">← 返回</button>
+            <h2>斗地主</h2>
+            <div class="header-right">
+                <div class="mode-badge" id="mode-display">人机对战</div>
+                <button id="btn-sound-toggle" class="btn-small" title="开关音效">🔊</button>
+            </div>
+        </div>
+        <div id="game-table"></div>
+    </div>
+
+    <!-- 局域网界面 -->
+    <div id="lan-screen" class="screen hidden">
+        <div class="lan-container">
+            <h2>🌐 局域网联机</h2>
+            <div class="lan-section">
+                <button id="btn-create-room" class="btn-primary">创建房间</button>
+                <div id="room-info" class="hidden">
+                    <p>房间号: <strong id="room-id-display"></strong></p>
+                    <p>分享给好友让他们加入</p>
+                </div>
+            </div>
+            <div class="lan-divider">或</div>
+            <div class="lan-section">
+                <input type="text" id="room-id-input" placeholder="输入房间号">
+                <button id="btn-join-room" class="btn-primary">加入房间</button>
+            </div>
+            <div id="player-list" class="lan-player-list"></div>
+            <div id="lan-status" class="lan-status">请选择创建或加入房间</div>
+            <button id="btn-lan-start" class="btn-primary hidden">开始游戏</button>
+            <button id="btn-back-lan" class="btn-small">← 返回</button>
+        </div>
+    </div>
+
+    <!-- 自定义模式界面 -->
+    <div id="custom-screen" class="screen hidden">
+        <div class="custom-container">
+            <h2>⚙️ 自定义模式</h2>
+            
+            <div class="config-group">
+                <h3>AI设置</h3>
+                <label>AI难度:
+                    <select id="cfg-ai-diff">
+                        <option value="easy">简单</option>
+                        <option value="normal" selected>普通</option>
+                        <option value="hard">困难</option>
+                    </select>
+                </label>
+            </div>
+            
+            <div class="config-group">
+                <h3>游戏选项</h3>
+                <label>叫牌模式:
+                    <select id="cfg-call-mode">
+                        <option value="score" selected>叫分模式 (0/1/2/3分)</option>
+                        <option value="grab">抢地主模式 (叫/抢)</option>
+                    </select>
+                </label>
+                <label>
+                    <input type="checkbox" id="cfg-laizi"> 癞子模式（百变牌）
+                </label>
+                <label>
+                    <input type="checkbox" id="cfg-show-all"> 显示所有玩家手牌（测试）
+                </label>
+                <label>
+                    <input type="checkbox" id="cfg-auto-play"> 自动运行（观战模式）
+                </label>
+                <label>
+                    <input type="checkbox" id="cfg-sound" checked> 启用音效
+                </label>
+            </div>
+            
+            <div class="config-actions">
+                <button id="btn-custom-start" class="btn-primary">开始游戏</button>
+                <button id="btn-back-custom" class="btn-small">← 返回</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>

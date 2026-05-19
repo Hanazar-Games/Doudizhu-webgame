@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  doudizhu:
+    build: .
+    container_name: doudizhu-game
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+    restart: unless-stopped
+    # 如需使用 nginx 反向代理，注释掉 ports 并在下方启用
+    # expose:
+    #   - "3001"
+
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: doudizhu-nginx
+  #   ports:
+  #     - "80:80"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/conf.d/default.conf
+  #   depends_on:
+  #     - doudizhu
+  #   restart: unless-stopped
