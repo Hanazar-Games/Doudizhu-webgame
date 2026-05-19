@@ -67,13 +67,16 @@ class AudioManager {
         osc.stop(t + duration);
     }
 
-    _sequence(notes, interval = 0.08, offset = 0) {
+    async _sequence(notes, interval = 0.08, offset = 0) {
         if (!this.sfxEnabled) return;
+        if (!(await this._ensureContext())) return;
+        const baseTime = this.ctx.currentTime + offset;
         notes.forEach((n, i) => {
-            const when = this.ctx ? this.ctx.currentTime + offset + i * interval : null;
+            const when = baseTime + i * interval;
+            const delayMs = (offset + i * interval) * 1000;
             setTimeout(() => {
                 this._tone(n.freq, n.dur || 0.15, n.type || 'sine', n.vol || 0.12, when).catch(() => {});
-            }, offset * 1000 + i * interval * 1000);
+            }, Math.max(0, delayMs));
         });
     }
 

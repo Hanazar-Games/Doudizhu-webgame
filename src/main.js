@@ -215,9 +215,12 @@ class GameApp {
     
     _saveGameResult(data) {
         const gs = this.currentMode?.gameState;
-        const isHumanWin = data.winnerIndex === this.currentMode?.humanIndex ||
-            (data.winnerIndex !== gs?.landlordIndex && 
-             this.currentMode?.humanIndex !== gs?.landlordIndex);
+        const humanIdx = this.currentMode?.humanIndex ?? -1;
+        let isHumanWin = false;
+        if (humanIdx >= 0) {
+            isHumanWin = data.winnerIndex === humanIdx ||
+                (data.winnerIndex !== gs?.landlordIndex && humanIdx !== gs?.landlordIndex);
+        }
         
         this.stats.gamesPlayed++;
         if (isHumanWin) {

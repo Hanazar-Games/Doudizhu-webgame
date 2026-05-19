@@ -89,10 +89,37 @@ class ReplayManager {
 
     // 开始回放某一局
     startReplay(gameData) {
+        this.stop(); // 确保停止任何正在播放的旧 timer
         this.currentGame = gameData;
         this.currentStep = -1;
         this.isPlaying = false;
         this._renderReplayBoard();
+    }
+
+    _playStepSound(action) {
+        const audio = window.gameApp?.renderer?.audio;
+        if (!audio) return;
+        if (action.pattern?.type === 'PASS') {
+            audio.playPass();
+        } else if (action.pattern?.type === 'BOMB') {
+            audio.playBomb();
+        } else if (action.pattern?.type === 'ROCKET') {
+            audio.playRocket();
+        } else if (action.pattern?.type === 'STRAIGHT') {
+            audio.playStraight();
+        } else if (action.pattern?.type === 'TRIPLE_STRAIGHT' || action.pattern?.type?.includes('PLANE')) {
+            audio.playPlane();
+        } else if (action.pattern?.type === 'PAIR') {
+            audio.playPair();
+        } else if (action.pattern?.type === 'TRIPLE' || action.pattern?.type?.includes('TRIPLE_WITH')) {
+            audio.playTriple();
+        } else if (action.pattern?.type === 'FOUR_WITH_TWO' || action.pattern?.type === 'FOUR_WITH_TWO_PAIRS') {
+            audio.playFourWithTwo();
+        } else if (action.pattern?.type === 'SINGLE') {
+            audio.playSingle();
+        } else {
+            audio.playPlay();
+        }
     }
 
     // 渲染回放界面
@@ -145,7 +172,7 @@ class ReplayManager {
         const slider = this.container.querySelector('#replay-slider');
         if (slider) {
             slider.addEventListener('input', (e) => {
-                this.goToStep(parseInt(e.target.value));
+                this.goToStepSilent(parseInt(e.target.value));
             });
         }
 
@@ -264,6 +291,11 @@ class ReplayManager {
         const tableArea = this.container?.querySelector('#replay-table-area');
         if (tableArea) tableArea.innerHTML = this._renderTableState();
 
+        // 播放当前步骤音效
+        if (this.currentStep >= 0 && this.currentGame?.history[this.currentStep]) {
+            this._playStepSound(this.currentGame.history[this.currentStep]);
+        }
+
         const stepText = this.container?.querySelector('#replay-step-text');
         const progress = this.container?.querySelector('#replay-progress');
         const slider = this.container?.querySelector('#replay-slider');
@@ -341,6 +373,36 @@ class ReplayManager {
         const max = this.currentGame.history.length - 1;
         this.currentStep = Math.max(-1, Math.min(step, max));
         this._updateDisplay();
+    }
+
+    // 跳转到指定步骤（不播放音效，用于 slider 拖动）
+    goToStepSilent(step) {
+        if (!this.currentGame) return;
+        const max = this.currentGame.history.length - 1;
+        this.currentStep = Math.max(-1, Math.min(step, max));
+        const tableArea = this.container?.querySelector('#replay-table-area');
+        if (tableArea) tableArea.innerHTML = this._renderTableState();
+        const stepText = this.container?.querySelector('#replay-step-text');
+        const progress = this.container?.querySelector('#replay-progress');
+        const slider = this.container?.querySelector('#replay-slider');
+        if (slider) slider.value = this.currentStep;
+        if (this.currentStep < 0) {
+            if (stepText) stepText.textContent = '初始手牌';
+            if (progress) progress.textContent = `0 / ${this.currentGame?.history?.length || 0}`;
+            return;
+        }
+        const action = this.currentGame?.history[this.currentStep];
+        if (!action) return;
+        const pName = this.currentGame?.players?.[action.playerIndex]?.name || `玩家${action.playerIndex+1}`;
+        let text = '';
+        if (action.pattern?.type === 'PASS') {
+            text = `${pName}: 不出`;
+        } else {
+            const typeName = Rules.getTypeName ? Rules.getTypeName(action.pattern?.type) : action.pattern?.type;
+            text = `${pName}: ${typeName}`;
+        }
+        if (stepText) stepText.textContent = text;
+        if (progress) progress.textContent = `${this.currentStep + 1} / ${this.currentGame?.history?.length || 0}`;
     }
 }
 

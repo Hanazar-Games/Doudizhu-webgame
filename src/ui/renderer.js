@@ -41,6 +41,10 @@ class Renderer {
         document.querySelectorAll('[data-anim-fx="true"]').forEach(el => {
             try { el.remove(); } catch (e) {}
         });
+        // 隐藏侧边面板，防止它们出现在其他屏幕上
+        this.container?.querySelector('#card-tracker')?.classList.add('hidden');
+        this.container?.querySelector('#play-history')?.classList.add('hidden');
+        this.container?.querySelector('#chat-panel')?.classList.add('hidden');
     }
 
     setGameState(gameState) {
@@ -165,8 +169,12 @@ class Renderer {
             btn.addEventListener('click', (e) => {
                 this.audio.playButtonClick();
                 const action = parseInt(e.target.dataset.call);
-                if (this.mode) this.mode.humanCall(action);
-                this.hideCallControls();
+                if (this.mode) {
+                    const success = this.mode.humanCall(action);
+                    if (success) this.hideCallControls();
+                } else {
+                    this.hideCallControls();
+                }
             });
             this._bindRipple(btn);
         }
@@ -340,10 +348,46 @@ class Renderer {
             const isMyTurn = this.gameState?.currentTurn === this.mode?.humanIndex;
             
             if (phase === PHASE.CALLING && isMyTurn && this.mode) {
-                if (e.key === '1') { e.preventDefault(); this.audio.playButtonClick(); this.mode.humanCall(1); this.hideCallControls(); }
-                if (e.key === '2') { e.preventDefault(); this.audio.playButtonClick(); this.mode.humanCall(2); this.hideCallControls(); }
-                if (e.key === '3') { e.preventDefault(); this.audio.playButtonClick(); this.mode.humanCall(3); this.hideCallControls(); }
-                if (e.key === '0' || e.key === 'Escape') { e.preventDefault(); this.audio.playButtonClick(); this.mode.humanCall(0); this.hideCallControls(); }
+                const isGrab = this.gameState?.callMode === 'grab';
+                const isGrabPhase = this.gameState?.grabPhase === 'grab';
+                if (e.key === '1') {
+                    e.preventDefault();
+                    this.audio.playButtonClick();
+                    // 抢地主阶段：1 无效，需用 2
+                    if (isGrab && isGrabPhase) {
+                        this.showToast('抢地主请按 2', 'info');
+                    } else {
+                        this.mode.humanCall(1);
+                        this.hideCallControls();
+                    }
+                }
+                if (e.key === '2') {
+                    e.preventDefault();
+                    this.audio.playButtonClick();
+                    // 叫地主阶段：2 无效，需用 1
+                    if (isGrab && !isGrabPhase) {
+                        this.showToast('叫地主请按 1', 'info');
+                    } else {
+                        this.mode.humanCall(2);
+                        this.hideCallControls();
+                    }
+                }
+                if (e.key === '3') {
+                    e.preventDefault();
+                    this.audio.playButtonClick();
+                    if (isGrab) {
+                        this.showToast('抢地主模式不支持 3 分', 'info');
+                    } else {
+                        this.mode.humanCall(3);
+                        this.hideCallControls();
+                    }
+                }
+                if (e.key === '0' || e.key === 'Escape') {
+                    e.preventDefault();
+                    this.audio.playButtonClick();
+                    this.mode.humanCall(0);
+                    this.hideCallControls();
+                }
                 return;
             }
             
@@ -530,6 +574,10 @@ class Renderer {
                     back.style.opacity = '0';
                     back.style.transform = 'translateY(20px)';
                     back.style.transition = `all 0.25s ease-out ${j * 25}ms`;
+                    // 添加 card-inner 子元素以正确渲染牌背样式
+                    const inner = document.createElement('div');
+                    inner.className = 'card-inner';
+                    back.appendChild(inner);
                     backWrap.appendChild(back);
                     requestAnimationFrame(() => {
                         requestAnimationFrame(() => {
@@ -706,6 +754,9 @@ class Renderer {
             const isGrabPhase = this.gameState?.grabPhase === 'grab';
             const btns = panel.querySelectorAll('button[data-call]');
             for (const btn of btns) {
+                // 先重置 dataset.call 到原始索引，避免上一轮状态残留
+                const originalIndex = [...btns].indexOf(btn);
+                btn.dataset.call = String(originalIndex);
                 const val = parseInt(btn.dataset.call);
                 if (val === 0) {
                     btn.textContent = isGrabPhase ? '不抢' : '不叫';
@@ -864,6 +915,12 @@ class Renderer {
         this.showToast(toastText);
         this.audio.playLandlordConfirm();
         
+        // 重新渲染所有玩家手牌（地主获得底牌后数量变化，人类玩家需要看到新牌）
+        this.renderHands();
+        if (data.landlordIndex === this.mode?.humanIndex) {
+            this.clearSelection();
+        }
+        
         // 皇冠动画 + 光晕
         const rect = area?.querySelector('.player-avatar')?.getBoundingClientRect();
         if (rect) {
@@ -941,6 +998,12 @@ class Renderer {
         this._updateCardTracker(data.cards);
         // 更新历史
         this._addHistory(data);
+        
+        // 如果出牌者是人类玩家，重新渲染手牌
+        if (data.playerIndex === this.mode?.humanIndex) {
+            this.renderHands();
+            this.clearSelection();
+        }
     }
 
     showPass(playerIndex) {
@@ -1095,7 +1158,13 @@ class Renderer {
         `;
         
         overlay.classList.remove('hidden');
-        content.classList.add('modal-scale-in');
+        // 重置动画：先移除类，下一帧再添加，确保动画每次都播放
+        content.classList.remove('modal-scale-in');
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                content.classList.add('modal-scale-in');
+            });
+        });
         
         // 胜利/失败庆祝动画
         if (isHumanWin) {
