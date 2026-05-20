@@ -1504,6 +1504,7 @@ class Renderer {
         if (data.springType) {
             setTimeout(() => {
                 if (this._destroyed) return;
+                this.audio.playSpring();
                 this.anim.springCelebrate();
             }, 600);
         }

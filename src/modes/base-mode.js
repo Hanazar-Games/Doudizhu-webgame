@@ -477,6 +477,12 @@ class BaseMode {
             isHumanWin = data.winnerIndex === this.humanIndex ||
                 (data.winnerIndex !== this.gameState.landlordIndex && this.humanIndex !== this.gameState.landlordIndex);
         }
+        // 得分变化音效
+        if (this.humanIndex >= 0) {
+            const humanScore = data.scores[this.humanIndex];
+            this.renderer?.audio?.playScoreChange(humanScore > 0);
+        }
+        
         this.renderer?.audio?.stopBGM();
         setTimeout(() => {
             if (!this.isRunning) return;
