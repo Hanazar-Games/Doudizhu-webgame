@@ -884,6 +884,11 @@ class Renderer {
         
         // 初始化记牌器
         this._initCardTracker();
+        
+        // 观战模式：显示所有玩家手牌
+        if ((this.mode?.humanIndex ?? 0) < 0) {
+            this.showAllHands();
+        }
     }
 
     // 测试模式：显示所有人手牌
