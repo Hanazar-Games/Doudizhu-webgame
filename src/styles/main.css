@@ -1411,6 +1411,15 @@ body[data-theme="night"] {
     font-style: italic;
 }
 
+.history-time {
+    display: inline-block;
+    min-width: 36px;
+    font-size: 0.7rem;
+    opacity: 0.5;
+    margin-right: 6px;
+    font-family: monospace;
+}
+
 .chat-list {
     display: flex;
     flex-direction: column;
