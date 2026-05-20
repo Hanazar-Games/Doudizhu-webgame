@@ -52,7 +52,8 @@ class GameApp {
         }
         
         // 音量控制
-        const bindVolume = (sliderId, valueId, key, setter) => {
+        let sfxPreviewTimer = null;
+        const bindVolume = (sliderId, valueId, key, setter, isSFX = false) => {
             const slider = document.getElementById(sliderId);
             const val = document.getElementById(valueId);
             if (!slider) return;
@@ -63,11 +64,18 @@ class GameApp {
                 Storage.saveSettings(this.settings);
                 if (this.renderer?.audio) {
                     this.renderer.audio[setter](v);
+                    // SFX 音量调节时播放预览音效（节流 150ms）
+                    if (isSFX) {
+                        if (sfxPreviewTimer) clearTimeout(sfxPreviewTimer);
+                        sfxPreviewTimer = setTimeout(() => {
+                            this.renderer?.audio?._playTick?.();
+                        }, 150);
+                    }
                 }
             });
         };
         bindVolume('cfg-bgm-volume', 'cfg-bgm-volume-value', 'bgmVolume', 'setBGMVolume');
-        bindVolume('cfg-sfx-volume', 'cfg-sfx-volume-value', 'sfxVolume', 'setSFXVolume');
+        bindVolume('cfg-sfx-volume', 'cfg-sfx-volume-value', 'sfxVolume', 'setSFXVolume', true);
         
         // 难度选择
         document.getElementById('difficulty')?.addEventListener('change', (e) => {
