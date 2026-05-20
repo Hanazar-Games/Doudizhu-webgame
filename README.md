@@ -153,6 +153,14 @@ docker-compose up -d
 - 🃏 **重选清除提示**：修复按 R 重选时 `.hint` 高亮 class 未被清除的问题
 - 🧼 **癞子状态清理**：修复 `resetRound()` 未重置 `laiziEnabled` 标志的隐患
 - 🫧 **气泡元素标记**：为 `call-bubble`、`pass-bubble`、`chat-bubble` 统一添加 `data-anim-fx` 标记，确保返回菜单后正确清理
+- 🔄 **返回菜单平滑过渡**：结算面板“返回菜单”按钮从 `window.location.reload()` 改为调用 `showMenu()`，避免整页刷新
+- 🎯 **观战模式结果判定**：修复 `showRoundResult` 中观战模式（`humanIndex=-1`）`isHumanWin` 恒为 `true` 导致错误播放胜利动画/音效的 bug
+- 🗺️ **观战模式座位映射**：修复 `_getPlayerArea` 在 `humanIndex=-1` 时玩家区域映射错乱的问题
+- 🫨 **屏幕震动恢复**：`destroy()` 中强制重置 `document.body.style.transform`，防止 `screenShake` 在切换屏幕后残留偏移
+- 🍞 **Toast 残留清理**：为 `toast-message` 元素添加 `data-anim-fx` 标记，确保返回菜单后被统一清理
+- ⏱️ **托管安全守卫**：`_autoPlayForHuman` 在延迟前后增加 `isRunning` 和 `phase === PLAYING` 检查，防止对已结束的游戏尝试出牌
+- 🔗 **向后兼容**：`AIPlayer.getHint` 在未传入 `isNewRound` 时自动从 `lastPattern` 推断，避免破坏现有测试和调用方
+- 🧹 **后端清理完善**：`RoomManager.destroy()` 补充 `playerToRoom.clear()`，防止服务器优雅关闭时映射泄漏
 
 ---
 

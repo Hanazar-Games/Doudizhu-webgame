@@ -228,6 +228,7 @@ class RoomManager {
         for (const [roomId] of this.rooms) {
             this._destroyRoom(roomId);
         }
+        this.playerToRoom.clear();
     }
 }
 

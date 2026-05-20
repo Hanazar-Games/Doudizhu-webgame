@@ -121,7 +121,9 @@ class AIPlayer extends Player {
 
     // 为玩家提供提示（返回一组推荐的牌）
     getHint(handCards, lastPattern, isNewRound = false) {
-        if (isNewRound) {
+        // 保持向后兼容：外部未传入 isNewRound 时，从 lastPattern 推断
+        const actuallyNewRound = isNewRound || !lastPattern || lastPattern.type === 'INVALID';
+        if (actuallyNewRound) {
             // 首出：给出最佳首出建议
             const allPlays = Rules.findAllLegalPlays(handCards);
             if (allPlays.length === 0) return [];

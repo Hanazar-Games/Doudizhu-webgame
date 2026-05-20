@@ -45,6 +45,8 @@ class Renderer {
         this.container?.querySelector('#card-tracker')?.classList.add('hidden');
         this.container?.querySelector('#play-history')?.classList.add('hidden');
         this.container?.querySelector('#chat-panel')?.classList.add('hidden');
+        // 强制恢复 body transform，防止 screenShake 残留偏移
+        document.body.style.transform = '';
     }
 
     setGameState(gameState) {
@@ -740,6 +742,11 @@ class Renderer {
 
     _getPlayerArea(index) {
         const human = this.mode?.humanIndex ?? 0;
+        // 观战模式（humanIndex=-1）使用固定映射
+        if (human < 0) {
+            const ids = ['player-right', 'player-top', 'player-left'];
+            return this.container.querySelector(`#${ids[index]}`);
+        }
         const rel = (index - human + 3) % 3;
         const ids = ['player-right', 'player-top', 'player-left'];
         return this.container.querySelector(`#${ids[rel]}`);
@@ -1095,8 +1102,11 @@ class Renderer {
         
         const winner = this.gameState.players?.[data.winnerIndex];
         const resultText = data.isLandlordWin ? '地主胜利' : '农民胜利';
-        const isHumanWin = data.winnerIndex === this.mode?.humanIndex ||
-                           (data.winnerIndex !== this.gameState.landlordIndex && this.mode?.humanIndex !== this.gameState.landlordIndex);
+        const humanIdx = this.mode?.humanIndex ?? -1;
+        const isHumanWin = humanIdx >= 0 && (
+            data.winnerIndex === humanIdx ||
+            (data.winnerIndex !== this.gameState.landlordIndex && humanIdx !== this.gameState.landlordIndex)
+        );
         
         if (isHumanWin) this.audio.playWin();
         else this.audio.playLose();
@@ -1216,7 +1226,7 @@ class Renderer {
         content.querySelector('#btn-back-menu')?.addEventListener('click', () => {
             this.audio.playButtonClick();
             overlay.classList.add('hidden');
-            window.location.reload();
+            window.gameApp?.showMenu();
         });
     }
 
@@ -1233,6 +1243,7 @@ class Renderer {
         
         const toast = document.createElement('div');
         toast.className = 'toast-message toast-bounce';
+        toast.dataset.animFx = 'true';
         if (type === 'error') toast.style.background = 'rgba(244,67,54,0.85)';
         if (type === 'success') toast.style.background = 'rgba(76,175,80,0.85)';
         toast.textContent = message;

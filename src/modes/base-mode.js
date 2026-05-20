@@ -218,6 +218,8 @@ class BaseMode {
     
     async _autoPlayForHuman(playerIndex) {
         await this._delay(1200);
+        // 游戏可能已结束，提前退出
+        if (!this.isRunning || this.gameState.phase !== PHASE.PLAYING) return;
         const player = this.gameState.players[playerIndex];
         if (!player?.isAuto) return;
         
@@ -226,6 +228,9 @@ class BaseMode {
         ai.hand = player.hand;
         ai.index = player.index;
         const cards = await ai.decidePlay(this.gameState, lastPattern);
+        
+        // 再次检查游戏状态，防止 delay 期间游戏结束
+        if (!this.isRunning || this.gameState.phase !== PHASE.PLAYING) return;
         
         if (cards.length === 0) {
             const success = this.gameState.pass(playerIndex);
