@@ -127,7 +127,10 @@ class Renderer {
                 <div id="play-history" class="side-panel hidden">
                     <h4>出牌历史</h4>
                     <div class="history-list" id="history-content"></div>
-                    <button id="btn-export-history" class="btn-small" style="margin-top:8px;width:100%">📋 导出历史</button>
+                    <div style="display:flex;gap:6px;margin-top:8px">
+                        <button id="btn-export-history" class="btn-small" style="flex:1">📋 导出</button>
+                        <button id="btn-clear-history" class="btn-small" style="flex:1">🗑️ 清空</button>
+                    </div>
                 </div>
                 <div id="chat-panel" class="side-panel hidden">
                     <h4>聊天</h4>
@@ -272,6 +275,14 @@ class Renderer {
         btnExportHistory?.addEventListener('click', () => {
             this.audio.playButtonClick();
             this._exportHistory();
+        });
+        
+        // 清空出牌历史
+        const btnClearHistory = this.container.querySelector('#btn-clear-history');
+        btnClearHistory?.addEventListener('click', () => {
+            this.audio.playButtonClick();
+            const content = this.container.querySelector('#history-content');
+            if (content) content.innerHTML = '';
         });
         
         // 快捷键提示点击展开帮助
