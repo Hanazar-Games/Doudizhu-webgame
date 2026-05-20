@@ -74,10 +74,21 @@ class GameState {
         this.eventListeners[event].push(callback);
     }
 
+    // 注销事件
+    off(event, callback) {
+        if (!this.eventListeners[event]) return;
+        const idx = this.eventListeners[event].indexOf(callback);
+        if (idx >= 0) this.eventListeners[event].splice(idx, 1);
+    }
+
     emit(event, data) {
         if (this.eventListeners[event]) {
             for (const cb of this.eventListeners[event]) {
-                cb(data);
+                try {
+                    cb(data);
+                } catch (e) {
+                    console.error(`[GameState] 事件 '${event}' 处理异常:`, e);
+                }
             }
         }
     }
@@ -120,6 +131,15 @@ class GameState {
     // 开始一局
     startRound(deck, bottomCards) {
         this.resetRound();
+        // 清除所有牌的癞子标记（防止自定义模式重用 Card 对象时残留）
+        for (const card of deck) {
+            if (card) card.isLaizi = false;
+        }
+        if (bottomCards) {
+            for (const card of bottomCards) {
+                if (card) card.isLaizi = false;
+            }
+        }
         this.deck = deck;
         this.bottomCards = bottomCards;
         this.phase = PHASE.DEALING;

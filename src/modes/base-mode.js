@@ -15,6 +15,9 @@ class BaseMode {
         this.renderer = null;
         this.isRunning = false;
         this.humanIndex = 0; // 人类玩家默认在0号位
+        this._isProcessingCalling = false;
+        this._isProcessingPlay = false;
+        this._isAutoPlaying = false;
         
         // 多局赛制
         this.matchConfig = {
@@ -83,40 +86,46 @@ class BaseMode {
 
     // 叫分流程（循环处理AI叫分）
     async _processCalling() {
-        while (this.isRunning && this.gameState.phase === PHASE.CALLING) {
-            const idx = this.gameState.currentTurn;
-            const player = this.gameState.players[idx];
-            
-            if (!player) {
-                console.error('叫分流程错误：当前玩家不存在');
-                break;
-            }
-            
-            if (player.isAI || player.isAuto) {
-                await this._delay(800);
-                let call;
-                if (player.isAI) {
-                    call = await player.decideCall(this.gameState);
+        if (this._isProcessingCalling) return;
+        this._isProcessingCalling = true;
+        try {
+            while (this.isRunning && this.gameState.phase === PHASE.CALLING) {
+                const idx = this.gameState.currentTurn;
+                const player = this.gameState.players[idx];
+                
+                if (!player) {
+                    console.error('叫分流程错误：当前玩家不存在');
+                    break;
+                }
+                
+                if (player.isAI || player.isAuto) {
+                    await this._delay(800);
+                    let call;
+                    if (player.isAI) {
+                        call = await player.decideCall(this.gameState);
+                    } else {
+                        // 托管：使用AI逻辑
+                        const ai = new AIPlayer('auto', 'normal');
+                        ai.hand = player.hand;
+                        call = await ai.decideCall(this.gameState);
+                    }
+                    let success = this.gameState.callLandlord(idx, call);
+                    if (!success) {
+                        console.warn('叫分失败，强制pass:', player.name);
+                        success = this.gameState.callLandlord(idx, 0);
+                    }
+                    if (!success) {
+                        console.error('叫分强制pass也失败，终止叫分流程');
+                        break; // 防止死循环
+                    }
                 } else {
-                    // 托管：使用AI逻辑
-                    const ai = new AIPlayer('auto', 'normal');
-                    ai.hand = player.hand;
-                    call = await ai.decideCall(this.gameState);
+                    // 人类玩家：等待UI输入
+                    this._waitForHumanCall(idx);
+                    break;
                 }
-                let success = this.gameState.callLandlord(idx, call);
-                if (!success) {
-                    console.warn('叫分失败，强制pass:', player.name);
-                    success = this.gameState.callLandlord(idx, 0);
-                }
-                if (!success) {
-                    console.error('叫分强制pass也失败，终止叫分流程');
-                    break; // 防止死循环
-                }
-            } else {
-                // 人类玩家：等待UI输入
-                this._waitForHumanCall(idx);
-                break;
             }
+        } finally {
+            this._isProcessingCalling = false;
         }
     }
 
@@ -144,52 +153,58 @@ class BaseMode {
 
     // 出牌流程
     async _processPlay() {
-        while (this.isRunning && this.gameState.phase === PHASE.PLAYING) {
-            const idx = this.gameState.currentTurn;
-            const player = this.gameState.players[idx];
-            
-            if (!player) {
-                console.error('出牌流程错误：当前玩家不存在');
-                break;
-            }
-            
-            if (player.isAI || player.isAuto) {
-                await this._delay(player.isAuto ? 1200 : 1000);
-                const lastPattern = this.gameState.lastPlay?.pattern;
-                let cards;
-                if (player.isAI) {
-                    cards = await player.decidePlay(this.gameState, lastPattern);
-                } else {
-                    // 托管：使用AI逻辑
-                    const ai = new AIPlayer('auto', 'normal');
-                    ai.hand = player.hand;
-                    ai.index = player.index;
-                    cards = await ai.decidePlay(this.gameState, lastPattern);
+        if (this._isProcessingPlay) return;
+        this._isProcessingPlay = true;
+        try {
+            while (this.isRunning && this.gameState.phase === PHASE.PLAYING) {
+                const idx = this.gameState.currentTurn;
+                const player = this.gameState.players[idx];
+                
+                if (!player) {
+                    console.error('出牌流程错误：当前玩家不存在');
+                    break;
                 }
                 
-                if (cards.length === 0) {
-                    const passSuccess = this.gameState.pass(idx);
-                    if (!passSuccess) {
-                        console.error('AI pass失败，终止出牌流程');
-                        break;
+                if (player.isAI || player.isAuto) {
+                    await this._delay(player.isAuto ? 1200 : 1000);
+                    const lastPattern = this.gameState.lastPlay?.pattern;
+                    let cards;
+                    if (player.isAI) {
+                        cards = await player.decidePlay(this.gameState, lastPattern);
+                    } else {
+                        // 托管：使用AI逻辑
+                        const ai = new AIPlayer('auto', 'normal');
+                        ai.hand = player.hand;
+                        ai.index = player.index;
+                        cards = await ai.decidePlay(this.gameState, lastPattern);
                     }
-                } else {
-                    const pattern = Rules.analyze(cards);
-                    const result = this.gameState.playCards(idx, cards, pattern);
-                    if (!result.success) {
-                        console.warn('出牌失败:', result.error, '强制pass');
+                    
+                    if (cards.length === 0) {
                         const passSuccess = this.gameState.pass(idx);
                         if (!passSuccess) {
-                            console.error('AI 强制pass也失败，终止出牌流程');
+                            console.error('AI pass失败，终止出牌流程');
                             break;
                         }
+                    } else {
+                        const pattern = Rules.analyze(cards);
+                        const result = this.gameState.playCards(idx, cards, pattern);
+                        if (!result.success) {
+                            console.warn('出牌失败:', result.error, '强制pass');
+                            const passSuccess = this.gameState.pass(idx);
+                            if (!passSuccess) {
+                                console.error('AI 强制pass也失败，终止出牌流程');
+                                break;
+                            }
+                        }
                     }
+                } else {
+                    // 人类玩家：等待UI输入
+                    this._waitForHumanPlay(idx);
+                    break;
                 }
-            } else {
-                // 人类玩家：等待UI输入
-                this._waitForHumanPlay(idx);
-                break;
             }
+        } finally {
+            this._isProcessingPlay = false;
         }
     }
 
@@ -217,32 +232,38 @@ class BaseMode {
     }
     
     async _autoPlayForHuman(playerIndex) {
-        await this._delay(1200);
-        // 游戏可能已结束，提前退出
-        if (!this.isRunning || this.gameState.phase !== PHASE.PLAYING) return;
-        const player = this.gameState.players[playerIndex];
-        if (!player?.isAuto) return;
-        
-        const lastPattern = this.gameState.lastPlay.pattern;
-        const ai = new AIPlayer('auto', 'normal');
-        ai.hand = player.hand;
-        ai.index = player.index;
-        const cards = await ai.decidePlay(this.gameState, lastPattern);
-        
-        // 再次检查游戏状态，防止 delay 期间游戏结束
-        if (!this.isRunning || this.gameState.phase !== PHASE.PLAYING) return;
-        
-        if (cards.length === 0) {
-            const success = this.gameState.pass(playerIndex);
-            if (success && this.gameState.phase === PHASE.PLAYING) {
-                this._processPlay();
+        if (this._isAutoPlaying) return;
+        this._isAutoPlaying = true;
+        try {
+            await this._delay(1200);
+            // 游戏可能已结束，提前退出
+            if (!this.isRunning || this.gameState.phase !== PHASE.PLAYING) return;
+            const player = this.gameState.players[playerIndex];
+            if (!player?.isAuto) return;
+            
+            const lastPattern = this.gameState.lastPlay.pattern;
+            const ai = new AIPlayer('auto', 'normal');
+            ai.hand = player.hand;
+            ai.index = player.index;
+            const cards = await ai.decidePlay(this.gameState, lastPattern);
+            
+            // 再次检查游戏状态，防止 delay 期间游戏结束
+            if (!this.isRunning || this.gameState.phase !== PHASE.PLAYING) return;
+            
+            if (cards.length === 0) {
+                const success = this.gameState.pass(playerIndex);
+                if (success && this.gameState.phase === PHASE.PLAYING) {
+                    this._processPlay();
+                }
+            } else {
+                const pattern = Rules.analyze(cards);
+                const result = this.gameState.playCards(playerIndex, cards, pattern);
+                if (result.success && !result.win && this.gameState.phase === PHASE.PLAYING) {
+                    this._processPlay();
+                }
             }
-        } else {
-            const pattern = Rules.analyze(cards);
-            const result = this.gameState.playCards(playerIndex, cards, pattern);
-            if (result.success && !result.win && this.gameState.phase === PHASE.PLAYING) {
-                this._processPlay();
-            }
+        } finally {
+            this._isAutoPlaying = false;
         }
     }
 

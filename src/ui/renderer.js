@@ -558,6 +558,8 @@ class Renderer {
     // 渲染玩家手牌（正面，仅自己）
     renderHands() {
         if (!this.gameState) return;
+        // 重新渲染前清除选择状态，避免 DOM 与 selectedCards 不一致
+        this.clearSelection();
         
         for (let i = 0; i < 3; i++) {
             const player = this.gameState.players[i];

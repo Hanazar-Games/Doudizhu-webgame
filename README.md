@@ -139,7 +139,18 @@ docker-compose up -d
 
 ## 版本公告
 
-### v1.1.3 (当前版本) — 连接安全与生命周期修复
+### v1.1.4 (当前版本) — 全局逻辑与竞态修复
+
+**Bug 修复**
+- 🛡️ **GameState 事件异常保护**：`emit()` 中添加 try-catch，防止单个事件监听器异常导致后续监听器被跳过
+- 🧹 **GameState 事件注销**：新增 `off(event, callback)` 方法，完善事件系统生命周期
+- 🃏 **癞子标记清理**：`startRound()` 中清除所有传入 Card 的 `isLaizi` 标记，防止自定义模式预设牌对象重用时残留旧标记
+- 🔒 **游戏循环并发锁**：`_processCalling`、`_processPlay`、`_autoPlayForHuman` 新增互斥锁（`_isProcessingCalling` / `_isProcessingPlay` / `_isAutoPlaying`）+ `try-finally` 确保异常时锁释放，防止托管切换等场景下产生并发竞态
+- 🔄 **renderHands 状态同步**：`renderHands()` 开头自动调用 `clearSelection()`，避免 DOM 重建后与 `selectedCards` 状态不一致
+
+---
+
+### v1.1.3 — 连接安全与生命周期修复
 
 **Bug 修复**
 - 🔌 **LAN 模式 WebSocket 泄漏**：修复反复进入/退出局域网联机时旧 WebSocket 连接未被关闭的问题，新增 `LANMode.destroy()` 方法清理 ws 和重连定时器
