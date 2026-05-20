@@ -1042,7 +1042,7 @@ class Renderer {
         }
     }
     
-    showThinking(playerIndex) {
+    showThinking(playerIndex, hintText = null) {
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
         let el = area.querySelector('.thinking-indicator');
@@ -1050,6 +1050,13 @@ class Renderer {
             el = document.createElement('div');
             el.className = 'thinking-indicator';
             area.appendChild(el);
+        }
+        if (hintText) {
+            el.dataset.hint = hintText;
+            el.classList.add('has-hint');
+        } else {
+            el.dataset.hint = '';
+            el.classList.remove('has-hint');
         }
         el.style.opacity = '1';
     }

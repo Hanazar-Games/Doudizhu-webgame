@@ -485,6 +485,12 @@ body[data-theme="purple"] {
     animation: thinkingDots 1.2s infinite;
 }
 
+.thinking-indicator.has-hint::after {
+    content: attr(data-hint);
+    animation: none;
+    font-size: 0.65rem;
+}
+
 .ai-hint {
     position: absolute;
     bottom: 4px;

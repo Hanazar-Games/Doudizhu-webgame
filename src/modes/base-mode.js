@@ -104,8 +104,6 @@ class BaseMode {
                 }
                 
                 if (player.isAI || player.isAuto) {
-                    this.renderer?.showThinking(idx);
-                    await this._delay(800);
                     let call;
                     if (player.isAI) {
                         call = await player.decideCall(this.gameState);
@@ -115,6 +113,10 @@ class BaseMode {
                         ai.hand = player.hand;
                         call = await ai.decideCall(this.gameState);
                     }
+                    // 观战模式：显示叫分建议
+                    const hintText = this.humanIndex < 0 ? (call === 0 ? '不叫' : call + '分') : null;
+                    this.renderer?.showThinking(idx, hintText);
+                    await this._delay(800);
                     this.renderer?.hideThinking(idx);
                     let success = this.gameState.callLandlord(idx, call);
                     if (!success) {
