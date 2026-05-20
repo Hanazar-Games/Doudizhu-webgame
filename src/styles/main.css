@@ -497,14 +497,35 @@ body[data-theme="night"] {
     margin-bottom: 4px;
     font-weight: 600;
     color: rgba(255,255,255,0.6);
+    padding: 2px 12px;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    display: inline-block;
+    width: 100%;
 }
 
 .hand-hint.valid {
-    color: #4caf50;
+    color: #c8e6c9;
+    background: rgba(76,175,80,0.2);
+    animation: hintPulse 0.3s ease;
 }
 
 .hand-hint.invalid {
-    color: #f44336;
+    color: #ffcdd2;
+    background: rgba(244,67,54,0.2);
+    animation: hintShake 0.3s ease;
+}
+
+@keyframes hintPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+@keyframes hintShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
 }
 
 .hand-back {
@@ -1230,6 +1251,23 @@ body[data-theme="night"] {
     background: rgba(255,255,255,0.05);
     font-size: 0.8rem;
     word-break: break-all;
+    border-left: 3px solid transparent;
+}
+
+.history-entry.history-bomb {
+    background: rgba(244,67,54,0.12);
+    border-left-color: #f44336;
+}
+
+.history-entry.history-rocket {
+    background: rgba(255,215,0,0.15);
+    border-left-color: #ffd700;
+    color: #ffe082;
+}
+
+.history-entry.history-pass {
+    opacity: 0.6;
+    font-style: italic;
 }
 
 .chat-list {

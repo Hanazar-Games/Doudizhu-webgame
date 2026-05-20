@@ -1636,7 +1636,11 @@ class Renderer {
         }
         
         const entry = document.createElement('div');
-        entry.className = 'history-entry';
+        const pType = data.pattern?.type || 'INVALID';
+        const typeClass = pType === 'BOMB' ? 'history-bomb' :
+                          pType === 'ROCKET' ? 'history-rocket' :
+                          data.pass ? 'history-pass' : '';
+        entry.className = `history-entry ${typeClass}`;
         entry.textContent = text;
         entry.style.opacity = '0';
         entry.style.transform = 'translateY(-10px)';
