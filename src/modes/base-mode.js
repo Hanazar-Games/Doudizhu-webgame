@@ -104,6 +104,7 @@ class BaseMode {
                 }
                 
                 if (player.isAI || player.isAuto) {
+                    this.renderer?.showThinking(idx);
                     await this._delay(800);
                     let call;
                     if (player.isAI) {
@@ -114,6 +115,7 @@ class BaseMode {
                         ai.hand = player.hand;
                         call = await ai.decideCall(this.gameState);
                     }
+                    this.renderer?.hideThinking(idx);
                     let success = this.gameState.callLandlord(idx, call);
                     if (!success) {
                         console.warn('叫分失败，强制pass:', player.name);
@@ -173,6 +175,7 @@ class BaseMode {
                 }
                 
                 if (player.isAI || player.isAuto) {
+                    this.renderer?.showThinking(idx);
                     await this._delay(player.isAuto ? 1200 : 1000);
                     const lastPattern = this.gameState.lastPlay?.pattern;
                     let cards;
@@ -185,6 +188,7 @@ class BaseMode {
                         ai.index = player.index;
                         cards = await ai.decidePlay(this.gameState, lastPattern);
                     }
+                    this.renderer?.hideThinking(idx);
                     
                     if (cards.length === 0) {
                         const passSuccess = this.gameState.pass(idx);
@@ -243,6 +247,7 @@ class BaseMode {
         if (this._isAutoPlaying) return;
         this._isAutoPlaying = true;
         try {
+            this.renderer?.showThinking(playerIndex);
             await this._delay(1200);
             // 游戏可能已结束，提前退出
             if (!this.isRunning || this.gameState.phase !== PHASE.PLAYING) return;
@@ -254,6 +259,7 @@ class BaseMode {
             ai.hand = player.hand;
             ai.index = player.index;
             const cards = await ai.decidePlay(this.gameState, lastPattern);
+            this.renderer?.hideThinking(playerIndex);
             
             // 再次检查游戏状态，防止 delay 期间游戏结束
             if (!this.isRunning || this.gameState.phase !== PHASE.PLAYING) return;
@@ -272,6 +278,7 @@ class BaseMode {
             }
         } finally {
             this._isAutoPlaying = false;
+            this.renderer?.hideThinking(playerIndex);
         }
     }
 

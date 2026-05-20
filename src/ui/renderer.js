@@ -1000,6 +1000,25 @@ class Renderer {
             if (cd) cd.style.opacity = '0';
         }
     }
+    
+    showThinking(playerIndex) {
+        const area = this._getPlayerArea(playerIndex);
+        if (!area) return;
+        let el = area.querySelector('.thinking-indicator');
+        if (!el) {
+            el = document.createElement('div');
+            el.className = 'thinking-indicator';
+            area.appendChild(el);
+        }
+        el.style.opacity = '1';
+    }
+    
+    hideThinking(playerIndex) {
+        const area = this._getPlayerArea(playerIndex);
+        if (!area) return;
+        const el = area.querySelector('.thinking-indicator');
+        if (el) el.style.opacity = '0';
+    }
 
     // ---- 控制面板 ----
 

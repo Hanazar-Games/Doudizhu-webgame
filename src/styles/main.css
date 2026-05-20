@@ -389,6 +389,35 @@ body[data-theme="night"] {
     position: relative;
 }
 
+.thinking-indicator {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(100,100,100,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: #fff;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+    z-index: 20;
+}
+
+.thinking-indicator::after {
+    content: '...';
+    animation: thinkingDots 1.2s infinite;
+}
+
+@keyframes thinkingDots {
+    0% { content: '.'; }
+    33% { content: '..'; }
+    66% { content: '...'; }
+}
+
 .countdown-timer {
     position: absolute;
     top: -8px;
