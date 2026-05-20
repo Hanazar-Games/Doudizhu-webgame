@@ -419,6 +419,7 @@ body[data-theme="purple"] {
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
+    transition: transform 0.2s ease;
 }
 
 /* 玩家区域 */

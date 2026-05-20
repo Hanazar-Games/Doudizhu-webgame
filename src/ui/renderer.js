@@ -446,6 +446,23 @@ class Renderer {
                     this._toggleCardByIndex(idx);
                 }
             }
+            
+            // 全局快捷键（不限制游戏阶段）
+            if (e.key === 'm' || e.key === 'M') {
+                e.preventDefault();
+                const enabled = this.audio.toggle();
+                this.showToast(enabled ? '🔊 音效已开启' : '🔇 音效已关闭');
+                const btn = document.getElementById('btn-sound-toggle');
+                if (btn) btn.textContent = enabled ? '🔊' : '🔇';
+            }
+            if (e.key === '=' || e.key === '+') {
+                e.preventDefault();
+                this._zoomTable(0.1);
+            }
+            if (e.key === '-' || e.key === '_') {
+                e.preventDefault();
+                this._zoomTable(-0.1);
+            }
         };
         document.addEventListener('keydown', this._keyboardHandler);
     }
@@ -464,6 +481,16 @@ class Renderer {
         this.mode?.resumeGame?.();
         this._removePauseOverlay();
         this.audio?.playGameBGM();
+    }
+    
+    _zoomTable(delta) {
+        const table = this.container?.querySelector('#ddz-table');
+        if (!table) return;
+        const current = parseFloat(table.dataset.zoom || '1');
+        const next = Math.max(0.7, Math.min(1.3, current + delta));
+        table.dataset.zoom = String(next);
+        table.style.transform = `scale(${next})`;
+        table.style.transformOrigin = 'center center';
     }
 
     _showPauseOverlay() {
@@ -512,6 +539,8 @@ class Renderer {
                     <div class="help-item"><kbd>0</kbd><span>不叫/不抢</span></div>
                     <div class="help-item"><kbd>ESC</kbd><span>暂停/恢复</span></div>
                     <div class="help-item"><kbd>?</kbd><span>本帮助面板</span></div>
+                    <div class="help-item"><kbd>M</kbd><span>静音切换</span></div>
+                    <div class="help-item"><kbd>+/-</kbd><span>牌桌缩放</span></div>
                 </div>
                 <h3 style="margin-top:16px">🃏 牌型规则</h3>
                 <div class="help-grid rules-grid">
