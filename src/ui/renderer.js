@@ -264,6 +264,13 @@ class Renderer {
         chatInput?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') sendChat();
         });
+        
+        // 快捷键提示点击展开帮助
+        const shortcutHint = this.container.querySelector('#shortcut-hint');
+        shortcutHint?.addEventListener('click', () => {
+            this.audio.playButtonClick();
+            this._toggleHelpPanel();
+        });
     }
     
     _initQuickPhrases() {

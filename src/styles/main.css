@@ -893,6 +893,15 @@ body[data-theme="night"] {
 #shortcut-hint {
     opacity: 0.5;
     font-size: 0.75rem;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+#shortcut-hint:hover {
+    opacity: 0.9;
+    background: rgba(255,255,255,0.08);
 }
 
 #last-play-type {
