@@ -1439,6 +1439,19 @@ class Renderer {
                     </div>
                 `).join('')}
             </div>
+            <div class="round-stats">
+                <h4>📊 本局统计</h4>
+                <div class="stat-row">
+                    <span>出牌次数:</span>
+                    ${this.gameState?.playCounts?.map((c, i) => `
+                        <span>${esc(this.gameState.players[i]?.name || '?')}: ${c}次</span>
+                    `).join('')}
+                </div>
+                <div class="stat-row">
+                    <span>炸弹:</span>
+                    <span>${this.gameState?.history?.filter(h => h.pattern?.type === 'BOMB' || h.pattern?.type === 'ROCKET').length || 0}个</span>
+                </div>
+            </div>
             ${matchScoreText}
             <button id="btn-next-round">${nextButtonText}</button>
             ${!isMatchEnd ? '<button id="btn-replay">📹 查看回放</button>' : ''}
