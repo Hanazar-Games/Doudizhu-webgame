@@ -1031,6 +1031,27 @@ class Renderer {
         const el = area.querySelector('.thinking-indicator');
         if (el) el.style.opacity = '0';
     }
+    
+    showAIHint(playerIndex, cards) {
+        const area = this._getPlayerArea(playerIndex);
+        if (!area) return;
+        let hint = area.querySelector('.ai-hint');
+        if (!hint) {
+            hint = document.createElement('div');
+            hint.className = 'ai-hint';
+            area.appendChild(hint);
+        }
+        const sorted = Card.sortByValue(cards);
+        hint.innerHTML = sorted.map(c => `<span class="ai-hint-card">${c.displayName}</span>`).join('');
+        hint.style.opacity = '1';
+    }
+    
+    hideAIHint(playerIndex) {
+        const area = this._getPlayerArea(playerIndex);
+        if (!area) return;
+        const hint = area.querySelector('.ai-hint');
+        if (hint) hint.style.opacity = '0';
+    }
 
     // ---- 控制面板 ----
 

@@ -454,6 +454,29 @@ body[data-theme="night"] {
     animation: thinkingDots 1.2s infinite;
 }
 
+.ai-hint {
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 2px;
+    padding: 4px 8px;
+    background: rgba(0,0,0,0.7);
+    border-radius: 8px;
+    transition: opacity 0.3s ease;
+    z-index: 30;
+    pointer-events: none;
+}
+
+.ai-hint-card {
+    font-size: 0.65rem;
+    padding: 1px 4px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
 @keyframes thinkingDots {
     0% { content: '.'; }
     33% { content: '..'; }

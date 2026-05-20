@@ -176,7 +176,6 @@ class BaseMode {
                 
                 if (player.isAI || player.isAuto) {
                     this.renderer?.showThinking(idx);
-                    await this._delay(player.isAuto ? 1200 : 1000);
                     const lastPattern = this.gameState.lastPlay?.pattern;
                     let cards;
                     if (player.isAI) {
@@ -188,7 +187,13 @@ class BaseMode {
                         ai.index = player.index;
                         cards = await ai.decidePlay(this.gameState, lastPattern);
                     }
+                    // 观战模式：显示 AI 建议出牌
+                    if (this.humanIndex < 0 && cards.length > 0) {
+                        this.renderer?.showAIHint(idx, cards);
+                    }
+                    await this._delay(player.isAuto ? 1200 : 1000);
                     this.renderer?.hideThinking(idx);
+                    this.renderer?.hideAIHint?.(idx);
                     
                     if (cards.length === 0) {
                         const passSuccess = this.gameState.pass(idx);
