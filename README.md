@@ -139,7 +139,16 @@ docker-compose up -d
 
 ## 版本公告
 
-### v1.1.4 (当前版本) — 全局逻辑与竞态修复
+### v1.1.5 (当前版本) — 部署路径修复
+
+**Bug 修复**
+- 🌐 **GitHub Pages 资源路径**：修复 vite 配置缺少 `base` 导致 CSS/JS 在子路径部署（`https://user.github.io/repo/`）下加载失败的问题，所有 screen 同时堆叠显示
+  - `vite.config.js` 新增 `base: './'`，构建后资源使用相对路径
+  - 部署后需重新执行 `npm run build` 并推送 `dist/` 到 gh-pages
+
+---
+
+### v1.1.4 — 全局逻辑与竞态修复
 
 **Bug 修复**
 - 🛡️ **GameState 事件异常保护**：`emit()` 中添加 try-catch，防止单个事件监听器异常导致后续监听器被跳过
