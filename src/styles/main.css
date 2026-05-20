@@ -42,6 +42,36 @@ body[data-theme="night"] {
     --card-shadow: 0 2px 10px rgba(0,0,0,0.5);
 }
 
+/* 海洋主题 */
+body[data-theme="ocean"] {
+    --bg-gradient: linear-gradient(135deg, #0d3d4d 0%, #062a35 100%);
+    --table-bg: rgba(255,255,255,0.05);
+    --panel-bg: rgba(255,255,255,0.08);
+    --accent-color: #4dd0e1;
+    --accent-gradient: linear-gradient(135deg, #4dd0e1 0%, #00acc1 100%);
+    --card-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+/* 秋日主题 */
+body[data-theme="autumn"] {
+    --bg-gradient: linear-gradient(135deg, #5c3a1a 0%, #3d240d 100%);
+    --table-bg: rgba(0,0,0,0.15);
+    --panel-bg: rgba(0,0,0,0.2);
+    --accent-color: #ffb74d;
+    --accent-gradient: linear-gradient(135deg, #ffb74d 0%, #f57c00 100%);
+    --card-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* 紫晶主题 */
+body[data-theme="purple"] {
+    --bg-gradient: linear-gradient(135deg, #3d1a5c 0%, #240d3d 100%);
+    --table-bg: rgba(255,255,255,0.05);
+    --panel-bg: rgba(255,255,255,0.08);
+    --accent-color: #ce93d8;
+    --accent-gradient: linear-gradient(135deg, #ce93d8 0%, #ab47bc 100%);
+    --card-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
 .hidden {
     display: none !important;
 }

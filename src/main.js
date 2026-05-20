@@ -248,6 +248,15 @@ class GameApp {
     
     _applyTheme(theme) {
         document.body.setAttribute('data-theme', theme);
+        const themeColors = {
+            green: '#1a5f2a',
+            redwood: '#5c1a1a',
+            night: '#1a1a3d',
+            ocean: '#0d3d4d',
+            autumn: '#5c3a1a',
+            purple: '#3d1a5c',
+        };
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[theme] || '#1a5f2a');
     }
     
     _renderStats() {
