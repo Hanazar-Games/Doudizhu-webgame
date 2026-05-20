@@ -1435,7 +1435,7 @@ class Renderer {
                 ${data.scores.map((s, i) => `
                     <div class="score-item ${i === this.gameState.landlordIndex ? 'landlord' : ''}">
                         <span>${esc(this.gameState.players[i]?.name || '?')}</span>
-                        <span>${s > 0 ? '+' : ''}${s}</span>
+                        <span class="score-value" data-target="${s}" data-sign="${s >= 0 ? '+' : ''}">0</span>
                     </div>
                 `).join('')}
             </div>
@@ -1453,6 +1453,24 @@ class Renderer {
                 content.classList.add('modal-scale-in');
             });
         });
+        
+        // 得分数字滚动动画
+        const scoreEls = content.querySelectorAll('.score-value');
+        for (const el of scoreEls) {
+            const target = parseInt(el.dataset.target, 10);
+            const sign = el.dataset.sign || '';
+            const duration = 800;
+            const startTime = performance.now();
+            const animate = (now) => {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+                const current = Math.round(target * eased);
+                el.textContent = sign + current;
+                if (progress < 1) requestAnimationFrame(animate);
+            };
+            requestAnimationFrame(animate);
+        }
         
         // 胜利/失败庆祝动画
         if (isHumanWin) {
