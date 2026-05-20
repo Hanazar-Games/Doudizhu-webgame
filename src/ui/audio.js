@@ -10,6 +10,8 @@ class AudioManager {
         this.enabled = true;
         this.bgmEnabled = true;
         this.sfxEnabled = true;
+        this.bgmVolume = 0.5;
+        this.sfxVolume = 0.5;
         this._bgmGain = null;
         this._bgmNodes = [];
         this._bgmTimer = null;
@@ -57,7 +59,7 @@ class AudioManager {
         osc.type = type;
         osc.frequency.setValueAtTime(freq, t);
 
-        gain.gain.setValueAtTime(volume, t);
+        gain.gain.setValueAtTime(volume * this.sfxVolume, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 
         osc.connect(gain);
@@ -65,6 +67,22 @@ class AudioManager {
 
         osc.start(t);
         osc.stop(t + duration);
+    }
+
+    async _playTick() {
+        if (!this.sfxEnabled) return;
+        if (!(await this._ensureContext())) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, t);
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.1);
     }
 
     async _sequence(notes, interval = 0.08, offset = 0) {
@@ -109,10 +127,21 @@ class AudioManager {
         if (!(await this._ensureContext())) return null;
         if (!this._bgmGain) {
             this._bgmGain = this.ctx.createGain();
-            this._bgmGain.gain.value = 0.08;
+            this._bgmGain.gain.value = 0.08 * this.bgmVolume;
             this._bgmGain.connect(this.ctx.destination);
         }
         return this._bgmGain;
+    }
+
+    setBGMVolume(v) {
+        this.bgmVolume = Math.max(0, Math.min(1, v));
+        if (this._bgmGain) {
+            this._bgmGain.gain.value = 0.08 * this.bgmVolume;
+        }
+    }
+
+    setSFXVolume(v) {
+        this.sfxVolume = Math.max(0, Math.min(1, v));
     }
 
     async _scheduleBGMNote(freq, start, duration, type = 'sine', vol = 1.0) {

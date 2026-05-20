@@ -14,6 +14,7 @@ class Renderer {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
         this._destroyed = false;
+        this._isPaused = false;
         this.gameState = null;
         this.mode = null;
         this.audio = new AudioManager();
@@ -31,6 +32,9 @@ class Renderer {
     
     destroy() {
         this._destroyed = true;
+        this._isPaused = false;
+        this._removePauseOverlay();
+        this._removeHelpPanel();
         if (this._keyboardHandler) {
             document.removeEventListener('keydown', this._keyboardHandler);
             this._keyboardHandler = null;
@@ -49,6 +53,12 @@ class Renderer {
         this.container?.querySelector('#chat-panel')?.classList.add('hidden');
         // 强制恢复 body transform，防止 screenShake 残留偏移
         document.body.style.transform = '';
+        // 清理拖拽选择监听器
+        const handContainer = this.container?.querySelector('#player-right .hand-front');
+        if (handContainer?._dragCleanup) {
+            handContainer._dragCleanup();
+            handContainer._dragCleanup = null;
+        }
     }
 
     setGameState(gameState) {
@@ -348,6 +358,27 @@ class Renderer {
                 return;
             }
             
+            // ? 键切换快捷键帮助面板
+            if (e.key === '?' || e.key === '／' || e.key === '/') {
+                e.preventDefault();
+                this._toggleHelpPanel();
+                return;
+            }
+            
+            // Escape 暂停/恢复
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                if (this._isPaused) {
+                    this._resumeGame();
+                } else {
+                    this._pauseGame();
+                }
+                return;
+            }
+            
+            // 暂停状态下屏蔽游戏操作
+            if (this._isPaused) return;
+            
             const phase = this.gameState?.phase;
             const isMyTurn = this.gameState?.currentTurn === this.mode?.humanIndex;
             
@@ -357,7 +388,6 @@ class Renderer {
                 if (e.key === '1') {
                     e.preventDefault();
                     this.audio.playButtonClick();
-                    // 抢地主阶段：1 无效，需用 2
                     if (isGrab && isGrabPhase) {
                         this.showToast('抢地主请按 2', 'info');
                     } else {
@@ -368,7 +398,6 @@ class Renderer {
                 if (e.key === '2') {
                     e.preventDefault();
                     this.audio.playButtonClick();
-                    // 叫地主阶段：2 无效，需用 1
                     if (isGrab && !isGrabPhase) {
                         this.showToast('叫地主请按 1', 'info');
                     } else {
@@ -386,7 +415,7 @@ class Renderer {
                         if (success) this.hideCallControls();
                     }
                 }
-                if (e.key === '0' || e.key === 'Escape') {
+                if (e.key === '0') {
                     e.preventDefault();
                     this.audio.playButtonClick();
                     const success = this.mode.humanCall(0);
@@ -411,6 +440,78 @@ class Renderer {
         document.addEventListener('keydown', this._keyboardHandler);
     }
     
+    _pauseGame() {
+        if (this._isPaused) return;
+        this._isPaused = true;
+        this.mode?.pauseGame?.();
+        this.audio?.stopBGM();
+        this._showPauseOverlay();
+    }
+
+    _resumeGame() {
+        if (!this._isPaused) return;
+        this._isPaused = false;
+        this.mode?.resumeGame?.();
+        this._removePauseOverlay();
+        this.audio?.playGameBGM();
+    }
+
+    _showPauseOverlay() {
+        let overlay = document.getElementById('pause-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'pause-overlay';
+            overlay.innerHTML = `
+                <div class="pause-content">
+                    <h2>⏸ 游戏暂停</h2>
+                    <p>按 <kbd>ESC</kbd> 或点击按钮继续</p>
+                    <button id="btn-resume" class="btn-primary">继续游戏</button>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            overlay.querySelector('#btn-resume')?.addEventListener('click', () => this._resumeGame());
+        }
+        overlay.style.display = 'flex';
+    }
+
+    _removePauseOverlay() {
+        const overlay = document.getElementById('pause-overlay');
+        if (overlay) overlay.style.display = 'none';
+    }
+
+    _toggleHelpPanel() {
+        let panel = document.getElementById('help-panel');
+        if (panel) {
+            panel.remove();
+            return;
+        }
+        panel = document.createElement('div');
+        panel.id = 'help-panel';
+        panel.innerHTML = `
+            <div class="help-content">
+                <h3>⌨️ 快捷键指南</h3>
+                <div class="help-grid">
+                    <div class="help-item"><kbd>Space</kbd><span>出牌</span></div>
+                    <div class="help-item"><kbd>P</kbd><span>不出</span></div>
+                    <div class="help-item"><kbd>H</kbd><span>提示</span></div>
+                    <div class="help-item"><kbd>R</kbd><span>重选</span></div>
+                    <div class="help-item"><kbd>1~9</kbd><span>快速选牌</span></div>
+                    <div class="help-item"><kbd>1</kbd><span>叫1分/叫地主</span></div>
+                    <div class="help-item"><kbd>2</kbd><span>叫2分/抢地主</span></div>
+                    <div class="help-item"><kbd>3</kbd><span>叫3分</span></div>
+                    <div class="help-item"><kbd>0</kbd><span>不叫/不抢</span></div>
+                    <div class="help-item"><kbd>ESC</kbd><span>暂停/恢复</span></div>
+                    <div class="help-item"><kbd>?</kbd><span>本帮助面板</span></div>
+                </div>
+                <button id="btn-help-close" class="btn-small">关闭</button>
+            </div>
+        `;
+        document.body.appendChild(panel);
+        panel.addEventListener('click', (e) => {
+            if (e.target === panel || e.target.id === 'btn-help-close') panel.remove();
+        });
+    }
+
     _doPlay() {
         const cards = this._getSelectedCards();
         if (cards.length === 0) {
@@ -554,6 +655,95 @@ class Renderer {
         this._toggleCardSelection(cardEls[index], card);
         this._updateHandHint(this._getSelectedCards());
     }
+    
+    _bindDragSelection(handContainer) {
+        if (!handContainer) return;
+        // 移除旧监听器
+        if (handContainer._dragCleanup) {
+            handContainer._dragCleanup();
+            handContainer._dragCleanup = null;
+        }
+        
+        let isDragging = false;
+        let dragged = false;
+        let lastCard = null;
+        
+        const getCardAt = (x, y) => {
+            const el = document.elementFromPoint(x, y);
+            if (!el) return null;
+            const card = el.closest('.card');
+            if (!card || !handContainer.contains(card)) return null;
+            return card;
+        };
+        
+        const toggleCard = (cardEl) => {
+            const idx = Array.from(handContainer.querySelectorAll('.card')).indexOf(cardEl);
+            if (idx < 0) return;
+            const player = this.gameState?.players[this.mode?.humanIndex];
+            if (!player) return;
+            const sorted = Card.sortByValue(player.hand);
+            if (idx >= sorted.length) return;
+            this._toggleCardSelection(cardEl, sorted[idx]);
+        };
+        
+        const onDown = (e) => {
+            if (e.button !== 0 && e.type === 'mousedown') return; // 仅左键
+            isDragging = true;
+            dragged = false;
+            lastCard = null;
+            const touch = e.touches ? e.touches[0] : null;
+            const x = touch ? touch.clientX : e.clientX;
+            const y = touch ? touch.clientY : e.clientY;
+            const card = getCardAt(x, y);
+            if (card) {
+                lastCard = card;
+                toggleCard(card);
+            }
+        };
+        
+        const onMove = (e) => {
+            if (!isDragging) return;
+            dragged = true;
+            e.preventDefault();
+            const touch = e.touches ? e.touches[0] : null;
+            const x = touch ? touch.clientX : e.clientX;
+            const y = touch ? touch.clientY : e.clientY;
+            const card = getCardAt(x, y);
+            if (card && card !== lastCard) {
+                lastCard = card;
+                toggleCard(card);
+                this._updateHandHint(this._getSelectedCards());
+            }
+        };
+        
+        const onUp = () => {
+            if (!isDragging) return;
+            isDragging = false;
+            if (dragged) {
+                this._updateHandHint(this._getSelectedCards());
+                // 阻止本次拖拽产生的 click 重复触发选牌
+                handContainer._dragJustEnded = true;
+                setTimeout(() => { handContainer._dragJustEnded = false; }, 50);
+            }
+            lastCard = null;
+        };
+        
+        handContainer.addEventListener('mousedown', onDown);
+        handContainer.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        handContainer.addEventListener('touchstart', onDown, { passive: false });
+        handContainer.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onUp);
+        
+        handContainer._dragCleanup = () => {
+            handContainer.removeEventListener('mousedown', onDown);
+            handContainer.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            handContainer.removeEventListener('touchstart', onDown);
+            handContainer.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend', onUp);
+        };
+    }
 
     // 渲染玩家手牌（正面，仅自己）
     renderHands() {
@@ -618,6 +808,8 @@ class Renderer {
                     let touchHandled = false;
                     let touchTimer = null;
                     const toggle = (e) => {
+                        // 拖拽选牌刚结束，忽略本次 click 避免重复触发
+                        if (e.type === 'click' && handContainer._dragJustEnded) return;
                         if (e.type === 'touchstart') {
                             e.preventDefault();
                             touchHandled = true;
@@ -642,6 +834,9 @@ class Renderer {
                         });
                     });
                 }
+                
+                // 绑定拖拽选择（滑动选牌）
+                this._bindDragSelection(handContainer);
             }
             
             // 更新玩家信息
@@ -754,6 +949,30 @@ class Renderer {
         const rel = (index - human + 3) % 3;
         const ids = ['player-right', 'player-top', 'player-left'];
         return this.container.querySelector(`#${ids[rel]}`);
+    }
+
+    showCountdown(playerIndex, seconds) {
+        const area = this._getPlayerArea(playerIndex);
+        if (!area) return;
+        let cd = area.querySelector('.countdown-timer');
+        if (!cd) {
+            cd = document.createElement('div');
+            cd.className = 'countdown-timer';
+            area.appendChild(cd);
+        }
+        cd.textContent = seconds + 's';
+        cd.classList.remove('urgent', 'critical');
+        if (seconds <= 5) cd.classList.add('critical');
+        else if (seconds <= 10) cd.classList.add('urgent');
+        cd.style.opacity = '1';
+    }
+
+    hideCountdown() {
+        const areas = this.container.querySelectorAll('.player-area');
+        for (const area of areas) {
+            const cd = area.querySelector('.countdown-timer');
+            if (cd) cd.style.opacity = '0';
+        }
     }
 
     // ---- 控制面板 ----
@@ -1091,6 +1310,8 @@ class Renderer {
             const player = this.gameState?.players[playerIndex];
             phaseText.textContent = player ? `轮到 ${player.name}` : '';
         }
+        // 隐藏旧倒计时
+        this.hideCountdown();
     }
 
     _updateAICardCount(index, count) {
@@ -1275,6 +1496,34 @@ class Renderer {
             toast.style.transform = 'translateX(-50%) translateY(-20px) scale(0.9)';
             setTimeout(() => toast.remove(), 300);
         }, 1800);
+    }
+    
+    showAchievementUnlock(achievements) {
+        if (!this.container || !achievements?.length) return;
+        achievements.forEach((ach, i) => {
+            setTimeout(() => {
+                if (this._destroyed) return;
+                const el = document.createElement('div');
+                el.className = 'achievement-toast';
+                el.dataset.animFx = 'true';
+                el.innerHTML = `
+                    <div class="ach-icon">${ach.icon}</div>
+                    <div class="ach-body">
+                        <div class="ach-title">成就解锁</div>
+                        <div class="ach-name">${ach.name}</div>
+                        <div class="ach-desc">${ach.desc}</div>
+                    </div>
+                `;
+                this.container.appendChild(el);
+                this.audio?.playWin?.();
+                setTimeout(() => {
+                    el.style.transition = 'all 0.5s ease-in';
+                    el.style.opacity = '0';
+                    el.style.transform = 'translateX(-50%) translateY(-30px) scale(0.9)';
+                    setTimeout(() => el.remove(), 500);
+                }, 3500);
+            }, i * 600);
+        });
     }
     
     // ---- 记牌器（增强版：按点数统计剩余数量）----

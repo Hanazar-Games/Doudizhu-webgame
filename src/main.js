@@ -29,6 +29,7 @@ class GameApp {
             { id: 'btn-lan-mode', action: () => this.startLANMode() },
             { id: 'btn-custom-mode', action: () => this.startCustomMode() },
             { id: 'btn-replay-mode', action: () => this.showReplayList() },
+            { id: 'btn-achievements', action: () => this.showAchievements() },
             { id: 'btn-back', action: () => this.showMenu() },
         ];
         // 首次用户交互标记（用于解锁 AudioContext）
@@ -50,6 +51,24 @@ class GameApp {
             });
         }
         
+        // 音量控制
+        const bindVolume = (sliderId, valueId, key, setter) => {
+            const slider = document.getElementById(sliderId);
+            const val = document.getElementById(valueId);
+            if (!slider) return;
+            slider.addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                this.settings[key] = v;
+                if (val) val.textContent = Math.round(v * 100) + '%';
+                Storage.saveSettings(this.settings);
+                if (this.renderer?.audio) {
+                    this.renderer.audio[setter](v);
+                }
+            });
+        };
+        bindVolume('cfg-bgm-volume', 'cfg-bgm-volume-value', 'bgmVolume', 'setBGMVolume');
+        bindVolume('cfg-sfx-volume', 'cfg-sfx-volume-value', 'sfxVolume', 'setSFXVolume');
+        
         // 难度选择
         document.getElementById('difficulty')?.addEventListener('change', (e) => {
             if (this.currentMode instanceof AIMode) {
@@ -70,6 +89,12 @@ class GameApp {
         document.getElementById('match-rounds')?.addEventListener('change', (e) => {
             this.settings.matchRounds = parseInt(e.target.value);
             Storage.saveSettings(this.settings);
+        });
+        
+        // 成就面板关闭
+        document.getElementById('btn-close-achievements')?.addEventListener('click', () => {
+            this.renderer?.audio?.playButtonClick();
+            document.getElementById('achievement-panel')?.classList.add('hidden');
         });
         
         // 返回按钮（跨屏幕通用）
@@ -166,6 +191,17 @@ class GameApp {
         
         const roundsSelect = document.getElementById('match-rounds');
         if (roundsSelect) roundsSelect.value = String(this.settings.matchRounds || 1);
+        
+        // 音量滑块
+        const bgmSlider = document.getElementById('cfg-bgm-volume');
+        const bgmVal = document.getElementById('cfg-bgm-volume-value');
+        if (bgmSlider) bgmSlider.value = this.settings.bgmVolume ?? 0.5;
+        if (bgmVal) bgmVal.textContent = Math.round((this.settings.bgmVolume ?? 0.5) * 100) + '%';
+        
+        const sfxSlider = document.getElementById('cfg-sfx-volume');
+        const sfxVal = document.getElementById('cfg-sfx-volume-value');
+        if (sfxSlider) sfxSlider.value = this.settings.sfxVolume ?? 0.5;
+        if (sfxVal) sfxVal.textContent = Math.round((this.settings.sfxVolume ?? 0.5) * 100) + '%';
     }
     
     _applyTheme(theme) {
@@ -252,6 +288,24 @@ class GameApp {
             difficulty: this.currentMode instanceof AIMode ? this.currentMode.difficulty : null,
         };
         Storage.saveGameRecord(record);
+        
+        // 成就检查
+        const bombsPlayed = gs?.history?.filter(h => h.pattern?.type === 'BOMB' || h.pattern?.type === 'ROCKET').length || 0;
+        const rocketPlayed = gs?.history?.some(h => h.pattern?.type === 'ROCKET') || false;
+        const cleanSweep = gs?.players?.[humanIdx]?.hand?.length === 0;
+        const roundData = {
+            isWin: isHumanWin,
+            isLandlord: humanIdx === gs?.landlordIndex,
+            streak: this.stats.streak,
+            isSpring: data.springType === 'spring',
+            bombsPlayed,
+            rocketPlayed,
+            cleanSweep,
+        };
+        const unlocked = Storage.checkAchievements(roundData);
+        if (unlocked.length > 0) {
+            this.renderer?.showAchievementUnlock(unlocked);
+        }
         
         // 保存完整牌局（用于回放）
         if (gs) {
@@ -375,6 +429,8 @@ class GameApp {
             this.renderer.setGameState(this.currentMode.gameState);
             this.renderer.setMode(this.currentMode);
             this.renderer.audio.enabled = soundOn;
+            this.renderer.audio.setBGMVolume(this.settings.bgmVolume ?? 0.5);
+            this.renderer.audio.setSFXVolume(this.settings.sfxVolume ?? 0.5);
             this.currentMode.setRenderer(this.renderer);
             
             document.getElementById('custom-screen')?.classList.add('hidden');
@@ -452,6 +508,37 @@ class GameApp {
     startReplay() {
         this.showReplayList();
     }
+    
+    showAchievements() {
+        const panel = document.getElementById('achievement-panel');
+        const list = document.getElementById('achievement-list');
+        if (!panel || !list) return;
+        
+        const achievements = Storage.getAchievements();
+        const defs = Storage.ACHIEVEMENTS;
+        const unlockedCount = defs.filter(a => achievements[a.id]).length;
+        
+        list.innerHTML = `
+            <div class="achievement-summary">已解锁 ${unlockedCount} / ${defs.length}</div>
+        `;
+        
+        for (const ach of defs) {
+            const isUnlocked = achievements[ach.id];
+            const item = document.createElement('div');
+            item.className = `achievement-item ${isUnlocked ? 'unlocked' : 'locked'}`;
+            item.innerHTML = `
+                <div class="ach-item-icon">${ach.icon}</div>
+                <div class="ach-item-body">
+                    <div class="ach-item-name">${ach.name}</div>
+                    <div class="ach-item-desc">${ach.desc}</div>
+                </div>
+                <div class="ach-item-status">${isUnlocked ? '✓' : '🔒'}</div>
+            `;
+            list.appendChild(item);
+        }
+        
+        panel.classList.remove('hidden');
+    }
 
     showGame() {
         const menu = document.getElementById('menu-screen');
@@ -510,6 +597,8 @@ class GameApp {
         this.renderer = new Renderer('game-table');
         this.renderer.setGameState(this.currentMode.gameState);
         this.renderer.setMode(this.currentMode);
+        this.renderer.audio.setBGMVolume(this.settings.bgmVolume ?? 0.5);
+        this.renderer.audio.setSFXVolume(this.settings.sfxVolume ?? 0.5);
         this.currentMode.setRenderer(this.renderer);
         
         this._bindRoundEndListener();

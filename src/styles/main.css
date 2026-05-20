@@ -204,6 +204,98 @@ body[data-theme="night"] {
     font-size: 0.9rem;
 }
 
+/* ===== 成就面板 ===== */
+.overlay-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 420px;
+    max-height: 80vh;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(16px);
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 300;
+    animation: modalScaleIn 0.3s ease;
+}
+
+.overlay-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.overlay-header h3 {
+    font-size: 1.2rem;
+}
+
+.achievement-list {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 60vh;
+}
+
+.achievement-summary {
+    text-align: center;
+    font-size: 0.9rem;
+    opacity: 0.8;
+    padding: 4px 0;
+}
+
+.achievement-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.06);
+    transition: all 0.2s ease;
+}
+
+.achievement-item.unlocked {
+    background: rgba(212,160,23,0.12);
+}
+
+.achievement-item.locked {
+    opacity: 0.5;
+}
+
+.ach-item-icon {
+    font-size: 1.6rem;
+    width: 36px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.ach-item-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ach-item-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.ach-item-desc {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+.ach-item-status {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
 /* ===== 游戏界面 ===== */
 #game-screen {
     position: relative;
@@ -294,6 +386,45 @@ body[data-theme="night"] {
     align-items: center;
     gap: 4px;
     margin-bottom: 8px;
+    position: relative;
+}
+
+.countdown-timer {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    min-width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.6);
+    border: 2px solid rgba(240,192,64,0.6);
+    color: #f0c040;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.countdown-timer.urgent {
+    border-color: #ff9800;
+    color: #ff9800;
+    animation: countdownPulse 0.6s ease-in-out infinite;
+}
+
+.countdown-timer.critical {
+    border-color: #f44336;
+    color: #f44336;
+    animation: countdownPulse 0.3s ease-in-out infinite;
+}
+
+@keyframes countdownPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
 }
 
 .player-avatar {
@@ -684,6 +815,65 @@ body[data-theme="night"] {
 @keyframes toastIn {
     from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
     to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* 成就解锁通知 */
+.achievement-toast {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 24px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(212,160,23,0.9) 0%, rgba(180,130,10,0.9) 100%);
+    backdrop-filter: blur(12px);
+    color: #fff;
+    box-shadow: 0 8px 32px rgba(212,160,23,0.4);
+    animation: achPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 200;
+    min-width: 240px;
+}
+
+.achievement-toast .ach-icon {
+    font-size: 2rem;
+    line-height: 1;
+    animation: achIconBounce 0.6s ease;
+}
+
+.achievement-toast .ach-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.achievement-toast .ach-title {
+    font-size: 0.75rem;
+    opacity: 0.85;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.achievement-toast .ach-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.achievement-toast .ach-desc {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+@keyframes achPop {
+    from { opacity: 0; transform: translateX(-50%) translateY(-30px) scale(0.8); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+@keyframes achIconBounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.3); }
 }
 
 /* ===== 弹窗 ===== */
@@ -2218,4 +2408,144 @@ body[data-theme="night"] {
     0% { transform: scale(0.5); opacity: 0; }
     60% { transform: scale(1.15); opacity: 1; }
     100% { transform: scale(1); opacity: 1; }
+}
+
+/* ===== 暂停覆盖层 ===== */
+#pause-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9998;
+    flex-direction: column;
+}
+
+.pause-content {
+    background: var(--panel-bg);
+    border: 1px solid rgba(240,192,64,0.3);
+    border-radius: 16px;
+    padding: 40px 60px;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.pause-content h2 {
+    font-size: 2rem;
+    margin-bottom: 16px;
+    color: #f0c040;
+}
+
+.pause-content p {
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 24px;
+}
+
+/* ===== 帮助面板 ===== */
+#help-panel {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9997;
+}
+
+.help-content {
+    background: var(--panel-bg);
+    border: 1px solid rgba(240,192,64,0.3);
+    border-radius: 16px;
+    padding: 28px 36px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.help-content h3 {
+    text-align: center;
+    margin-bottom: 16px;
+    color: #f0c040;
+}
+
+.help-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 20px;
+    margin-bottom: 20px;
+}
+
+.help-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.help-item kbd {
+    min-width: 36px;
+    text-align: center;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.8rem;
+    font-family: monospace;
+}
+
+.help-content .btn-small {
+    display: block;
+    margin: 0 auto;
+}
+
+/* ===== 音量滑块 ===== */
+.volume-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0;
+}
+
+.volume-control label {
+    font-size: 0.85rem;
+    min-width: 50px;
+    color: rgba(255,255,255,0.8);
+}
+
+.volume-control input[type="range"] {
+    flex: 1;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255,255,255,0.15);
+    border-radius: 2px;
+    outline: none;
+}
+
+.volume-control input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #f0c040;
+    cursor: pointer;
+}
+
+.volume-control input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #f0c040;
+    cursor: pointer;
+    border: none;
+}
+
+.volume-value {
+    font-size: 0.8rem;
+    min-width: 32px;
+    text-align: right;
+    color: rgba(255,255,255,0.6);
 }

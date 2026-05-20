@@ -18,6 +18,9 @@ class BaseMode {
         this._isProcessingCalling = false;
         this._isProcessingPlay = false;
         this._isAutoPlaying = false;
+        this._turnTimer = null;
+        this._turnCountdown = 30;
+        this._countdownInterval = null;
         
         // 多局赛制
         this.matchConfig = {
@@ -134,10 +137,12 @@ class BaseMode {
         if (this.renderer) {
             this.renderer.showCallControls(playerIndex);
         }
+        this._startCountdown(playerIndex, 'call');
     }
 
     // 人类玩家叫分回调
     humanCall(action) {
+        this._stopCountdown();
         const idx = this.gameState.currentTurn;
         if (idx !== this.humanIndex) {
             console.warn('humanCall: 不是当前玩家的回合');
@@ -217,6 +222,7 @@ class BaseMode {
         if (this.renderer) {
             this.renderer.showPlayControls(playerIndex, this.gameState.lastPlay.pattern);
         }
+        this._startCountdown(playerIndex, 'play');
     }
     
     // 托管切换后触发自动处理（renderer 调用）
@@ -269,6 +275,7 @@ class BaseMode {
 
     // 人类玩家出牌回调
     humanPlay(selectedCards) {
+        this._stopCountdown();
         const idx = this.gameState.currentTurn;
         if (idx !== this.humanIndex) {
             console.warn('humanPlay: 不是当前玩家的回合');
@@ -285,6 +292,7 @@ class BaseMode {
 
     // 人类玩家Pass回调
     humanPass() {
+        this._stopCountdown();
         const idx = this.gameState.currentTurn;
         if (idx !== this.humanIndex) {
             console.warn('humanPass: 不是当前玩家的回合');
@@ -297,8 +305,75 @@ class BaseMode {
         return success;
     }
 
+    _startCountdown(playerIndex, type) {
+        this._stopCountdown();
+        this._turnCountdown = 30;
+        this.renderer?.showCountdown(playerIndex, this._turnCountdown);
+        this._countdownInterval = setInterval(() => {
+            this._turnCountdown--;
+            this.renderer?.showCountdown(playerIndex, this._turnCountdown);
+            if (this._turnCountdown <= 10 && this._turnCountdown > 0) {
+                this.renderer?.audio?.playTick();
+            }
+            if (this._turnCountdown <= 0) {
+                this._stopCountdown();
+                this._onCountdownTimeout(type);
+            }
+        }, 1000);
+    }
+
+    _stopCountdown() {
+        if (this._countdownInterval) {
+            clearInterval(this._countdownInterval);
+            this._countdownInterval = null;
+        }
+        this.renderer?.hideCountdown();
+    }
+
+    _onCountdownTimeout(type) {
+        if (!this.isRunning) return;
+        if (type === 'call') {
+            this.humanCall(0);
+        } else if (type === 'play') {
+            // 超时：尝试提示，如果提示为空则不出
+            const player = this.gameState.players[this.humanIndex];
+            if (!player) return;
+            const ai = new AIPlayer('timeout', 'normal');
+            ai.hand = player.hand;
+            const lastPattern = this.gameState.lastPlay?.pattern;
+            const isNewRound = !lastPattern || lastPattern.type === 'INVALID' ||
+                               (this.gameState.passCount >= 2) ||
+                               (this.gameState.lastPlay?.playerIndex === this.humanIndex);
+            const hint = ai.getHint(player.hand, lastPattern, isNewRound);
+            if (hint.length > 0) {
+                this.humanPlay(hint);
+            } else {
+                this.humanPass();
+            }
+        }
+    }
+
     _delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // ---- 倒计时相关 ----
+    pauseGame() {
+        if (!this.isRunning || this.gameState.phase === PHASE.ENDED) return false;
+        this._stopCountdown();
+        this.isRunning = false;
+        return true;
+    }
+
+    resumeGame() {
+        if (this.isRunning || this.gameState.phase === PHASE.ENDED) return false;
+        this.isRunning = true;
+        if (this.gameState.phase === PHASE.CALLING) {
+            this._processCalling();
+        } else if (this.gameState.phase === PHASE.PLAYING) {
+            this._processPlay();
+        }
+        return true;
     }
 
     // ---- 事件回调（子类可覆盖）----

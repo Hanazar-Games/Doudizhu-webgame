@@ -46,6 +46,12 @@
                     <span class="text">牌局回放</span>
                     <span class="desc">查看历史对局</span>
                 </button>
+                
+                <button id="btn-achievements" class="btn-primary">
+                    <span class="icon">🏆</span>
+                    <span class="text">成就</span>
+                    <span class="desc">查看解锁进度</span>
+                </button>
             </div>
             
             <div class="settings-panel">
@@ -71,6 +77,25 @@
                         <option value="16">16局</option>
                     </select>
                 </label>
+                <div class="volume-control">
+                    <label>BGM:</label>
+                    <input type="range" id="cfg-bgm-volume" min="0" max="1" step="0.1" value="0.5">
+                    <span class="volume-value" id="cfg-bgm-volume-value">50%</span>
+                </div>
+                <div class="volume-control">
+                    <label>SFX:</label>
+                    <input type="range" id="cfg-sfx-volume" min="0" max="1" step="0.1" value="0.5">
+                    <span class="volume-value" id="cfg-sfx-volume-value">50%</span>
+                </div>
+            </div>
+            
+            <!-- 成就面板 -->
+            <div id="achievement-panel" class="overlay-panel hidden">
+                <div class="overlay-header">
+                    <h3>🏆 成就</h3>
+                    <button id="btn-close-achievements" class="btn-small">✕</button>
+                </div>
+                <div id="achievement-list" class="achievement-list"></div>
             </div>
         </div>
     </div>
