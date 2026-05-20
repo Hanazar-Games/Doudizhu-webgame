@@ -78,6 +78,7 @@ class Renderer {
                         <div class="player-avatar">🤖</div>
                         <div class="player-name">AI-东</div>
                         <div class="player-badge"></div>
+                        <div class="player-tooltip"></div>
                     </div>
                     <div class="hand-back"></div>
                     <div class="played-area"></div>
@@ -87,6 +88,7 @@ class Renderer {
                         <div class="player-avatar">🤖</div>
                         <div class="player-name">AI-西</div>
                         <div class="player-badge"></div>
+                        <div class="player-tooltip"></div>
                     </div>
                     <div class="hand-back"></div>
                     <div class="played-area"></div>
@@ -96,6 +98,7 @@ class Renderer {
                         <div class="player-avatar">👤</div>
                         <div class="player-name">玩家</div>
                         <div class="player-badge"></div>
+                        <div class="player-tooltip"></div>
                     </div>
                     <div id="hand-hint-text" class="hand-hint"></div>
                     <div class="hand-front"></div>
@@ -862,6 +865,13 @@ class Renderer {
             if (badgeEl) {
                 badgeEl.textContent = player.isLandlord ? '地主' : '农民';
                 badgeEl.className = 'player-badge ' + (player.isLandlord ? 'landlord' : 'peasant');
+            }
+            
+            // 更新悬浮提示
+            const tooltip = area.querySelector('.player-tooltip');
+            if (tooltip) {
+                const autoText = player.isAuto ? ' | 托管中' : '';
+                tooltip.innerHTML = `手牌: ${player.hand.length}张${autoText}`;
             }
         }
         

@@ -128,6 +128,16 @@ class GameApp {
             this.showMenu();
         });
         
+        // 游戏内音效开关（所有模式通用）
+        document.getElementById('btn-sound-toggle')?.addEventListener('click', () => {
+            this.renderer?.audio?.playButtonClick();
+            const enabled = this.renderer?.audio?.toggle();
+            const btn = document.getElementById('btn-sound-toggle');
+            if (btn) btn.textContent = enabled ? '🔊' : '🔇';
+            this.settings.soundEnabled = enabled;
+            Storage.saveSettings(this.settings);
+        });
+        
         // LAN界面事件（只绑定一次）
         this._initLANListeners();
         this._initCustomListeners();
@@ -419,16 +429,6 @@ class GameApp {
     }
     
     _initLANListeners() {
-        // 音效开关
-        document.getElementById('btn-sound-toggle')?.addEventListener('click', () => {
-            this.renderer?.audio?.playButtonClick();
-            const enabled = this.renderer?.audio?.toggle();
-            const btn = document.getElementById('btn-sound-toggle');
-            if (btn) btn.textContent = enabled ? '🔊' : '🔇';
-            this.settings.soundEnabled = enabled;
-            Storage.saveSettings(this.settings);
-        });
-        
         const btnCreate = document.getElementById('btn-create-room');
         const btnJoin = document.getElementById('btn-join-room');
         const btnStart = document.getElementById('btn-lan-start');

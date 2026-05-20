@@ -444,6 +444,29 @@ body[data-theme="night"] {
     font-weight: 500;
 }
 
+.player-tooltip {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) scale(0.9);
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(8px);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s ease;
+    z-index: 50;
+}
+
+.player-info:hover .player-tooltip {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+}
+
 .player-badge {
     font-size: 0.7rem;
     padding: 2px 8px;
