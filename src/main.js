@@ -263,7 +263,18 @@ class GameApp {
         if (menuContainer) {
             const panel = document.createElement('div');
             panel.className = 'stats-panel';
+            const level = this.stats.level || 1;
+            const exp = this.stats.exp || 0;
+            const expNeeded = level * 100;
+            const expPercent = Math.round((exp / expNeeded) * 100);
             panel.innerHTML = `
+                <div class="level-bar">
+                    <div class="level-info">
+                        <span class="level-badge">Lv.${level}</span>
+                        <span class="exp-text">${exp}/${expNeeded} EXP</span>
+                    </div>
+                    <div class="exp-bar"><div class="exp-fill" style="width:${expPercent}%"></div></div>
+                </div>
                 <div class="stats-grid">
                     <div class="stat-item">
                         <span class="stat-value">${this.stats.gamesPlayed}</span>
@@ -364,6 +375,19 @@ class GameApp {
         const bombs = gs?.history?.filter(h => h.pattern?.type === 'BOMB' || h.pattern?.type === 'ROCKET').length || 0;
         if (bombs > (this.stats.maxBombsInGame || 0)) {
             this.stats.maxBombsInGame = bombs;
+        }
+        // 经验值计算
+        let expGain = 10; // 基础经验
+        if (isHumanWin) expGain += 20;
+        if (data.springType === 'spring' && isHumanWin) expGain += 30;
+        expGain += bombs * 5;
+        const prevLevel = this.stats.level || 1;
+        this.stats.exp = (this.stats.exp || 0) + expGain;
+        const expNeeded = prevLevel * 100;
+        if (this.stats.exp >= expNeeded) {
+            this.stats.exp -= expNeeded;
+            this.stats.level = prevLevel + 1;
+            this.renderer?.showToast(`🎉 升级了！当前等级: ${this.stats.level}`, 'success');
         }
         Storage.saveStats(this.stats);
         

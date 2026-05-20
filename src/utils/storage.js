@@ -13,7 +13,7 @@ export const Storage = {
 
     getStats() {
         const raw = localStorage.getItem(PREFIX + 'stats');
-        const defaults = { gamesPlayed: 0, wins: 0, losses: 0, totalScore: 0, streak: 0, maxStreak: 0, maxScore: 0, maxBombsInGame: 0 };
+        const defaults = { gamesPlayed: 0, wins: 0, losses: 0, totalScore: 0, streak: 0, maxStreak: 0, maxScore: 0, maxBombsInGame: 0, exp: 0, level: 1 };
         if (!raw) return defaults;
         try {
             const parsed = JSON.parse(raw);

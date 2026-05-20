@@ -151,6 +151,48 @@ body[data-theme="night"] {
     margin-bottom: 16px;
 }
 
+.level-bar {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    background: rgba(0,0,0,0.15);
+    border-radius: 10px;
+}
+
+.level-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.level-badge {
+    background: linear-gradient(135deg, #f0c040, #d4a017);
+    color: #2a1a00;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.exp-text {
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+.exp-bar {
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.exp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #f0c040, #ffd700);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
