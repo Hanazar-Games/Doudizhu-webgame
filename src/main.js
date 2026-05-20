@@ -91,6 +91,16 @@ class GameApp {
             Storage.saveSettings(this.settings);
         });
         
+        // 游戏速度
+        const speedSelect = document.getElementById('game-speed');
+        if (speedSelect) {
+            speedSelect.value = String(this.settings.gameSpeed || 1.0);
+            speedSelect.addEventListener('change', (e) => {
+                this.settings.gameSpeed = parseFloat(e.target.value);
+                Storage.saveSettings(this.settings);
+            });
+        }
+        
         // 玩家名称
         const nameInput = document.getElementById('player-name');
         if (nameInput) {
@@ -653,6 +663,7 @@ class GameApp {
         this.currentMode = new AIMode(diff);
         await this.currentMode.init();
         this.currentMode.setMatchRounds(rounds);
+        this.currentMode.speedFactor = this.settings.gameSpeed || 1.0;
         // 应用自定义玩家名称
         const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
         if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
@@ -721,6 +732,7 @@ class GameApp {
         
         this.currentMode = new LANMode();
         await this.currentMode.init();
+        this.currentMode.speedFactor = this.settings.gameSpeed || 1.0;
         document.getElementById('mode-display').textContent = '局域网联机';
         // 应用自定义玩家名称
         const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
@@ -734,6 +746,7 @@ class GameApp {
         
         this.currentMode = new CustomMode();
         await this.currentMode.init();
+        this.currentMode.speedFactor = this.settings.gameSpeed || 1.0;
         document.getElementById('mode-display').textContent = '自定义模式';
         // 应用自定义玩家名称
         const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];

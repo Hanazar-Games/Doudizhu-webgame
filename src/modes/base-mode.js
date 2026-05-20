@@ -30,6 +30,8 @@ class BaseMode {
             matchScores: [0, 0, 0], // 累计总分
         };
         
+        this.speedFactor = 1.0; // 游戏速度倍率 (0.5~2.0)
+        
         this._bindGameEvents();
     }
     
@@ -354,7 +356,7 @@ class BaseMode {
     }
 
     _delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+        return new Promise(resolve => setTimeout(resolve, ms / Math.max(0.3, this.speedFactor)));
     }
 
     // ---- 倒计时相关 ----

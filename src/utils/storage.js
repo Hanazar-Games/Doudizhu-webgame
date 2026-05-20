@@ -63,6 +63,7 @@ export const Storage = {
             bgmVolume: 0.5,
             sfxVolume: 0.5,
             playerName: '玩家',
+            gameSpeed: 1.0,
         };
         if (!raw) return defaults;
         try {

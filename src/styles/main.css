@@ -593,6 +593,17 @@ body[data-theme="night"] {
     user-select: none;
 }
 
+@media (hover: hover) {
+    .hand-front .card:hover {
+        transform: translateY(-8px) scale(1.05);
+        z-index: 10;
+    }
+    .hand-front .card.selected:hover {
+        transform: translateY(-20px) scale(1.05);
+        z-index: 10;
+    }
+}
+
 .card-inner {
     width: 100%;
     height: 100%;
