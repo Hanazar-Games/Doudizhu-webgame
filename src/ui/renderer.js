@@ -23,6 +23,7 @@ class Renderer {
         // UI状态
         this.selectedCards = new Set();
         this.hintCards = [];
+        this._selectionHistory = []; // 选牌历史，用于撤销
         
         this._initLayout();
         this._keyboardHandler = null;
@@ -126,6 +127,7 @@ class Renderer {
                 <div id="play-history" class="side-panel hidden">
                     <h4>出牌历史</h4>
                     <div class="history-list" id="history-content"></div>
+                    <button id="btn-export-history" class="btn-small" style="margin-top:8px;width:100%">📋 导出历史</button>
                 </div>
                 <div id="chat-panel" class="side-panel hidden">
                     <h4>聊天</h4>
@@ -263,6 +265,13 @@ class Renderer {
         btnSend?.addEventListener('click', sendChat);
         chatInput?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') sendChat();
+        });
+        
+        // 导出出牌历史
+        const btnExportHistory = this.container.querySelector('#btn-export-history');
+        btnExportHistory?.addEventListener('click', () => {
+            this.audio.playButtonClick();
+            this._exportHistory();
         });
         
         // 快捷键提示点击展开帮助
@@ -976,6 +985,9 @@ class Renderer {
     }
 
     _toggleCardSelection(el, card) {
+        // 保存选牌历史（最多保留 10 条）
+        this._saveSelectionHistory();
+        
         if (this.selectedCards.has(card)) {
             this.selectedCards.delete(card);
             el.classList.remove('selected');
@@ -985,6 +997,34 @@ class Renderer {
             el.classList.add('selected');
             this.audio.playCardSelect();
         }
+    }
+    
+    _saveSelectionHistory() {
+        // 保存当前选牌状态的副本
+        this._selectionHistory.push(new Set(this.selectedCards));
+        if (this._selectionHistory.length > 10) {
+            this._selectionHistory.shift();
+        }
+    }
+    
+    _undoSelection() {
+        if (this._selectionHistory.length === 0) return;
+        const prev = this._selectionHistory.pop();
+        this.selectedCards = prev;
+        // 同步 DOM
+        const handContainer = this.container?.querySelector('#player-right .hand-front');
+        const cardEls = handContainer?.querySelectorAll('.card');
+        const player = this.gameState?.players[this.mode?.humanIndex];
+        if (!player || !cardEls) return;
+        const sorted = Card.sortByValue(player.hand);
+        cardEls.forEach((el, idx) => {
+            const card = sorted[idx];
+            const isSelected = Array.from(prev).some(c => 
+                c.value === card.value && (c.suit?.name || c.rankKey) === (card.suit?.name || card.rankKey)
+            );
+            el.classList.toggle('selected', isSelected);
+        });
+        this._updateHandHint(this._getSelectedCards());
     }
 
     _getSelectedCards() {
@@ -1711,6 +1751,38 @@ class Renderer {
                 }, 3500);
             }, i * 600);
         });
+    }
+    
+    _exportHistory() {
+        const history = this.gameState?.history;
+        if (!history?.length) {
+            this.showToast('暂无出牌记录', 'info');
+            return;
+        }
+        const lines = ['🃏 斗地主 WebGame 出牌历史', ''];
+        const startTime = history[0].timestamp;
+        for (const h of history) {
+            const player = this.gameState.players[h.playerIndex];
+            const name = player?.name || '?';
+            const elapsed = h.timestamp ? Math.round((h.timestamp - startTime) / 1000) : 0;
+            if (h.pattern?.type === 'PASS') {
+                lines.push(`[+${elapsed}s] ${name}: 不出`);
+            } else {
+                const typeName = Rules.getTypeName(h.pattern?.type || 'INVALID');
+                const cards = h.cards?.map(c => c.displayName).join(' ') || '';
+                lines.push(`[+${elapsed}s] ${name}: [${typeName}] ${cards}`);
+            }
+        }
+        const text = lines.join('\n');
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                this.showToast('已复制到剪贴板', 'success');
+            }).catch(() => {
+                this.showToast('复制失败', 'error');
+            });
+        } else {
+            this.showToast('浏览器不支持复制', 'error');
+        }
     }
     
     // ---- 记牌器（增强版：按点数统计剩余数量）----
