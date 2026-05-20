@@ -2501,6 +2501,28 @@ body[data-theme="night"] {
     margin: 0 auto;
 }
 
+.rules-grid .help-item {
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.rules-grid .help-item:last-child {
+    border-bottom: none;
+}
+
+.rule-name {
+    font-weight: 600;
+    color: #f0c040;
+    min-width: 70px;
+}
+
+.help-tip {
+    text-align: center;
+    font-size: 0.8rem;
+    opacity: 0.7;
+    margin: 8px 0 16px;
+}
+
 /* ===== 音量滑块 ===== */
 .volume-control {
     display: flex;

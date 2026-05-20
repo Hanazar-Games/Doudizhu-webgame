@@ -503,6 +503,22 @@ class Renderer {
                     <div class="help-item"><kbd>ESC</kbd><span>暂停/恢复</span></div>
                     <div class="help-item"><kbd>?</kbd><span>本帮助面板</span></div>
                 </div>
+                <h3 style="margin-top:16px">🃏 牌型规则</h3>
+                <div class="help-grid rules-grid">
+                    <div class="help-item"><span class="rule-name">单牌</span><span>任意一张</span></div>
+                    <div class="help-item"><span class="rule-name">对子</span><span>两张相同点数</span></div>
+                    <div class="help-item"><span class="rule-name">三张</span><span>三张相同点数</span></div>
+                    <div class="help-item"><span class="rule-name">三带一</span><span>三张 + 一张</span></div>
+                    <div class="help-item"><span class="rule-name">三带二</span><span>三张 + 一对</span></div>
+                    <div class="help-item"><span class="rule-name">顺子</span><span>5张+连续单牌</span></div>
+                    <div class="help-item"><span class="rule-name">连对</span><span>3对+连续对子</span></div>
+                    <div class="help-item"><span class="rule-name">飞机</span><span>两组+连续三张</span></div>
+                    <div class="help-item"><span class="rule-name">飞机带翼</span><span>飞机 + 同数量单/对</span></div>
+                    <div class="help-item"><span class="rule-name">炸弹</span><span>四张相同点数</span></div>
+                    <div class="help-item"><span class="rule-name">王炸</span><span>大王+小王</span></div>
+                    <div class="help-item"><span class="rule-name">四带二</span><span>四张 + 两张/两对</span></div>
+                </div>
+                <p class="help-tip">💡 提示：可按住鼠标左键在手牌上滑动进行多选</p>
                 <button id="btn-help-close" class="btn-small">关闭</button>
             </div>
         `;

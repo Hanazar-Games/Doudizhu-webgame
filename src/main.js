@@ -225,17 +225,7 @@ class GameApp {
             : '0%';
         const statsEl = document.querySelector('.stats-panel');
         if (statsEl) {
-            // 更新已有面板
-            const values = statsEl.querySelectorAll('.stat-value');
-            if (values.length >= 6) {
-                values[0].textContent = this.stats.gamesPlayed;
-                values[1].textContent = this.stats.wins;
-                values[2].textContent = this.stats.losses;
-                values[3].textContent = winRate;
-                values[4].textContent = (this.stats.streak > 0 ? '+' : '') + this.stats.streak;
-                values[5].textContent = this.stats.totalScore;
-            }
-            return;
+            statsEl.remove();
         }
         // 如果不存在，在菜单中创建一个
         const menuContainer = document.querySelector('.menu-container');
@@ -261,12 +251,20 @@ class GameApp {
                         <span class="stat-label">胜率</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-value">${this.stats.streak > 0 ? '+' : ''}${this.stats.streak}</span>
-                        <span class="stat-label">连胜</span>
+                        <span class="stat-value">${this.stats.streak > 0 ? '+' : ''}${this.stats.streak}<small style="opacity:0.6;font-size:0.7rem">/${this.stats.maxStreak || 0}</small></span>
+                        <span class="stat-label">连胜/最高</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-value">${this.stats.totalScore}</span>
                         <span class="stat-label">总得分</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" style="color:#ff9800">${this.stats.maxScore || 0}</span>
+                        <span class="stat-label">最高单局</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" style="color:#9c27b0">${this.stats.maxBombsInGame || 0}</span>
+                        <span class="stat-label">最多炸弹</span>
                     </div>
                 </div>
                 <button id="btn-clear-stats" class="btn-small" style="margin-top:8px;font-size:0.7rem">重置记录</button>
@@ -300,6 +298,19 @@ class GameApp {
             this.stats.streak = Math.min(-1, this.stats.streak - 1);
         }
         this.stats.totalScore += data.scores[humanIdx] || 0;
+        // 更新最高记录
+        const currentStreak = this.stats.streak > 0 ? this.stats.streak : 0;
+        if (currentStreak > (this.stats.maxStreak || 0)) {
+            this.stats.maxStreak = currentStreak;
+        }
+        const roundScore = data.scores[humanIdx] || 0;
+        if (roundScore > (this.stats.maxScore || 0)) {
+            this.stats.maxScore = roundScore;
+        }
+        const bombs = gs?.history?.filter(h => h.pattern?.type === 'BOMB' || h.pattern?.type === 'ROCKET').length || 0;
+        if (bombs > (this.stats.maxBombsInGame || 0)) {
+            this.stats.maxBombsInGame = bombs;
+        }
         Storage.saveStats(this.stats);
         
         // 保存对局记录
