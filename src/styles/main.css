@@ -2523,6 +2523,53 @@ body[data-theme="night"] {
     margin: 8px 0 16px;
 }
 
+/* ===== 新手引导 ===== */
+.tutorial-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tutorial-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+}
+
+.tut-icon {
+    font-size: 1.6rem;
+    width: 36px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.tutorial-step p {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.tutorial-step strong {
+    color: #f0c040;
+}
+
+.tutorial-skip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    opacity: 0.8;
+    margin-top: 4px;
+    cursor: pointer;
+}
+
+.tutorial-skip input {
+    cursor: pointer;
+}
+
 /* ===== 音量滑块 ===== */
 .volume-control {
     display: flex;

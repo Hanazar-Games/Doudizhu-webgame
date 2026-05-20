@@ -92,6 +92,35 @@
                 </div>
             </div>
             
+            <!-- 新手引导 -->
+            <div id="tutorial-panel" class="overlay-panel hidden">
+                <div class="overlay-header">
+                    <h3>🎮 欢迎来到斗地主</h3>
+                </div>
+                <div class="tutorial-content">
+                    <div class="tutorial-step">
+                        <div class="tut-icon">🃏</div>
+                        <p><strong>选择模式</strong><br>人机对战、局域网联机或自定义规则</p>
+                    </div>
+                    <div class="tutorial-step">
+                        <div class="tut-icon">👆</div>
+                        <p><strong>选牌出牌</strong><br>点击或滑动选择手牌，按 Space 出牌</p>
+                    </div>
+                    <div class="tutorial-step">
+                        <div class="tut-icon">⌨️</div>
+                        <p><strong>快捷键</strong><br>H提示 P不出 ESC暂停 ?帮助</p>
+                    </div>
+                    <div class="tutorial-step">
+                        <div class="tut-icon">🏆</div>
+                        <p><strong>解锁成就</strong><br>完成各种挑战，收集成就</p>
+                    </div>
+                </div>
+                <label class="tutorial-skip">
+                    <input type="checkbox" id="chk-skip-tutorial"> 下次不再显示
+                </label>
+                <button id="btn-close-tutorial" class="btn-primary" style="margin-top:12px">开始游戏</button>
+            </div>
+            
             <!-- 成就面板 -->
             <div id="achievement-panel" class="overlay-panel hidden">
                 <div class="overlay-header">

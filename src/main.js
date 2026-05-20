@@ -125,6 +125,9 @@ class GameApp {
         // 渲染统计面板
         this._renderStats();
         
+        // 新手引导
+        this._initTutorial();
+        
         // 隐藏加载画面 + 菜单入场动画 + BGM
         setTimeout(() => {
             document.getElementById('loading-screen')?.classList.add('hidden');
@@ -277,6 +280,29 @@ class GameApp {
                     location.reload();
                 }
             });
+        }
+    }
+    
+    _initTutorial() {
+        const panel = document.getElementById('tutorial-panel');
+        const btnClose = document.getElementById('btn-close-tutorial');
+        const chkSkip = document.getElementById('chk-skip-tutorial');
+        if (!panel || !btnClose) return;
+        
+        btnClose.addEventListener('click', () => {
+            this.renderer?.audio?.playButtonClick();
+            if (chkSkip?.checked) {
+                this.settings.showTutorial = false;
+                Storage.saveSettings(this.settings);
+            }
+            panel.classList.add('hidden');
+        });
+        
+        // 首次进入显示引导
+        if (this.settings.showTutorial !== false) {
+            setTimeout(() => {
+                panel.classList.remove('hidden');
+            }, 1200);
         }
     }
     
