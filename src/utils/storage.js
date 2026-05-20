@@ -62,6 +62,7 @@ export const Storage = {
             matchRounds: 1,
             bgmVolume: 0.5,
             sfxVolume: 0.5,
+            playerName: '玩家',
         };
         if (!raw) return defaults;
         try {

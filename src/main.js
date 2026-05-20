@@ -91,6 +91,17 @@ class GameApp {
             Storage.saveSettings(this.settings);
         });
         
+        // 玩家名称
+        const nameInput = document.getElementById('player-name');
+        if (nameInput) {
+            nameInput.value = this.settings.playerName || '玩家';
+            nameInput.addEventListener('change', (e) => {
+                const name = e.target.value.trim() || '玩家';
+                this.settings.playerName = name;
+                Storage.saveSettings(this.settings);
+            });
+        }
+        
         // 成就面板关闭
         document.getElementById('btn-close-achievements')?.addEventListener('click', () => {
             this.renderer?.audio?.playButtonClick();
@@ -209,15 +220,20 @@ class GameApp {
     }
     
     _renderStats() {
+        const winRate = this.stats.gamesPlayed > 0
+            ? Math.round((this.stats.wins / this.stats.gamesPlayed) * 100) + '%'
+            : '0%';
         const statsEl = document.querySelector('.stats-panel');
         if (statsEl) {
             // 更新已有面板
             const values = statsEl.querySelectorAll('.stat-value');
-            if (values.length >= 4) {
+            if (values.length >= 6) {
                 values[0].textContent = this.stats.gamesPlayed;
                 values[1].textContent = this.stats.wins;
                 values[2].textContent = this.stats.losses;
-                values[3].textContent = (this.stats.streak > 0 ? '+' : '') + this.stats.streak;
+                values[3].textContent = winRate;
+                values[4].textContent = (this.stats.streak > 0 ? '+' : '') + this.stats.streak;
+                values[5].textContent = this.stats.totalScore;
             }
             return;
         }
@@ -241,8 +257,16 @@ class GameApp {
                         <span class="stat-label">负场</span>
                     </div>
                     <div class="stat-item">
+                        <span class="stat-value" style="color:#f0c040">${winRate}</span>
+                        <span class="stat-label">胜率</span>
+                    </div>
+                    <div class="stat-item">
                         <span class="stat-value">${this.stats.streak > 0 ? '+' : ''}${this.stats.streak}</span>
                         <span class="stat-label">连胜</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value">${this.stats.totalScore}</span>
+                        <span class="stat-label">总得分</span>
                     </div>
                 </div>
                 <button id="btn-clear-stats" class="btn-small" style="margin-top:8px;font-size:0.7rem">重置记录</button>
@@ -592,6 +616,9 @@ class GameApp {
         this.currentMode = new AIMode(diff);
         await this.currentMode.init();
         this.currentMode.setMatchRounds(rounds);
+        // 应用自定义玩家名称
+        const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
+        if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
         document.getElementById('mode-display').textContent = `人机对战 (${diff === 'easy' ? '简单' : diff === 'hard' ? '困难' : '普通'})${rounds > 1 ? ' · ' + rounds + '局' : ''}`;
         
         this.renderer = new Renderer('game-table');
@@ -658,6 +685,9 @@ class GameApp {
         this.currentMode = new LANMode();
         await this.currentMode.init();
         document.getElementById('mode-display').textContent = '局域网联机';
+        // 应用自定义玩家名称
+        const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
+        if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
     }
 
     // ---- 自定义模式 ----
@@ -668,6 +698,9 @@ class GameApp {
         this.currentMode = new CustomMode();
         await this.currentMode.init();
         document.getElementById('mode-display').textContent = '自定义模式';
+        // 应用自定义玩家名称
+        const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
+        if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
     }
 }
 
