@@ -1442,6 +1442,7 @@ class Renderer {
             ${matchScoreText}
             <button id="btn-next-round">${nextButtonText}</button>
             ${!isMatchEnd ? '<button id="btn-replay">📹 查看回放</button>' : ''}
+            <button id="btn-share-round">📋 分享本局</button>
             <button id="btn-back-menu">返回菜单</button>
         `;
         
@@ -1514,11 +1515,51 @@ class Renderer {
             });
         }
         
+        content.querySelector('#btn-share-round')?.addEventListener('click', () => {
+            this.audio.playButtonClick();
+            this._shareRoundResult(data, matchStatus);
+        });
+        
         content.querySelector('#btn-back-menu')?.addEventListener('click', () => {
             this.audio.playButtonClick();
             overlay.classList.add('hidden');
             window.gameApp?.showMenu();
         });
+    }
+    
+    _shareRoundResult(data, matchStatus) {
+        const gs = this.gameState;
+        const winner = gs?.players[data.winnerIndex];
+        const lines = [
+            '🃏 斗地主 WebGame 对局结果',
+            '',
+            `🏆 获胜者: ${winner?.name || '未知'}`,
+            `🎭 角色: ${data.isLandlordWin ? '地主' : '农民'}胜利`,
+        ];
+        if (data.springType === 'spring') lines.push('🌸 春天 ×2');
+        if (data.springType === 'anti_spring') lines.push('🌸 反春天 ×2');
+        if (data.multiplier > 1) lines.push(`💥 倍数: ${data.multiplier}倍`);
+        lines.push('');
+        lines.push('📊 本局得分:');
+        data.scores.forEach((s, i) => {
+            const p = gs?.players[i];
+            const role = i === gs?.landlordIndex ? '地主' : '农民';
+            lines.push(`  ${p?.name || '?'} (${role}): ${s > 0 ? '+' : ''}${s}`);
+        });
+        if (matchStatus?.isMatchMode) {
+            lines.push('');
+            lines.push(`🏅 比赛进度: 第${matchStatus.currentRound}/${matchStatus.totalRounds}局`);
+        }
+        const text = lines.join('\n');
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                this.showToast('已复制到剪贴板', 'success');
+            }).catch(() => {
+                this.showToast('复制失败', 'error');
+            });
+        } else {
+            this.showToast('浏览器不支持复制', 'error');
+        }
     }
 
     showToast(message, type = 'info') {
