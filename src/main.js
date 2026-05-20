@@ -390,12 +390,14 @@ class GameApp {
         if (isHumanWin) expGain += 20;
         if (data.springType === 'spring' && isHumanWin) expGain += 30;
         expGain += bombs * 5;
-        const prevLevel = this.stats.level || 1;
         this.stats.exp = (this.stats.exp || 0) + expGain;
-        const expNeeded = prevLevel * 100;
-        if (this.stats.exp >= expNeeded) {
-            this.stats.exp -= expNeeded;
-            this.stats.level = prevLevel + 1;
+        let leveledUp = false;
+        while (this.stats.exp >= (this.stats.level || 1) * 100) {
+            this.stats.exp -= (this.stats.level || 1) * 100;
+            this.stats.level = (this.stats.level || 1) + 1;
+            leveledUp = true;
+        }
+        if (leveledUp) {
             this.renderer?.showToast(`🎉 升级了！当前等级: ${this.stats.level}`, 'success');
         }
         Storage.saveStats(this.stats);
