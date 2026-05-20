@@ -24,6 +24,26 @@ class LANMode extends BaseMode {
         this.networkReady = false;
         this.ws = null;
         this.reconnectTimer = null;
+        this._reconnectAttempts = 0;
+    }
+
+    destroy() {
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+        if (this.ws) {
+            // 移除监听器防止 onclose 触发重连
+            this.ws.onclose = null;
+            this.ws.onerror = null;
+            this.ws.onmessage = null;
+            if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+                this.ws.close();
+            }
+            this.ws = null;
+        }
+        this.networkReady = false;
+        this._reconnectAttempts = 0;
     }
 
     async init() {
@@ -97,19 +117,28 @@ class LANMode extends BaseMode {
 
     _scheduleReconnect() {
         if (this.reconnectTimer) return;
+        if (this._reconnectAttempts >= CONFIG.ws.maxReconnectAttempts) {
+            console.warn('[LANMode] 重连次数已达上限，停止重连');
+            this.showToast('连接已断开，请重新进入局域网联机');
+            return;
+        }
+        this._reconnectAttempts++;
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;
             if (this.myPeerId) {
-                console.log('[LANMode] 尝试重连...');
+                console.log('[LANMode] 尝试重连... (第' + this._reconnectAttempts + '次)');
                 this._connectWebSocket().then(() => {
+                    this._reconnectAttempts = 0;
                     if (this.isHost) {
                         this._send({ type: 'create_room', peerId: this.myPeerId });
                     } else if (this.hostPeerId) {
                         this._send({ type: 'join_room', peerId: this.myPeerId, targetPeerId: this.hostPeerId });
                     }
-                }).catch(() => {});
+                }).catch(() => {
+                    this._scheduleReconnect();
+                });
             }
-        }, 3000);
+        }, CONFIG.ws.reconnectInterval || 3000);
     }
 
     _send(msg) {

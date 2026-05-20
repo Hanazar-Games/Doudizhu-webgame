@@ -139,7 +139,17 @@ docker-compose up -d
 
 ## 版本公告
 
-### v1.1.2 (当前版本) — 深度全面修复
+### v1.1.3 (当前版本) — 连接安全与生命周期修复
+
+**Bug 修复**
+- 🔌 **LAN 模式 WebSocket 泄漏**：修复反复进入/退出局域网联机时旧 WebSocket 连接未被关闭的问题，新增 `LANMode.destroy()` 方法清理 ws 和重连定时器
+- 🔄 **LAN 模式无限重连**：修复断线后无限制重连的问题，现在最多重试 `CONFIG.ws.maxReconnectAttempts`（5次），超限后提示用户重新进入
+- 🛡️ **Renderer 销毁保护**：新增 `_destroyed` 标志，防止 `showRoundResult` 中延迟触发的庆祝动画（`winCelebrate`/`springCelebrate`/`flashScreen`）在返回菜单后仍被执行
+- 📦 **测试脚本**：`package.json` 新增 `"test": "node test/core.test.mjs"` 脚本，支持 `npm test` 一键运行核心逻辑测试
+
+---
+
+### v1.1.2 — 深度全面修复
 
 **Bug 修复**
 - 🎹 **键盘快捷键可靠性**：叫分快捷键（1/2/3/0/ESC）现在会检查 `humanCall` 返回值后再隐藏面板，防止在非法状态下错误关闭控制面板

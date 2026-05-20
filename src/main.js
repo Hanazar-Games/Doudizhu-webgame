@@ -393,6 +393,7 @@ class GameApp {
         // 停止当前游戏循环并清理 renderer
         if (this.currentMode) {
             this.currentMode.isRunning = false;
+            this.currentMode.destroy?.();
         }
         const audio = this.renderer?.audio;
         this.renderer?.destroy?.();
@@ -552,7 +553,10 @@ class GameApp {
 
     // ---- 局域网模式 ----
     async startLANMode() {
-        if (this.currentMode) this.currentMode.isRunning = false;
+        if (this.currentMode) {
+            this.currentMode.isRunning = false;
+            this.currentMode.destroy?.();
+        }
         this._transitionToScreen('lan-screen');
         
         // 重置LAN UI状态

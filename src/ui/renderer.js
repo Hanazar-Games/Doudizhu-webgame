@@ -13,6 +13,7 @@ import { Animations } from './animations.js';
 class Renderer {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
+        this._destroyed = false;
         this.gameState = null;
         this.mode = null;
         this.audio = new AudioManager();
@@ -29,6 +30,7 @@ class Renderer {
     }
     
     destroy() {
+        this._destroyed = true;
         if (this._keyboardHandler) {
             document.removeEventListener('keydown', this._keyboardHandler);
             this._keyboardHandler = null;
@@ -1187,20 +1189,23 @@ class Renderer {
         // 胜利/失败庆祝动画
         if (isHumanWin) {
             setTimeout(() => {
-                const w = window.innerWidth;
-                const h = window.innerHeight;
+                if (this._destroyed) return;
                 this.anim.winCelebrate(data.isLandlordWin, data.winnerIndex);
             }, 300);
         } else {
             // 人类输了：简单闪光
             setTimeout(() => {
+                if (this._destroyed) return;
                 this.anim.flashScreen('rgba(100,100,100,0.15)', 400);
             }, 200);
         }
         
         // 春天/反春天特效
         if (data.springType) {
-            setTimeout(() => this.anim.springCelebrate(), 600);
+            setTimeout(() => {
+                if (this._destroyed) return;
+                this.anim.springCelebrate();
+            }, 600);
         }
         
         content.querySelector('#btn-next-round')?.addEventListener('click', () => {
