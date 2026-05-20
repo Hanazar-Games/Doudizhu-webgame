@@ -146,6 +146,16 @@ class GameApp {
             Storage.saveSettings(this.settings);
         });
         
+        // 全屏切换
+        document.getElementById('btn-fullscreen')?.addEventListener('click', () => {
+            this.renderer?.audio?.playButtonClick();
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        });
+        
         // LAN界面事件（只绑定一次）
         this._initLANListeners();
         this._initCustomListeners();
