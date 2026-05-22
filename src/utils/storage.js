@@ -64,6 +64,21 @@ export const Storage = {
             sfxVolume: 0.5,
             playerName: '玩家',
             gameSpeed: 1.0,
+            uiDensity: 'comfortable',
+            tableScale: 1,
+            cardScale: 1,
+            selectedLift: 12,
+            hoverLift: 7,
+            playedOverlap: 16,
+            playedCardScale: 1,
+            dragThreshold: 7,
+            animationLevel: 'normal',
+            opponentCards: 'stack',
+            showTableAura: true,
+            showShortcuts: true,
+            replayCardScale: 1,
+            panelOpacity: 80,
+            cardEnterStagger: 30,
         };
         if (!raw) return defaults;
         try {

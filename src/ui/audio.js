@@ -85,6 +85,10 @@ class AudioManager {
         osc.stop(t + 0.1);
     }
 
+    playTick() {
+        this._playTick().catch(() => {});
+    }
+
     async _sequence(notes, interval = 0.08, offset = 0) {
         if (!this.sfxEnabled) return;
         if (!(await this._ensureContext())) return;

@@ -1,0 +1,22 @@
+{
+  "name": "斗地主 WebGame",
+  "short_name": "斗地主",
+  "description": "网页版斗地主游戏 — 人机对战、局域网联机、自定义规则",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "landscape",
+  "theme_color": "#1a5f2a",
+  "background_color": "#0d3d18",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

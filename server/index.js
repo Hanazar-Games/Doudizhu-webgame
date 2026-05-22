@@ -12,6 +12,7 @@
 import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
+import { networkInterfaces } from 'os';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { RoomManager } from './room-manager.js';
@@ -19,6 +20,7 @@ import { RoomManager } from './room-manager.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isDev = process.argv.includes('--dev');
 const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || '0.0.0.0';
 
 const app = express();
 const server = createServer(app);
@@ -53,6 +55,16 @@ app.get('/api/health', (req, res) => {
         rooms: roomManager.rooms.size, 
         mode: isDev ? 'dev' : 'prod',
         uptime: process.uptime(),
+    });
+});
+
+app.get('/api/lan-info', (req, res) => {
+    res.json({
+        port: Number(PORT),
+        host: HOST,
+        urls: getLanUrls(),
+        wsPath: '/ws',
+        mode: isDev ? 'dev' : 'prod',
     });
 });
 
@@ -216,10 +228,26 @@ function generatePeerId() {
 
 // ---- 启动 ----
 
-server.listen(PORT, () => {
+function getLanUrls() {
+    const urls = [`http://localhost:${PORT}`];
+    const nets = networkInterfaces();
+    for (const entries of Object.values(nets)) {
+        for (const net of entries || []) {
+            if (net.family !== 'IPv4' || net.internal) continue;
+            urls.push(`http://${net.address}:${PORT}`);
+        }
+    }
+    return [...new Set(urls)];
+}
+
+server.listen(PORT, HOST, () => {
     console.log(`🃏 Doudizhu Server running on port ${PORT}`);
     console.log(`   HTTP API: http://localhost:${PORT}/api/health`);
     console.log(`   WebSocket: ws://localhost:${PORT}/ws`);
+    console.log('   LAN URLs:');
+    for (const url of getLanUrls()) {
+        console.log(`     ${url}`);
+    }
     console.log(`   Mode: ${isDev ? 'development' : 'production'}`);
 });
 

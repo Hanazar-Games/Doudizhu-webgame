@@ -196,6 +196,42 @@ class ReplayManager {
     _renderTableState() {
         const g = this.currentGame;
         if (!g) return '';
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
+
+        const normalizeCard = (card) => {
+            const rank = card?.rankKey || card?.rank?.name || card?.rank || '';
+            const suitRaw = typeof card?.suit === 'string' ? card.suit : (card?.suit?.name || '');
+            const suit = suitRaw.toLowerCase();
+            const displayName = card?.displayName || '';
+            const isJoker = rank === 'JOKER_SMALL' || rank === 'JOKER_BIG' || displayName.includes('王');
+            const rankLabel = isJoker
+                ? (rank === 'JOKER_BIG' || displayName.includes('大王') ? '大王' : '小王')
+                : (card?.rank?.display || String(displayName).replace(/[♠♥♣♦]/g, '') || rank || '?');
+            const suitSymbol = isJoker ? '' : (
+                suit === 'heart' || suit === 'hearts' ? '♥' :
+                suit === 'diamond' || suit === 'diamonds' ? '♦' :
+                suit === 'club' || suit === 'clubs' ? '♣' :
+                suit === 'spade' || suit === 'spades' ? '♠' :
+                String(displayName).match(/[♠♥♣♦]/)?.[0] || '♠'
+            );
+            const isRed = isJoker ? rankLabel === '大王' : (suitSymbol === '♥' || suitSymbol === '♦');
+            return {
+                value: Number(card?.value || card?.rank?.value || 0),
+                rank,
+                suit,
+                rankLabel,
+                suitSymbol,
+                isJoker,
+                isRed,
+            };
+        };
+
+        const sameCard = (a, b) => {
+            const ca = normalizeCard(a);
+            const cb = normalizeCard(b);
+            if (ca.isJoker || cb.isJoker) return ca.rank === cb.rank || ca.rankLabel === cb.rankLabel;
+            return ca.value === cb.value && ca.rank === cb.rank && ca.suit === cb.suit;
+        };
 
         // 计算到当前步骤为止的状态
         const hands = g.initialHands.map(h => h ? [...h] : []);
@@ -214,8 +250,7 @@ class ReplayManager {
                 // 出牌：从手牌中移除
                 for (const playedCard of action.cards) {
                     const hand = hands[action.playerIndex];
-                    const idx = hand.findIndex(c => c.value === playedCard.value && 
-                        (c.suit === playedCard.suit || c.rank === playedCard.rank));
+                    const idx = hand.findIndex(c => sameCard(c, playedCard));
                     if (idx >= 0) hand.splice(idx, 1);
                 }
                 lastPlay = action;
@@ -229,16 +264,22 @@ class ReplayManager {
         landlordIdx = g.landlordIndex;
 
         // 渲染3个玩家区域
-        const playerPositions = ['bottom', 'left', 'right'];
-        const renderCards = (cards, isBottom) => {
+        const renderCards = (cards) => {
             if (!cards || cards.length === 0) return '<span class="no-cards">无</span>';
             // 按value排序
-            const sorted = [...cards].sort((a, b) => a.value - b.value);
+            const sorted = [...cards].sort((a, b) => normalizeCard(a).value - normalizeCard(b).value);
             return sorted.map((c, i) => {
-                const isRed = c.suit === 'HEART' || c.suit === 'DIAMOND' || c.rank === 'JOKER_BIG';
-                const isJoker = c.rank?.includes('JOKER');
-                const display = isJoker ? c.displayName : `${c.suit === 'HEART' ? '♥' : c.suit === 'DIAMOND' ? '♦' : c.suit === 'CLUB' ? '♣' : '♠'}${c.displayName || c.rank}`;
-                return `<span class="replay-card ${isRed ? 'red' : 'black'}" style="margin-left:${i>0?'-12px':'0'}">${display}</span>`;
+                const card = normalizeCard(c);
+                const colorClass = card.isRed ? 'red' : 'black';
+                if (card.isJoker) {
+                    return `<span class="replay-card replay-joker ${colorClass}" style="--i:${i}">
+                        <span class="replay-joker-text">${esc(card.rankLabel)}</span>
+                    </span>`;
+                }
+                return `<span class="replay-card ${colorClass}" style="--i:${i}">
+                    <span class="replay-card-rank">${esc(card.rankLabel)}</span>
+                    <span class="replay-card-suit">${esc(card.suitSymbol)}</span>
+                </span>`;
             }).join('');
         };
 
@@ -247,18 +288,16 @@ class ReplayManager {
         if (lastPlay) {
             const pName = g.players[lastPlay.playerIndex]?.name || `玩家${lastPlay.playerIndex+1}`;
             const typeName = Rules.getTypeName ? Rules.getTypeName(lastPlay.pattern?.type) : lastPlay.pattern?.type;
-            const escapeHtml = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
             lastPlayHtml = `
                 <div class="replay-last-play">
                     <span class="replay-last-label">最近出牌</span>
-                    <span class="replay-last-player">${escapeHtml(pName)}</span>
-                    <span class="replay-last-type">[${escapeHtml(typeName)}]</span>
+                    <span class="replay-last-player">${esc(pName)}</span>
+                    <span class="replay-last-type">[${esc(typeName)}]</span>
                     <div class="replay-last-cards">${renderCards(lastPlay.cards)}</div>
                 </div>
             `;
         }
 
-        const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
         return `
             <div class="replay-players-area">
                 ${[0, 1, 2].map(idx => {

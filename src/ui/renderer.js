@@ -4,7 +4,7 @@
  */
 
 import { Card } from '../core/card.js';
-import { Rules } from '../core/rules.js';
+import { Rules, HAND_TYPE } from '../core/rules.js';
 import { GameState, PHASE } from '../core/game-state.js';
 import { AIPlayer } from '../players/ai-player.js';
 import { AudioManager } from './audio.js';
@@ -19,18 +19,18 @@ class Renderer {
         this.mode = null;
         this.audio = new AudioManager();
         this.anim = new Animations(document.body);
-        
+
         // UI状态
         this.selectedCards = new Set();
         this.hintCards = [];
         this._selectionHistory = []; // 选牌历史，用于撤销
-        
+
         this._initLayout();
         this._keyboardHandler = null;
         this._bindKeyboard();
         this._trackerData = null;
     }
-    
+
     destroy() {
         this._destroyed = true;
         this._isPaused = false;
@@ -41,9 +41,15 @@ class Renderer {
             this._keyboardHandler = null;
         }
         this.audio?.stopBGM();
+        this.audio = null;
+        this.mode = null;
+        this.gameState = null;
+        this.anim = null;
         // 清理选牌状态
         this.selectedCards.clear();
         this.hintCards = [];
+        this._selectionHistory = [];
+        this._trackerData = null;
         // 清理动画残留元素
         document.querySelectorAll('[data-anim-fx="true"]').forEach(el => {
             try { el.remove(); } catch (e) {}
@@ -60,6 +66,7 @@ class Renderer {
             handContainer._dragCleanup();
             handContainer._dragCleanup = null;
         }
+        this.container = null;
     }
 
     setGameState(gameState) {
@@ -74,6 +81,7 @@ class Renderer {
         if (!this.container) return;
         this.container.innerHTML = `
             <div id="ddz-table">
+                <div class="table-aura" aria-hidden="true"></div>
                 <div id="player-top" class="player-area" data-index="1">
                     <div class="player-info">
                         <div class="player-avatar">🤖</div>
@@ -113,13 +121,13 @@ class Renderer {
                     <div id="last-play-info">
                         <div id="last-play-type"></div>
                     </div>
-                    <div id="turn-indicator"></div>
+                    <div id="turn-indicator" aria-live="polite"></div>
                 </div>
             </div>
             <div id="side-panels">
-                <button id="btn-toggle-card-tracker" class="btn-panel-toggle">🃏 记牌器</button>
-                <button id="btn-toggle-history" class="btn-panel-toggle">📜 历史</button>
-                <button id="btn-toggle-chat" class="btn-panel-toggle">💬 聊天</button>
+                <button id="btn-toggle-card-tracker" class="btn-panel-toggle" title="打开记牌器">🃏 记牌器</button>
+                <button id="btn-toggle-history" class="btn-panel-toggle" title="查看出牌历史">📜 历史</button>
+                <button id="btn-toggle-chat" class="btn-panel-toggle" title="发送快捷短语">💬 聊天</button>
                 <div id="card-tracker" class="side-panel hidden">
                     <h4>记牌器</h4>
                     <div class="tracker-grid" id="tracker-content"></div>
@@ -167,7 +175,7 @@ class Renderer {
                 <div id="modal-content"></div>
             </div>
         `;
-        
+
         this._bindControls();
         this._bindPanelToggles();
     }
@@ -190,6 +198,11 @@ class Renderer {
         for (const btn of callBtns) {
             btn.addEventListener('click', (e) => {
                 this.audio.playButtonClick();
+                if (this.gameState?.phase !== PHASE.CALLING || this.gameState?.currentTurn !== this.mode?.humanIndex) {
+                    this.hideCallControls();
+                    this.showToast('当前不在叫地主阶段', 'info');
+                    return;
+                }
                 const action = parseInt(e.target.dataset.call);
                 if (this.mode) {
                     const success = this.mode.humanCall(action);
@@ -212,7 +225,7 @@ class Renderer {
         btnReset?.addEventListener('click', () => { this.audio.playButtonClick(); this.clearSelection(); });
         btnHint?.addEventListener('click', () => { this.audio.playButtonClick(); this._doHint(); });
         [btnPlay, btnPass, btnReset, btnHint].forEach(b => this._bindRipple(b));
-        
+
         // 托管按钮
         const btnAutoCall = this.container.querySelector('#btn-auto-call');
         const btnAutoPlay = this.container.querySelector('#btn-auto-play');
@@ -220,17 +233,17 @@ class Renderer {
         btnAutoPlay?.addEventListener('click', () => { this.audio.playButtonClick(); this._toggleAuto(); });
         [btnAutoCall, btnAutoPlay].forEach(b => this._bindRipple(b));
     }
-    
+
     _bindPanelToggles() {
         this._initQuickPhrases();
-        
+
         const btnTracker = this.container.querySelector('#btn-toggle-card-tracker');
         const btnHistory = this.container.querySelector('#btn-toggle-history');
         const btnChat = this.container.querySelector('#btn-toggle-chat');
         const tracker = this.container.querySelector('#card-tracker');
         const history = this.container.querySelector('#play-history');
         const chat = this.container.querySelector('#chat-panel');
-        
+
         btnTracker?.addEventListener('click', () => {
             this.audio.playButtonClick();
             tracker.classList.toggle('hidden');
@@ -252,11 +265,11 @@ class Renderer {
             history.classList.add('hidden');
         });
         this._bindRipple(btnChat);
-        
+
         // 聊天输入
         const chatInput = this.container.querySelector('#chat-input');
         const btnSend = this.container.querySelector('#btn-chat-send');
-        
+
         const sendChat = () => {
             const text = chatInput?.value?.trim();
             if (!text) return;
@@ -264,19 +277,19 @@ class Renderer {
             this._sendChatMessage(text);
             chatInput.value = '';
         };
-        
+
         btnSend?.addEventListener('click', sendChat);
         chatInput?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') sendChat();
         });
-        
+
         // 导出出牌历史
         const btnExportHistory = this.container.querySelector('#btn-export-history');
         btnExportHistory?.addEventListener('click', () => {
             this.audio.playButtonClick();
             this._exportHistory();
         });
-        
+
         // 清空出牌历史
         const btnClearHistory = this.container.querySelector('#btn-clear-history');
         btnClearHistory?.addEventListener('click', () => {
@@ -284,7 +297,7 @@ class Renderer {
             const content = this.container.querySelector('#history-content');
             if (content) content.innerHTML = '';
         });
-        
+
         // 快捷键提示点击展开帮助
         const shortcutHint = this.container.querySelector('#shortcut-hint');
         shortcutHint?.addEventListener('click', () => {
@@ -292,11 +305,11 @@ class Renderer {
             this._toggleHelpPanel();
         });
     }
-    
+
     _initQuickPhrases() {
         const container = this.container.querySelector('#quick-phrases');
         if (!container) return;
-        
+
         const phrases = [
             { text: '快点吧，我等到花儿都谢了', icon: '⏰' },
             { text: '你的牌打得也太好了', icon: '👏' },
@@ -307,7 +320,7 @@ class Renderer {
             { text: '这牌没法打了', icon: '😭' },
             { text: '十七张牌你能秒我？', icon: '🃏' },
         ];
-        
+
         phrases.forEach((p, i) => {
             const btn = document.createElement('button');
             btn.textContent = p.icon;
@@ -328,7 +341,7 @@ class Renderer {
             });
         });
     }
-    
+
     _sendChatMessage(text) {
         this.audio.playChat();
         // 如果是LAN模式，通过WebSocket发送
@@ -347,11 +360,11 @@ class Renderer {
             isSelf: true,
         });
     }
-    
+
     _addChatMessage(msg) {
         const content = this.container.querySelector('#chat-content');
         if (!content) return;
-        
+
         const entry = document.createElement('div');
         entry.className = 'chat-message';
         const senderSpan = document.createElement('span');
@@ -361,13 +374,13 @@ class Renderer {
         entry.appendChild(document.createTextNode(msg.text));
         content.appendChild(entry);
         content.scrollTop = content.scrollHeight;
-        
+
         // 限制消息数
         while (content.children.length > 50) {
             content.removeChild(content.firstChild);
         }
     }
-    
+
     receiveChat(data) {
         if (data.playerIndex === this.mode?.humanIndex) return;
         this._addChatMessage({
@@ -376,25 +389,25 @@ class Renderer {
             isSelf: false,
         });
     }
-    
+
     _bindKeyboard() {
         this._keyboardHandler = (e) => {
             // 只在游戏界面响应
             if (document.getElementById('game-screen')?.classList.contains('hidden')) return;
-            
+
             // 忽略输入框中的按键（聊天、输入等）
             const target = e.target;
             if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
                 return;
             }
-            
+
             // ? 键切换快捷键帮助面板
             if (e.key === '?' || e.key === '／' || e.key === '/') {
                 e.preventDefault();
                 this._toggleHelpPanel();
                 return;
             }
-            
+
             // Escape 暂停/恢复
             if (e.key === 'Escape') {
                 e.preventDefault();
@@ -405,13 +418,13 @@ class Renderer {
                 }
                 return;
             }
-            
+
             // 暂停状态下屏蔽游戏操作
             if (this._isPaused) return;
-            
+
             const phase = this.gameState?.phase;
             const isMyTurn = this.gameState?.currentTurn === this.mode?.humanIndex;
-            
+
             if (phase === PHASE.CALLING && isMyTurn && this.mode) {
                 const isGrab = this.gameState?.callMode === 'grab';
                 const isGrabPhase = this.gameState?.grabPhase === 'grab';
@@ -453,20 +466,20 @@ class Renderer {
                 }
                 return;
             }
-            
+
             if (phase === PHASE.PLAYING && isMyTurn && this.mode) {
                 if (e.code === 'Space') { e.preventDefault(); this.audio.playButtonClick(); this._doPlay(); }
                 if (e.key === 'p' || e.key === 'P') { e.preventDefault(); this.audio.playButtonClick(); this._doPass(); }
                 if (e.key === 'h' || e.key === 'H') { e.preventDefault(); this.audio.playButtonClick(); this._doHint(); }
                 if (e.key === 'r' || e.key === 'R') { e.preventDefault(); this.audio.playButtonClick(); this.clearSelection(); }
-                
+
                 // 数字键快速选牌 (1-9对应第1-9张)
                 if (e.key >= '1' && e.key <= '9') {
                     const idx = parseInt(e.key) - 1;
                     this._toggleCardByIndex(idx);
                 }
             }
-            
+
             // 全局快捷键（不限制游戏阶段）
             if (e.key === 'm' || e.key === 'M') {
                 e.preventDefault();
@@ -486,7 +499,7 @@ class Renderer {
         };
         document.addEventListener('keydown', this._keyboardHandler);
     }
-    
+
     _pauseGame() {
         if (this._isPaused) return;
         this._isPaused = true;
@@ -502,7 +515,7 @@ class Renderer {
         this._removePauseOverlay();
         this.audio?.playGameBGM();
     }
-    
+
     _zoomTable(delta) {
         const table = this.container?.querySelector('#ddz-table');
         if (!table) return;
@@ -533,7 +546,12 @@ class Renderer {
 
     _removePauseOverlay() {
         const overlay = document.getElementById('pause-overlay');
-        if (overlay) overlay.style.display = 'none';
+        if (overlay) overlay.remove();
+    }
+
+    _removeHelpPanel() {
+        const panel = document.getElementById('help-panel');
+        if (panel) panel.remove();
     }
 
     _toggleHelpPanel() {
@@ -588,11 +606,24 @@ class Renderer {
     }
 
     _doPlay() {
-        const cards = this._getSelectedCards();
+        if (!this._isHumanPlayTurn()) {
+            this.showToast(this.gameState?.phase === PHASE.CALLING ? '请先完成叫地主' : '还没轮到你出牌', 'info');
+            return;
+        }
+
+        const selection = this._getPlayableSelection(this._getSelectedCards());
+        const cards = selection.cards;
         if (cards.length === 0) {
             this.showToast('请先选择牌', 'error');
             return;
         }
+
+        if (selection.optimized) {
+            this._syncSelectedCards(cards, { pop: true });
+            const dropped = selection.dropped > 0 ? `，去掉 ${selection.dropped} 张重复/多余牌` : '';
+            this.showToast(`已整理为${Rules.getTypeName(selection.pattern.type)}${dropped}`, 'success');
+        }
+
         const result = this.mode?.humanPlay(cards);
         if (result && !result.success) {
             this.showToast(result.error || '出牌失败', 'error');
@@ -603,8 +634,12 @@ class Renderer {
             this._clearHint();
         }
     }
-    
+
     _doPass() {
+        if (!this._isHumanPlayTurn()) {
+            this.showToast(this.gameState?.phase === PHASE.CALLING ? '叫地主阶段不能不出' : '还没轮到你', 'info');
+            return;
+        }
         const success = this.mode?.humanPass();
         if (!success) {
             this.showToast('当前不能不出', 'error');
@@ -614,13 +649,17 @@ class Renderer {
             this._clearHint();
         }
     }
-    
+
     _doHint() {
+        if (!this._isHumanPlayTurn()) {
+            this.showToast(this.gameState?.phase === PHASE.CALLING ? '请先叫地主' : '还没轮到你', 'info');
+            return;
+        }
         const player = this.gameState?.players[this.mode?.humanIndex];
         if (!player || player.isAI) return;
-        
+
         this.audio.playHint();
-        
+
         const lastPattern = this.gameState?.lastPlay?.pattern;
         const isNewRound = !lastPattern || lastPattern.type === 'INVALID' ||
                            (this.gameState?.passCount >= 2) ||
@@ -628,24 +667,24 @@ class Renderer {
         const ai = new AIPlayer('hint', 'hard');
         ai.hand = player.hand;
         const hint = ai.getHint(player.hand, lastPattern, isNewRound);
-        
+
         if (hint.length === 0) {
             this.showToast('建议：不出');
             return;
         }
-        
+
         // 清除旧提示
         this._clearHint();
         this.hintCards = hint;
-        
+
         // 高亮提示的牌
         const handContainer = this.container.querySelector('#player-right .hand-front');
         const cardEls = handContainer?.querySelectorAll('.card');
         if (!cardEls) return;
-        
+
         // 先清空选择
         this.clearSelection();
-        
+
         // 按顺序选中提示的牌
         const sortedHand = Card.sortByValue(player.hand);
         for (const targetCard of hint) {
@@ -656,26 +695,26 @@ class Renderer {
                 cardEls[idx].classList.add('selected');
             }
         }
-        
+
         // 显示牌型
         this._updateHandHint(hint);
     }
-    
+
     _clearHint() {
         this.hintCards = [];
         const handContainer = this.container.querySelector('#player-right .hand-front');
         handContainer?.querySelectorAll('.card.hint').forEach(el => el.classList.remove('hint'));
     }
-    
+
     _toggleAuto() {
         const player = this.gameState?.players[this.mode?.humanIndex];
         if (!player) return;
-        
+
         player.isAuto = !player.isAuto;
         this.audio.playAutoToggle(player.isAuto);
         this.showToast(player.isAuto ? '已开启托管' : '已取消托管');
         this._updateAutoButton(player.isAuto);
-        
+
         // 如果当前是玩家回合且开启托管，触发自动出牌
         if (player.isAuto && this.gameState?.currentTurn === this.mode?.humanIndex) {
             this.hideCallControls();
@@ -684,7 +723,7 @@ class Renderer {
             this.mode?.triggerAutoIfNeeded?.();
         }
     }
-    
+
     _updateAutoButton(isAuto) {
         const btns = this.container.querySelectorAll('.btn-auto');
         for (const btn of btns) {
@@ -692,45 +731,233 @@ class Renderer {
             btn.classList.toggle('active', isAuto);
         }
     }
-    
+
     _updateHandHint(cards) {
         const hintEl = this.container.querySelector('#hand-hint-text');
         if (!hintEl) return;
         if (cards.length === 0) {
             hintEl.textContent = '';
+            hintEl.className = 'hand-hint';
+            this._renderSmartSelection(null);
+            return;
+        }
+        if (this.gameState?.phase !== PHASE.PLAYING) {
+            hintEl.textContent = '先完成叫地主';
+            hintEl.className = 'hand-hint info';
+            this._renderSmartSelection(null);
             return;
         }
         const pattern = Rules.analyze(cards);
         if (pattern.isValid()) {
             hintEl.textContent = `${Rules.getTypeName(pattern.type)} (主牌: ${pattern.mainValue})`;
             hintEl.className = 'hand-hint valid';
+            this._renderSmartSelection(null);
         } else {
-            hintEl.textContent = '非法牌型';
-            hintEl.className = 'hand-hint invalid';
+            const playable = this._getPlayableSelection(cards);
+            if (playable.optimized && playable.pattern?.isValid?.()) {
+                const dropped = playable.dropped > 0 ? ` · 去掉${playable.dropped}张` : '';
+                hintEl.textContent = `可出${Rules.getTypeName(playable.pattern.type)}${dropped}`;
+                hintEl.className = 'hand-hint valid smart';
+                this._renderSmartSelection(playable);
+            } else {
+                hintEl.textContent = '非法牌型';
+                hintEl.className = 'hand-hint invalid';
+                this._renderSmartSelection(null);
+            }
         }
     }
-    
+
+    _isHumanPlayTurn() {
+        return this.gameState?.phase === PHASE.PLAYING &&
+            this.mode?.humanIndex >= 0 &&
+            this.gameState?.currentTurn === this.mode.humanIndex;
+    }
+
+    _getPlayContext() {
+        const playerIndex = this.mode?.humanIndex;
+        const lastPattern = this.gameState?.lastPlay?.pattern;
+        const isNewRound = !lastPattern || lastPattern.type === HAND_TYPE.INVALID ||
+            (this.gameState?.passCount >= 2) ||
+            (this.gameState?.lastPlay?.playerIndex === playerIndex);
+        return { playerIndex, lastPattern, isNewRound };
+    }
+
+    _getPlayableSelection(cards) {
+        const sorted = Card.sortByValue(cards || []);
+        const empty = { cards: [], pattern: Rules.analyze([]), optimized: false, dropped: 0 };
+        if (sorted.length === 0) return empty;
+
+        const { lastPattern, isNewRound } = this._getPlayContext();
+        const directPattern = Rules.analyze(sorted);
+        if (directPattern.isValid() && (isNewRound || Rules.canBeat(lastPattern, directPattern))) {
+            return { cards: sorted, pattern: directPattern, optimized: false, dropped: 0 };
+        }
+
+        const candidates = [
+            ...this._extractSequentialSubsets(sorted, HAND_TYPE.STRAIGHT, 1, 5),
+            ...this._extractSequentialSubsets(sorted, HAND_TYPE.DOUBLE_STRAIGHT, 2, 3),
+            ...this._extractSequentialSubsets(sorted, HAND_TYPE.TRIPLE_STRAIGHT, 3, 2),
+            ...this._extractPrunedValidSubsets(sorted),
+        ].filter(candidate => {
+            if (!candidate.pattern?.isValid?.()) return false;
+            return isNewRound || Rules.canBeat(lastPattern, candidate.pattern);
+        });
+
+        if (candidates.length === 0) {
+            return { cards: sorted, pattern: directPattern, optimized: false, dropped: 0 };
+        }
+
+        const targetType = !isNewRound ? lastPattern?.type : null;
+        candidates.sort((a, b) => {
+            const aTypeScore = targetType && a.pattern.type === targetType ? 10000 : 0;
+            const bTypeScore = targetType && b.pattern.type === targetType ? 10000 : 0;
+            if (aTypeScore !== bTypeScore) return bTypeScore - aTypeScore;
+            if (a.cards.length !== b.cards.length) return b.cards.length - a.cards.length;
+            return a.pattern.mainValue - b.pattern.mainValue;
+        });
+
+        const best = candidates[0];
+        return {
+            cards: best.cards,
+            pattern: best.pattern,
+            optimized: true,
+            dropped: Math.max(0, sorted.length - best.cards.length),
+        };
+    }
+
+    _extractSequentialSubsets(cards, type, groupSize, minRun) {
+        const grouped = new Map();
+        for (const card of cards) {
+            if (card.value >= 15) continue; // 顺子/连对/飞机不含2和王
+            if (!grouped.has(card.value)) grouped.set(card.value, []);
+            grouped.get(card.value).push(card);
+        }
+
+        const values = [...grouped.keys()].filter(value => grouped.get(value).length >= groupSize).sort((a, b) => a - b);
+        const runs = [];
+        let current = [];
+        for (const value of values) {
+            if (current.length === 0 || value === current[current.length - 1] + 1) {
+                current.push(value);
+            } else {
+                if (current.length >= minRun) runs.push(current);
+                current = [value];
+            }
+        }
+        if (current.length >= minRun) runs.push(current);
+
+        const { lastPattern, isNewRound } = this._getPlayContext();
+        const requiredRunLength = !isNewRound && lastPattern?.type === type
+            ? Math.floor(lastPattern.length / groupSize)
+            : null;
+        const candidates = [];
+
+        for (const run of runs) {
+            const lengths = requiredRunLength
+                ? [requiredRunLength]
+                : Array.from({ length: run.length - minRun + 1 }, (_, i) => run.length - i);
+            for (const len of lengths) {
+                if (len < minRun || len > run.length) continue;
+                for (let start = 0; start <= run.length - len; start++) {
+                    const slice = run.slice(start, start + len);
+                    const subset = slice.flatMap(value => grouped.get(value).slice(0, groupSize));
+                    const pattern = Rules.analyze(subset);
+                    if (pattern.type === type) {
+                        candidates.push({ cards: Card.sortByValue(subset), pattern });
+                    }
+                }
+            }
+        }
+
+        return candidates;
+    }
+
+    _extractPrunedValidSubsets(cards) {
+        // 小规模误选时兜底：从选择中剔除多余牌，找出隐藏的最大合法牌型。
+        if (!cards || cards.length < 2 || cards.length > 11) return [];
+
+        const candidates = [];
+        const seen = new Set();
+        const totalMasks = 1 << cards.length;
+        for (let mask = 1; mask < totalMasks; mask++) {
+            if (mask === totalMasks - 1) continue;
+            const subset = [];
+            for (let i = 0; i < cards.length; i++) {
+                if (mask & (1 << i)) subset.push(cards[i]);
+            }
+
+            const pattern = Rules.analyze(subset);
+            if (!pattern.isValid()) continue;
+
+            const key = subset.map(card => `${card.value}:${card.suit?.name || card.rankKey}`).join('|');
+            if (seen.has(key)) continue;
+            seen.add(key);
+            candidates.push({ cards: Card.sortByValue(subset), pattern });
+        }
+
+        return candidates;
+    }
+
+    _syncSelectedCards(cards, options = {}) {
+        const targets = new Set(cards);
+        this.selectedCards.clear();
+        const handContainer = this.container.querySelector('#player-right .hand-front');
+        const cardEls = handContainer?.querySelectorAll('.card');
+        const player = this.gameState?.players[this.mode?.humanIndex];
+        if (!player || !cardEls) return;
+
+        const sorted = Card.sortByValue(player.hand);
+        cardEls.forEach((el, idx) => {
+            const card = sorted[idx];
+            const shouldSelect = targets.has(card);
+            this._setCardSelection(el, card, shouldSelect, options.pop && shouldSelect);
+        });
+        this._updateHandHint(this._getSelectedCards());
+    }
+
+    _renderSmartSelection(selection) {
+        const handContainer = this.container?.querySelector('#player-right .hand-front');
+        const cardEls = handContainer?.querySelectorAll('.card');
+        const player = this.gameState?.players[this.mode?.humanIndex];
+        if (!player || !cardEls) return;
+
+        cardEls.forEach(el => el.classList.remove('smart-play', 'smart-drop'));
+        if (!selection?.optimized) return;
+
+        const playCards = new Set(selection.cards);
+        const sorted = Card.sortByValue(player.hand);
+        cardEls.forEach((el, idx) => {
+            const card = sorted[idx];
+            if (!this.selectedCards.has(card)) return;
+            el.classList.add(playCards.has(card) ? 'smart-play' : 'smart-drop');
+        });
+    }
+
     _shakeSelection() {
         const handContainer = this.container.querySelector('#player-right .hand-front');
         handContainer?.classList.add('shake');
         setTimeout(() => handContainer?.classList.remove('shake'), 400);
     }
-    
+
     _toggleCardByIndex(index) {
+        if (this.gameState?.phase !== PHASE.PLAYING) {
+            this.showToast('请先完成叫地主', 'info');
+            return;
+        }
         const player = this.gameState?.players[this.mode?.humanIndex];
         if (!player) return;
         const sorted = Card.sortByValue(player.hand);
         if (index >= sorted.length) return;
-        
+
         const card = sorted[index];
         const handContainer = this.container.querySelector('#player-right .hand-front');
         const cardEls = handContainer?.querySelectorAll('.card');
         if (!cardEls || !cardEls[index]) return;
-        
+
         this._toggleCardSelection(cardEls[index], card);
         this._updateHandHint(this._getSelectedCards());
     }
-    
+
     _bindDragSelection(handContainer) {
         if (!handContainer) return;
         // 移除旧监听器
@@ -738,11 +965,20 @@ class Renderer {
             handContainer._dragCleanup();
             handContainer._dragCleanup = null;
         }
-        
+
         let isDragging = false;
         let dragged = false;
-        let lastCard = null;
-        
+        let startIndex = -1;
+        let lastRangeKey = '';
+        let rangeShouldSelect = true;
+        let dragBaseSelection = new Set();
+        let dragStartX = 0;
+        let dragStartY = 0;
+        const dragThreshold = () => {
+            const raw = getComputedStyle(document.documentElement).getPropertyValue('--ddz-drag-threshold');
+            return parseFloat(raw) || 7;
+        };
+
         const getCardAt = (x, y) => {
             const el = document.elementFromPoint(x, y);
             if (!el) return null;
@@ -750,66 +986,103 @@ class Renderer {
             if (!card || !handContainer.contains(card)) return null;
             return card;
         };
-        
-        const toggleCard = (cardEl) => {
-            const idx = Array.from(handContainer.querySelectorAll('.card')).indexOf(cardEl);
-            if (idx < 0) return;
+
+        const applyRangeSelection = (endIndex) => {
             const player = this.gameState?.players[this.mode?.humanIndex];
             if (!player) return;
+            const cardEls = Array.from(handContainer.querySelectorAll('.card'));
             const sorted = Card.sortByValue(player.hand);
-            if (idx >= sorted.length) return;
-            this._toggleCardSelection(cardEl, sorted[idx]);
+            if (startIndex < 0 || endIndex < 0 || startIndex >= sorted.length || endIndex >= sorted.length) return;
+
+            const from = Math.min(startIndex, endIndex);
+            const to = Math.max(startIndex, endIndex);
+            const rangeKey = `${from}-${to}-${rangeShouldSelect}`;
+            if (rangeKey === lastRangeKey) return;
+            lastRangeKey = rangeKey;
+
+            const nextSelection = new Set(dragBaseSelection);
+
+            for (let idx = from; idx <= to; idx++) {
+                if (rangeShouldSelect) {
+                    nextSelection.add(sorted[idx]);
+                } else {
+                    nextSelection.delete(sorted[idx]);
+                }
+            }
+
+            cardEls.forEach((el, idx) => {
+                const card = sorted[idx];
+                const wasSelected = this.selectedCards.has(card);
+                const shouldSelect = nextSelection.has(card);
+                this._setCardSelection(el, card, shouldSelect, shouldSelect && !wasSelected);
+            });
         };
-        
+
         const onDown = (e) => {
+            if (this.gameState?.phase !== PHASE.PLAYING) return;
             if (e.button !== 0 && e.type === 'mousedown') return; // 仅左键
-            isDragging = true;
             dragged = false;
-            lastCard = null;
+            startIndex = -1;
+            lastRangeKey = '';
+            dragBaseSelection = new Set(this.selectedCards);
             const touch = e.touches ? e.touches[0] : null;
             const x = touch ? touch.clientX : e.clientX;
             const y = touch ? touch.clientY : e.clientY;
             const card = getCardAt(x, y);
             if (card) {
-                lastCard = card;
-                toggleCard(card);
+                isDragging = true;
+                dragStartX = x;
+                dragStartY = y;
+                startIndex = Array.from(handContainer.querySelectorAll('.card')).indexOf(card);
+                const player = this.gameState?.players[this.mode?.humanIndex];
+                const sorted = player ? Card.sortByValue(player.hand) : [];
+                rangeShouldSelect = !dragBaseSelection.has(sorted[startIndex]);
             }
         };
-        
+
         const onMove = (e) => {
             if (!isDragging) return;
-            dragged = true;
-            e.preventDefault();
             const touch = e.touches ? e.touches[0] : null;
             const x = touch ? touch.clientX : e.clientX;
             const y = touch ? touch.clientY : e.clientY;
             const card = getCardAt(x, y);
-            if (card && card !== lastCard) {
-                lastCard = card;
-                toggleCard(card);
+            if (card) {
+                const idx = Array.from(handContainer.querySelectorAll('.card')).indexOf(card);
+                const movedEnough = Math.hypot(x - dragStartX, y - dragStartY) >= dragThreshold();
+                if ((idx !== startIndex || e.type === 'touchmove') && movedEnough) {
+                    if (!dragged) this._saveSelectionHistory();
+                    dragged = true;
+                    handContainer.classList.add('range-selecting');
+                    e.preventDefault();
+                    applyRangeSelection(idx);
+                }
                 this._updateHandHint(this._getSelectedCards());
             }
         };
-        
+
         const onUp = () => {
             if (!isDragging) return;
             isDragging = false;
+            handContainer.classList.remove('range-selecting');
             if (dragged) {
+                this.audio.playCardSelect();
                 this._updateHandHint(this._getSelectedCards());
                 // 阻止本次拖拽产生的 click 重复触发选牌
                 handContainer._dragJustEnded = true;
-                setTimeout(() => { handContainer._dragJustEnded = false; }, 50);
+                setTimeout(() => { handContainer._dragJustEnded = false; }, 120);
             }
-            lastCard = null;
+            startIndex = -1;
+            lastRangeKey = '';
+            dragBaseSelection = new Set();
         };
-        
+
         handContainer.addEventListener('mousedown', onDown);
         handContainer.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
         handContainer.addEventListener('touchstart', onDown, { passive: false });
         handContainer.addEventListener('touchmove', onMove, { passive: false });
         document.addEventListener('touchend', onUp);
-        
+
         handContainer._dragCleanup = () => {
             handContainer.removeEventListener('mousedown', onDown);
             handContainer.removeEventListener('mousemove', onMove);
@@ -825,95 +1098,99 @@ class Renderer {
         if (!this.gameState) return;
         // 重新渲染前清除选择状态，避免 DOM 与 selectedCards 不一致
         this.clearSelection();
-        
+
         for (let i = 0; i < 3; i++) {
             const player = this.gameState.players[i];
             if (!player) continue;
-            
+
             const area = this._getPlayerArea(i);
             if (!area) continue;
-            
+            area.classList.toggle('low-cards', this.gameState?.phase === PHASE.PLAYING && player.hand.length <= 5);
+            area.classList.toggle('danger-cards', this.gameState?.phase === PHASE.PLAYING && player.hand.length <= 2);
+
             const handContainer = area.querySelector('.hand-front, .hand-back');
             if (!handContainer) continue;
-            
+
             handContainer.innerHTML = '';
-            
+
             if (player.isAI || i !== this.mode?.humanIndex) {
-                // AI或其他玩家：显示牌背和数量
+                // AI或其他玩家：只显示紧凑牌堆和数量，避免牌背铺满牌桌
+                const summary = document.createElement('div');
+                summary.className = 'opponent-hand-summary';
+                summary.setAttribute('aria-label', `${player.name} 手牌 ${player.hand.length} 张`);
+                const opponentMode = document.body.dataset.opponentCards || 'stack';
+
                 const backWrap = document.createElement('div');
-                backWrap.className = 'hand-back-inner';
-                for (let j = 0; j < player.hand.length; j++) {
+                backWrap.className = 'opponent-card-stack';
+                const visibleBacks = opponentMode === 'count' ? 0 :
+                    opponentMode === 'spread' ? Math.min(12, player.hand.length) :
+                    Math.min(5, player.hand.length);
+                for (let j = 0; j < visibleBacks; j++) {
                     const back = document.createElement('div');
-                    back.className = 'card card-back';
-                    if (j > 0) back.style.marginLeft = '-30px';
+                    back.className = 'mini-card-back';
+                    back.style.setProperty('--i', j);
+                    back.style.setProperty('--n', visibleBacks);
+                    back.style.setProperty('--offset', `${j * 13}px`);
+                    back.style.setProperty('--side-offset', `${j * 9}px`);
+                    back.style.setProperty('--tilt', `${(j - Math.floor(visibleBacks / 2)) * 2}deg`);
                     back.style.opacity = '0';
-                    back.style.transform = 'translateY(20px)';
-                    back.style.transition = `all 0.25s ease-out ${j * 25}ms`;
-                    // 添加 card-inner 子元素以正确渲染牌背样式
-                    const inner = document.createElement('div');
-                    inner.className = 'card-inner';
-                    back.appendChild(inner);
+                    back.style.transform = 'translateY(12px) rotate(-4deg)';
+                    back.style.transition = `all 0.22s ease-out ${j * 25}ms`;
                     backWrap.appendChild(back);
                     requestAnimationFrame(() => {
                         requestAnimationFrame(() => {
                             back.style.opacity = '1';
-                            back.style.transform = 'translateY(0)';
+                            back.style.transform = '';
                         });
                     });
                 }
-                handContainer.appendChild(backWrap);
+                if (visibleBacks > 0) summary.appendChild(backWrap);
                 const count = document.createElement('div');
-                count.className = 'card-count';
-                count.textContent = player.hand.length;
-                handContainer.appendChild(count);
+                count.className = 'card-count opponent-count-badge';
+                count.textContent = `${player.hand.length}张`;
+                summary.appendChild(count);
+                handContainer.appendChild(summary);
             } else {
                 // 自己：显示正面，可点击/触摸选择
+                handContainer.classList.toggle('selection-disabled', this.gameState?.phase !== PHASE.PLAYING);
                 const sorted = Card.sortByValue(player.hand);
                 for (let j = 0; j < sorted.length; j++) {
                     const card = sorted[j];
                     const el = this._createCardElement(card);
                     if (j > 0) el.style.marginLeft = '-44px';
-                    
+
                     // 发牌入场动画
                     el.style.opacity = '0';
                     el.style.transform = 'translateY(30px) rotate(3deg)';
-                    el.style.transition = `all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${j * 30}ms`;
-                    
+                    const enterStagger = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ddz-card-enter-stagger')) || 30;
+                    el.style.transition = `all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${j * enterStagger}ms`;
+
                     // 支持鼠标点击和触摸（防止重复触发）
-                    let touchHandled = false;
-                    let touchTimer = null;
                     const toggle = (e) => {
-                        // 拖拽选牌刚结束，忽略本次 click 避免重复触发
-                        if (e.type === 'click' && handContainer._dragJustEnded) return;
-                        if (e.type === 'touchstart') {
-                            e.preventDefault();
-                            touchHandled = true;
-                            if (touchTimer) clearTimeout(touchTimer);
-                            // 清除标记，允许下一次独立的点击（400ms > 移动端click延迟）
-                            touchTimer = setTimeout(() => { touchHandled = false; }, 400);
-                        } else if (e.type === 'click' && touchHandled) {
-                            // 触摸已处理，忽略由此产生的 click
+                        if (this.gameState?.phase !== PHASE.PLAYING) {
+                            this.showToast('请先完成叫地主', 'info');
                             return;
                         }
+                        // 拖拽选牌刚结束，忽略本次 click 避免重复触发
+                        if (e.type === 'click' && handContainer._dragJustEnded) return;
                         this._toggleCardSelection(el, card);
                         this._updateHandHint(this._getSelectedCards());
                     };
                     el.addEventListener('click', toggle);
-                    el.addEventListener('touchstart', toggle, { passive: false });
                     handContainer.appendChild(el);
-                    
+
                     requestAnimationFrame(() => {
                         requestAnimationFrame(() => {
                             el.style.opacity = '1';
-                            el.style.transform = 'translateY(0) rotate(0deg)';
+                            el.style.transform = '';
                         });
                     });
                 }
-                
+
                 // 绑定拖拽选择（滑动选牌）
                 this._bindDragSelection(handContainer);
             }
-            
+
             // 更新玩家信息
             const nameEl = area.querySelector('.player-name');
             const badgeEl = area.querySelector('.player-badge');
@@ -922,7 +1199,7 @@ class Renderer {
                 badgeEl.textContent = player.isLandlord ? '地主' : '农民';
                 badgeEl.className = 'player-badge ' + (player.isLandlord ? 'landlord' : 'peasant');
             }
-            
+
             // 更新悬浮提示
             const tooltip = area.querySelector('.player-tooltip');
             if (tooltip) {
@@ -930,10 +1207,10 @@ class Renderer {
                 tooltip.innerHTML = `手牌: ${player.hand.length}张${autoText}`;
             }
         }
-        
+
         // 初始化记牌器
         this._initCardTracker();
-        
+
         // 观战模式：显示所有玩家手牌
         if ((this.mode?.humanIndex ?? 0) < 0) {
             this.showAllHands();
@@ -948,11 +1225,11 @@ class Renderer {
             if (!player) continue;
             // 跳过人类玩家，保持其正常交互手牌
             if (i === this.mode?.humanIndex) continue;
-            
+
             const area = this._getPlayerArea(i);
-            const handContainer = area?.querySelector('.hand-back');
+            const handContainer = area?.querySelector('.hand-back, .hand-front');
             if (!handContainer) continue;
-            
+
             handContainer.innerHTML = '';
             handContainer.className = 'hand-front';
             const sorted = Card.sortByValue(player.hand);
@@ -970,10 +1247,10 @@ class Renderer {
         el.className = card.getCardClass() + (card.isLaizi ? ' laizi' : '');
         el.dataset.value = card.value;
         el.dataset.suit = card.suit?.name || card.rankKey;
-        
+
         const inner = document.createElement('div');
         inner.className = 'card-inner';
-        
+
         if (card.isJoker()) {
             inner.innerHTML = `<span class="joker-text">${card.rank.display}</span>`;
         } else {
@@ -990,7 +1267,7 @@ class Renderer {
                 </div>
             `;
         }
-        
+
         el.appendChild(inner);
         return el;
     }
@@ -998,18 +1275,34 @@ class Renderer {
     _toggleCardSelection(el, card) {
         // 保存选牌历史（最多保留 10 条）
         this._saveSelectionHistory();
-        
-        if (this.selectedCards.has(card)) {
-            this.selectedCards.delete(card);
-            el.classList.remove('selected');
-            this.audio.playCardDeselect();
-        } else {
-            this.selectedCards.add(card);
-            el.classList.add('selected');
+
+        const shouldSelect = !this.selectedCards.has(card);
+        this._setCardSelection(el, card, shouldSelect, true);
+
+        if (shouldSelect) {
             this.audio.playCardSelect();
+        } else {
+            this.audio.playCardDeselect();
         }
     }
-    
+
+    _setCardSelection(el, card, shouldSelect, withPop = false) {
+        if (!el || !card) return;
+        if (shouldSelect) {
+            this.selectedCards.add(card);
+            el.classList.add('selected');
+            if (withPop) {
+                el.classList.remove('selection-pop');
+                void el.offsetWidth;
+                el.classList.add('selection-pop');
+                setTimeout(() => el.classList.remove('selection-pop'), 240);
+            }
+        } else {
+            this.selectedCards.delete(card);
+            el.classList.remove('selected', 'selection-pop');
+        }
+    }
+
     _saveSelectionHistory() {
         // 保存当前选牌状态的副本
         this._selectionHistory.push(new Set(this.selectedCards));
@@ -1017,7 +1310,7 @@ class Renderer {
             this._selectionHistory.shift();
         }
     }
-    
+
     _undoSelection() {
         if (this._selectionHistory.length === 0) return;
         const prev = this._selectionHistory.pop();
@@ -1030,7 +1323,7 @@ class Renderer {
         const sorted = Card.sortByValue(player.hand);
         cardEls.forEach((el, idx) => {
             const card = sorted[idx];
-            const isSelected = Array.from(prev).some(c => 
+            const isSelected = Array.from(prev).some(c =>
                 c.value === card.value && (c.suit?.name || c.rankKey) === (card.suit?.name || card.rankKey)
             );
             el.classList.toggle('selected', isSelected);
@@ -1092,7 +1385,7 @@ class Renderer {
             if (cd) cd.style.opacity = '0';
         }
     }
-    
+
     showThinking(playerIndex, hintText = null) {
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
@@ -1111,14 +1404,14 @@ class Renderer {
         }
         el.style.opacity = '1';
     }
-    
+
     hideThinking(playerIndex) {
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
         const el = area.querySelector('.thinking-indicator');
         if (el) el.style.opacity = '0';
     }
-    
+
     showAIHint(playerIndex, cards) {
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
@@ -1132,7 +1425,7 @@ class Renderer {
         hint.innerHTML = sorted.map(c => `<span class="ai-hint-card">${c.displayName}</span>`).join('');
         hint.style.opacity = '1';
     }
-    
+
     hideAIHint(playerIndex) {
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
@@ -1145,10 +1438,12 @@ class Renderer {
     showCallControls(playerIndex) {
         const panel = this.container.querySelector('#call-controls');
         if (!panel) return;
+        this.hidePlayControls();
+        this.clearSelection();
         panel.classList.remove('hidden');
         this.anim.slideInFrom(panel, 'bottom', 300);
         this.audio.playTurnAlert();
-        
+
         // 抢地主模式：动态更新按钮文字
         if (this.gameState?.callMode === 'grab') {
             const isGrabPhase = this.gameState?.grabPhase === 'grab';
@@ -1184,7 +1479,7 @@ class Renderer {
             });
             return;
         }
-        
+
         // 叫分模式：恢复默认按钮
         const btns = panel.querySelectorAll('button[data-call]');
         const labels = ['不叫', '1分', '2分', '3分'];
@@ -1216,24 +1511,28 @@ class Renderer {
     showPlayControls(playerIndex, lastPattern) {
         const panel = this.container.querySelector('#play-controls');
         if (!panel) return;
+        this.hideCallControls();
         panel.classList.remove('hidden');
         this.anim.slideInFrom(panel, 'bottom', 300);
         this.audio.playTurnAlert();
-        
+
         const isNewRound = !lastPattern || lastPattern.type === 'INVALID' ||
                            (this.gameState?.passCount >= 2) ||
                            (this.gameState?.lastPlay.playerIndex === playerIndex);
         const btnPass = panel.querySelector('#btn-pass');
         if (btnPass) btnPass.disabled = isNewRound;
-        
+
         // 显示上家牌型
         const lastTypeEl = this.container.querySelector('#last-play-type');
         if (lastTypeEl && lastPattern && !isNewRound) {
             lastTypeEl.textContent = `上家: ${Rules.getTypeName(lastPattern.type)}`;
+            lastTypeEl.classList.add('info-pop');
         } else if (lastTypeEl) {
             lastTypeEl.textContent = '首家出牌';
+            lastTypeEl.classList.add('info-pop');
         }
-        
+        setTimeout(() => lastTypeEl?.classList.remove('info-pop'), 350);
+
         // 按钮依次弹出
         const btns = panel.querySelectorAll('button');
         btns.forEach((btn, i) => {
@@ -1258,7 +1557,7 @@ class Renderer {
         const bubble = document.createElement('div');
         bubble.className = 'call-bubble';
         bubble.dataset.animFx = 'true';
-        
+
         if (data.mode === 'grab') {
             if (data.phase === 'call') {
                 bubble.textContent = data.action === 'call' ? '叫地主' : '不叫';
@@ -1268,17 +1567,17 @@ class Renderer {
         } else {
             bubble.textContent = data.action === 0 ? '不叫' : data.action + '分';
         }
-        
+
         area?.appendChild(bubble);
         setTimeout(() => bubble.remove(), 1500);
-        
+
         // 音效：叫分/抢地主/不叫
         if (data.mode === 'grab' && data.action === 'grab') {
             this.audio.playGrabLandlord();
         } else {
             this.audio.playCall();
         }
-        
+
         // 脉冲光环
         const rect = area?.querySelector('.player-avatar')?.getBoundingClientRect();
         if (rect && data.action !== 0 && data.action !== 'pass' && data.action !== 'noGrab') {
@@ -1288,9 +1587,13 @@ class Renderer {
     }
 
     showLandlord(data) {
+        this.hideCallControls();
+        this.hidePlayControls();
+        this.clearSelection();
+
         const area = this._getPlayerArea(data.landlordIndex);
         area?.querySelector('.player-badge')?.classList.add('landlord');
-        
+
         // 底牌揭晓动画 + 音效
         const bottomEl = this.container.querySelector('#bottom-cards');
         if (bottomEl && data.bottomCards) {
@@ -1308,20 +1611,20 @@ class Renderer {
                 setTimeout(() => this.audio.playBottomReveal(), i * 150);
             });
         }
-        
+
         let toastText = data.forced ? '无人叫分，默认地主' : '地主确定！';
         if (data.multiplier && data.multiplier > 1) {
             toastText += ` (${data.multiplier}倍)`;
         }
         this.showToast(toastText);
         this.audio.playLandlordConfirm();
-        
+
         // 重新渲染所有玩家手牌（地主获得底牌后数量变化，人类玩家需要看到新牌）
         this.renderHands();
         if (data.landlordIndex === this.mode?.humanIndex) {
             this.clearSelection();
         }
-        
+
         // 皇冠动画 + 光晕
         const rect = area?.querySelector('.player-avatar')?.getBoundingClientRect();
         if (rect) {
@@ -1331,7 +1634,7 @@ class Renderer {
                 this.anim.sparkleBurst(rect.left + rect.width/2, rect.top, 12);
             }, 200);
         }
-        
+
         // 地主区域脉冲
         if (area) {
             area.classList.add('turn-pulse');
@@ -1343,27 +1646,36 @@ class Renderer {
         const area = this._getPlayerArea(data.playerIndex);
         const playedArea = area?.querySelector('.played-area');
         if (!playedArea) return;
-        
+
         playedArea.innerHTML = '';
+        playedArea.classList.remove('has-pass');
+        playedArea.classList.add('has-cards');
+        playedArea.dataset.cardCount = String(data.cards.length);
         const sorted = Card.sortByValue(data.cards);
+        const playScale = sorted.length >= 12 ? '0.78' : sorted.length >= 8 ? '0.84' : sorted.length >= 5 ? '0.9' : '1';
+        const overlap = sorted.length >= 12 ? '24px' : sorted.length >= 8 ? '20px' : sorted.length >= 5 ? '14px' : '8px';
+        playedArea.style.setProperty('--table-play-scale', playScale);
+        playedArea.style.setProperty('--table-play-overlap', overlap);
         for (let i = 0; i < sorted.length; i++) {
             const el = this._createCardElement(sorted[i]);
-            el.style.left = `${i * 36}px`;
-            el.style.transform = 'scale(0.9)';
+            el.classList.add('table-play-card');
+            el.style.setProperty('--play-index', i);
+            el.style.setProperty('--play-scale', playScale);
+            el.style.transform = `translateY(8px) scale(${playScale})`;
             el.style.opacity = '0';
             el.style.animation = `cardPlayFlyIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${i * 40}ms forwards`;
             playedArea.appendChild(el);
         }
-        
+
         const count = area.querySelector('.card-count');
         if (count) count.textContent = data.remaining;
-        
+
         // 音效 + 特效
         const pattern = data.pattern;
         const playRect = playedArea.getBoundingClientRect();
         const centerX = playRect.left + playRect.width / 2;
         const centerY = playRect.top + playRect.height / 2;
-        
+
         if (pattern.type === 'BOMB') {
             this.audio.playBomb();
             this.anim.explode(centerX, centerY, true);
@@ -1394,12 +1706,12 @@ class Renderer {
         } else {
             this.audio.playPlay();
         }
-        
+
         // 更新记牌器
         this._updateCardTracker(data.cards);
         // 更新历史
         this._addHistory(data);
-        
+
         // 如果出牌者是人类玩家，重新渲染手牌
         if (data.playerIndex === this.mode?.humanIndex) {
             this.renderHands();
@@ -1420,20 +1732,27 @@ class Renderer {
             bubble.style.opacity = '0';
             setTimeout(() => bubble.remove(), 300);
         }, 900);
-        
+
         const playedArea = area?.querySelector('.played-area');
-        if (playedArea) playedArea.innerHTML = '';
-        
+        if (playedArea) {
+            playedArea.innerHTML = '';
+            playedArea.classList.remove('has-cards');
+            playedArea.classList.add('has-pass');
+            delete playedArea.dataset.cardCount;
+            playedArea.style.removeProperty('--table-play-scale');
+            playedArea.style.removeProperty('--table-play-overlap');
+        }
+
         this.audio.playPass();
         this.audio.playPassTurn();
         this._addHistory({playerIndex, cards: [], pattern: {type: 'PASS'}, pass: true});
     }
-    
+
     // AI/玩家快捷短语气泡
     showChatBubble(playerIndex, text) {
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
-        
+
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble';
         bubble.dataset.animFx = 'true';
@@ -1442,14 +1761,14 @@ class Renderer {
         bubble.style.transform = 'translateX(-50%) scale(0.5)';
         bubble.style.transition = 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
         area.appendChild(bubble);
-        
+
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 bubble.style.opacity = '1';
                 bubble.style.transform = 'translateX(-50%) scale(1)';
             });
         });
-        
+
         setTimeout(() => {
             bubble.style.transition = 'opacity 0.3s ease';
             bubble.style.opacity = '0';
@@ -1458,22 +1777,38 @@ class Renderer {
     }
 
     highlightTurn(playerIndex) {
+        if (this.gameState?.phase === PHASE.CALLING) {
+            this.hidePlayControls();
+            this.clearSelection();
+        } else if (this.gameState?.phase === PHASE.PLAYING) {
+            this.hideCallControls();
+        }
+
         const areas = this.container.querySelectorAll('.player-area');
         for (const a of areas) {
             a.classList.remove('active-turn', 'turn-pulse');
         }
-        
+
         const area = this._getPlayerArea(playerIndex);
         area?.classList.add('active-turn');
         // 添加脉冲动画（限人类玩家回合）
         if (playerIndex === this.mode?.humanIndex) {
             area?.classList.add('turn-pulse');
         }
-        
+
         const phaseText = this.container.querySelector('#phase-text');
         if (phaseText) {
             const player = this.gameState?.players[playerIndex];
             phaseText.textContent = player ? `轮到 ${player.name}` : '';
+        }
+        const turnEl = this.container.querySelector('#turn-indicator');
+        if (turnEl) {
+            const player = this.gameState?.players[playerIndex];
+            const phaseLabel = this.gameState?.phase === PHASE.CALLING ? '叫地主' : '出牌';
+            turnEl.textContent = player ? `${player.name} · ${phaseLabel}` : '';
+            turnEl.classList.remove('turn-indicator-pop');
+            void turnEl.offsetWidth;
+            turnEl.classList.add('turn-indicator-pop');
         }
         // 隐藏旧倒计时
         this.hideCountdown();
@@ -1482,14 +1817,14 @@ class Renderer {
     _updateAICardCount(index, count) {
         const area = this._getPlayerArea(index);
         const cnt = area?.querySelector('.card-count');
-        if (cnt) cnt.textContent = count;
+        if (cnt) cnt.textContent = cnt.classList.contains('opponent-count-badge') ? `${count}张` : count;
     }
 
     showRoundResult(data, matchStatus = null) {
         const overlay = this.container.querySelector('#modal-overlay');
         const content = this.container.querySelector('#modal-content');
         if (!overlay || !content || !this.gameState) return;
-        
+
         const winner = this.gameState.players?.[data.winnerIndex];
         const resultText = data.isLandlordWin ? '地主胜利' : '农民胜利';
         const humanIdx = this.mode?.humanIndex ?? -1;
@@ -1497,27 +1832,27 @@ class Renderer {
             data.winnerIndex === humanIdx ||
             (data.winnerIndex !== this.gameState.landlordIndex && humanIdx !== this.gameState.landlordIndex)
         );
-        
+
         if (isHumanWin) this.audio.playWin();
         else this.audio.playLose();
-        
+
         // 春天/反春天显示
         let springText = '';
         if (data.springType === 'spring') springText = '<div class="spring-badge">🌸 春天 ×2</div>';
         else if (data.springType === 'anti_spring') springText = '<div class="spring-badge anti">🌸 反春天 ×2</div>';
-        
+
         // 倍数显示
         const multText = data.multiplier > 1 ? `<div class="multiplier-text">倍数: ${data.multiplier}倍 (底分${data.baseScore})</div>` : '';
-        
+
         // 比赛状态
         let matchText = '';
         let matchScoreText = '';
         let nextButtonText = '再来一局';
         let isMatchEnd = false;
-        
+
         if (matchStatus?.isMatchMode) {
             matchText = `<div class="match-round">第 ${matchStatus.currentRound} / ${matchStatus.totalRounds} 局</div>`;
-            
+
             // 累计比分
             const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
             const sorted = matchStatus.matchScores.map((s, i) => ({ score: s, index: i, name: this.gameState.players[i]?.name }))
@@ -1533,7 +1868,7 @@ class Renderer {
                     `).join('')}
                 </div>
             `;
-            
+
             if (matchStatus.isFinished) {
                 isMatchEnd = true;
                 matchText = `<div class="match-round match-end">🏆 比赛结束</div>`;
@@ -1543,7 +1878,7 @@ class Renderer {
                 nextButtonText = '下一局';
             }
         }
-        
+
         const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
         content.innerHTML = `
             <h2>${resultText}</h2>
@@ -1578,7 +1913,7 @@ class Renderer {
             <button id="btn-share-round">📋 分享本局</button>
             <button id="btn-back-menu">返回菜单</button>
         `;
-        
+
         overlay.classList.remove('hidden');
         // 重置动画：先移除类，下一帧再添加，确保动画每次都播放
         content.classList.remove('modal-scale-in');
@@ -1587,7 +1922,7 @@ class Renderer {
                 content.classList.add('modal-scale-in');
             });
         });
-        
+
         // 得分数字滚动动画
         const scoreEls = content.querySelectorAll('.score-value');
         for (const el of scoreEls) {
@@ -1596,6 +1931,7 @@ class Renderer {
             const duration = 800;
             const startTime = performance.now();
             const animate = (now) => {
+                if (this._destroyed) return;
                 const elapsed = now - startTime;
                 const progress = Math.min(elapsed / duration, 1);
                 const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
@@ -1605,7 +1941,7 @@ class Renderer {
             };
             requestAnimationFrame(animate);
         }
-        
+
         // 胜利/失败庆祝动画
         if (isHumanWin) {
             setTimeout(() => {
@@ -1619,7 +1955,7 @@ class Renderer {
                 this.anim.flashScreen('rgba(100,100,100,0.15)', 400);
             }, 200);
         }
-        
+
         // 春天/反春天特效
         if (data.springType) {
             setTimeout(() => {
@@ -1628,7 +1964,7 @@ class Renderer {
                 this.anim.springCelebrate();
             }, 600);
         }
-        
+
         content.querySelector('#btn-next-round')?.addEventListener('click', () => {
             this.audio.playButtonClick();
             overlay.classList.add('hidden');
@@ -1638,7 +1974,7 @@ class Renderer {
             }
             this.mode?.startGame();
         });
-        
+
         if (!isMatchEnd) {
             content.querySelector('#btn-replay')?.addEventListener('click', () => {
                 this.audio.playButtonClick();
@@ -1648,19 +1984,19 @@ class Renderer {
                 }
             });
         }
-        
+
         content.querySelector('#btn-share-round')?.addEventListener('click', () => {
             this.audio.playButtonClick();
             this._shareRoundResult(data, matchStatus);
         });
-        
+
         content.querySelector('#btn-back-menu')?.addEventListener('click', () => {
             this.audio.playButtonClick();
             overlay.classList.add('hidden');
             window.gameApp?.showMenu();
         });
     }
-    
+
     _shareRoundResult(data, matchStatus) {
         const gs = this.gameState;
         const winner = gs?.players[data.winnerIndex];
@@ -1697,8 +2033,8 @@ class Renderer {
     }
 
     showToast(message, type = 'info') {
-        if (!this.container) return;
-        
+        if (!this.container || this._destroyed) return;
+
         // 防抖：相同消息 1.5 秒内不重复显示
         const now = Date.now();
         if (this._lastToastMsg === message && this._lastToastTime && (now - this._lastToastTime) < 1500) {
@@ -1706,7 +2042,7 @@ class Renderer {
         }
         this._lastToastMsg = message;
         this._lastToastTime = now;
-        
+
         const toast = document.createElement('div');
         toast.className = 'toast-message toast-bounce';
         toast.dataset.animFx = 'true';
@@ -1714,20 +2050,20 @@ class Renderer {
         if (type === 'success') toast.style.background = 'rgba(76,175,80,0.85)';
         toast.textContent = message;
         this.container.appendChild(toast);
-        
+
         // 限制 toast 数量（最多 3 个）
         const toasts = this.container.querySelectorAll('.toast-message');
         if (toasts.length > 3) {
             toasts[0].remove();
         }
-        
+
         // 音效
         if (type === 'error') {
             this.audio.playError();
         } else if (type === 'success') {
             this.audio.playChat();
         }
-        
+
         setTimeout(() => {
             toast.style.transition = 'all 0.3s ease-in';
             toast.style.opacity = '0';
@@ -1735,7 +2071,7 @@ class Renderer {
             setTimeout(() => toast.remove(), 300);
         }, 1800);
     }
-    
+
     showAchievementUnlock(achievements) {
         if (!this.container || !achievements?.length) return;
         achievements.forEach((ach, i) => {
@@ -1763,7 +2099,7 @@ class Renderer {
             }, i * 600);
         });
     }
-    
+
     _exportHistory() {
         const history = this.gameState?.history;
         if (!history?.length) {
@@ -1795,13 +2131,13 @@ class Renderer {
             this.showToast('浏览器不支持复制', 'error');
         }
     }
-    
+
     // ---- 记牌器（增强版：按点数统计剩余数量）----
-    
+
     _initCardTracker() {
         const content = this.container.querySelector('#tracker-content');
         if (!content) return;
-        
+
         // 按点数分组统计
         const rankGroups = [
             { key: '3', label: '3', count: 4 },
@@ -1820,7 +2156,7 @@ class Renderer {
             { key: 'JOKER_SMALL', label: '小王', count: 1 },
             { key: 'JOKER_BIG', label: '大王', count: 1 },
         ];
-        
+
         let html = '';
         for (const g of rankGroups) {
             html += `<div class="tracker-rank" data-rank="${g.key}">
@@ -1828,14 +2164,14 @@ class Renderer {
                 <span class="tracker-rank-count">${g.count}</span>
             </div>`;
         }
-        
+
         content.innerHTML = html;
         this._trackerData = {};
         for (const g of rankGroups) {
             this._trackerData[g.key] = g.count;
         }
     }
-    
+
     _updateCardTracker(playedCards) {
         if (!playedCards) return;
         if (!this._trackerData) {
@@ -1847,7 +2183,7 @@ class Renderer {
             if (this._trackerData && rankKey in this._trackerData) {
                 this._trackerData[rankKey] = Math.max(0, this._trackerData[rankKey] - 1);
             }
-            
+
             const cell = this.container?.querySelector(`.tracker-rank[data-rank="${rankKey}"]`);
             if (cell) {
                 const countEl = cell.querySelector('.tracker-rank-count');
@@ -1858,7 +2194,7 @@ class Renderer {
                     countEl.textContent = remaining;
                     setTimeout(() => countEl.classList.remove('count-jump'), 300);
                 }
-                
+
                 cell.classList.remove('full', 'low', 'empty');
                 if (remaining === 0) {
                     cell.classList.add('empty');
@@ -1870,16 +2206,16 @@ class Renderer {
             }
         }
     }
-    
+
     // ---- 历史记录 ----
-    
+
     _addHistory(data) {
         const content = this.container.querySelector('#history-content');
         if (!content) return;
-        
+
         const player = this.gameState?.players[data.playerIndex];
         const name = player?.name || '?';
-        
+
         let text;
         if (data.pass) {
             text = `${name}: 不出`;
@@ -1888,13 +2224,13 @@ class Renderer {
             const typeName = Rules.getTypeName(data.pattern?.type || 'INVALID');
             text = `${name}: [${typeName}] ${cardNames}`;
         }
-        
+
         // 计算相对时间
         const history = this.gameState?.history || [];
         const startTime = history.length > 1 ? history[0].timestamp : data.timestamp;
         const elapsed = data.timestamp ? Math.round((data.timestamp - startTime) / 1000) : 0;
         const timeText = elapsed > 0 ? `<span class="history-time">+${elapsed}s</span>` : '';
-        
+
         const entry = document.createElement('div');
         const pType = data.pattern?.type || 'INVALID';
         const typeClass = pType === 'BOMB' ? 'history-bomb' :
@@ -1906,7 +2242,7 @@ class Renderer {
         entry.style.transform = 'translateY(-10px)';
         entry.style.transition = 'all 0.3s ease-out';
         content.insertBefore(entry, content.firstChild);
-        
+
         // 触发滑入动画
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -1914,7 +2250,7 @@ class Renderer {
                 entry.style.transform = 'translateY(0)';
             });
         });
-        
+
         // 限制历史条数
         while (content.children.length > 30) {
             content.removeChild(content.lastChild);

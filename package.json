@@ -1,12 +1,13 @@
 {
   "name": "doudizhu-webgame",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "斗地主网页版 - 支持人机对战、局域网联机、自定义模式",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run server:dev\" \"vite\"",
     "server": "node server/index.js",
     "server:dev": "node server/index.js --dev",
+    "lan:host": "npm run build && node server/index.js",
     "client": "vite",
     "build": "vite build",
     "preview": "vite preview",

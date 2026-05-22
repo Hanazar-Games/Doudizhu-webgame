@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1a5f2a">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>斗地主 - WebGame</title>
     <link rel="manifest" href="./manifest.json">
     <link rel="apple-touch-icon" href="./icon-192.png">
-    <link rel="stylesheet" href="/src/styles/main.css">
+    <link rel="stylesheet" href="./src/styles/main.css">
 </head>
 <body>
     <!-- 加载画面 -->
@@ -60,52 +61,120 @@
             </div>
             
             <div class="settings-panel">
-                <label>玩家名称:
-                    <input type="text" id="player-name" placeholder="输入昵称" maxlength="12" value="玩家" style="padding:6px 10px;border-radius:6px;border:none;background:rgba(255,255,255,0.9);color:#333;font-size:0.9rem;width:120px;">
-                </label>
-                <label>AI难度:
-                    <select id="difficulty">
-                        <option value="easy">简单</option>
-                        <option value="normal" selected>普通</option>
-                        <option value="hard">困难</option>
-                    </select>
-                </label>
-                <label>牌桌主题:
-                    <select id="theme">
-                        <option value="green" selected>经典绿</option>
-                        <option value="redwood">红木</option>
-                        <option value="night">夜空蓝</option>
-                        <option value="ocean">海洋</option>
-                        <option value="autumn">秋日</option>
-                        <option value="purple">紫晶</option>
-                    </select>
-                </label>
-                <label>局数:
-                    <select id="match-rounds">
-                        <option value="1" selected>1局</option>
-                        <option value="4">4局</option>
-                        <option value="8">8局</option>
-                        <option value="16">16局</option>
-                    </select>
-                </label>
+                <div class="settings-section-title">基础设置</div>
+                <div class="settings-grid">
+                    <label class="setting-row">玩家名称
+                        <input type="text" id="player-name" placeholder="输入昵称" maxlength="12" value="玩家">
+                    </label>
+                    <label class="setting-row">AI难度
+                        <select id="difficulty">
+                            <option value="easy">简单</option>
+                            <option value="normal" selected>普通</option>
+                            <option value="hard">困难</option>
+                        </select>
+                    </label>
+                    <label class="setting-row">牌桌主题
+                        <select id="theme">
+                            <option value="green" selected>经典绿</option>
+                            <option value="redwood">红木</option>
+                            <option value="night">夜空蓝</option>
+                            <option value="ocean">海洋</option>
+                            <option value="autumn">秋日</option>
+                            <option value="purple">紫晶</option>
+                        </select>
+                    </label>
+                    <label class="setting-row">局数
+                        <select id="match-rounds">
+                            <option value="1" selected>1局</option>
+                            <option value="4">4局</option>
+                            <option value="8">8局</option>
+                            <option value="16">16局</option>
+                        </select>
+                    </label>
+                    <label class="setting-row">游戏速度
+                        <select id="game-speed">
+                            <option value="0.7">慢速</option>
+                            <option value="1.0" selected>正常</option>
+                            <option value="1.5">快速</option>
+                            <option value="2.0">极速</option>
+                        </select>
+                    </label>
+                    <label class="setting-row">界面密度
+                        <select data-setting="uiDensity">
+                            <option value="comfortable">舒适</option>
+                            <option value="compact">紧凑</option>
+                            <option value="spacious">宽松</option>
+                        </select>
+                    </label>
+                </div>
                 <div class="volume-control">
-                    <label>BGM:</label>
+                    <label>BGM</label>
                     <input type="range" id="cfg-bgm-volume" min="0" max="1" step="0.1" value="0.5">
                     <span class="volume-value" id="cfg-bgm-volume-value">50%</span>
                 </div>
                 <div class="volume-control">
-                    <label>SFX:</label>
+                    <label>SFX</label>
                     <input type="range" id="cfg-sfx-volume" min="0" max="1" step="0.1" value="0.5">
                     <span class="volume-value" id="cfg-sfx-volume-value">50%</span>
                 </div>
-                <label>游戏速度:
-                    <select id="game-speed">
-                        <option value="0.7">慢速</option>
-                        <option value="1.0" selected>正常</option>
-                        <option value="1.5">快速</option>
-                        <option value="2.0">极速</option>
-                    </select>
-                </label>
+
+                <details class="advanced-settings" open>
+                    <summary>体验调校</summary>
+                    <div class="settings-grid">
+                        <label class="setting-row">动画强度
+                            <select data-setting="animationLevel">
+                                <option value="reduced">轻量</option>
+                                <option value="normal">正常</option>
+                                <option value="fancy">华丽</option>
+                                <option value="none">关闭</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">对手牌显示
+                            <select data-setting="opponentCards">
+                                <option value="count">只显示数量</option>
+                                <option value="stack">小牌堆</option>
+                                <option value="spread">展开牌背</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="settings-slider-list">
+                        <label class="setting-slider">牌桌缩放 <span data-setting-output="tableScale"></span>
+                            <input type="range" min="0.85" max="1.15" step="0.05" data-setting="tableScale">
+                        </label>
+                        <label class="setting-slider">手牌大小 <span data-setting-output="cardScale"></span>
+                            <input type="range" min="0.85" max="1.2" step="0.05" data-setting="cardScale">
+                        </label>
+                        <label class="setting-slider">选牌上浮 <span data-setting-output="selectedLift"></span>
+                            <input type="range" min="4" max="24" step="1" data-setting="selectedLift">
+                        </label>
+                        <label class="setting-slider">悬停上浮 <span data-setting-output="hoverLift"></span>
+                            <input type="range" min="0" max="16" step="1" data-setting="hoverLift">
+                        </label>
+                        <label class="setting-slider">出牌重叠 <span data-setting-output="playedOverlap"></span>
+                            <input type="range" min="6" max="28" step="1" data-setting="playedOverlap">
+                        </label>
+                        <label class="setting-slider">出牌大小 <span data-setting-output="playedCardScale"></span>
+                            <input type="range" min="0.8" max="1.15" step="0.05" data-setting="playedCardScale">
+                        </label>
+                        <label class="setting-slider">拖选灵敏度 <span data-setting-output="dragThreshold"></span>
+                            <input type="range" min="2" max="18" step="1" data-setting="dragThreshold">
+                        </label>
+                        <label class="setting-slider">面板透明度 <span data-setting-output="panelOpacity"></span>
+                            <input type="range" min="45" max="95" step="5" data-setting="panelOpacity">
+                        </label>
+                        <label class="setting-slider">发牌节奏 <span data-setting-output="cardEnterStagger"></span>
+                            <input type="range" min="0" max="60" step="5" data-setting="cardEnterStagger">
+                        </label>
+                        <label class="setting-slider">回放牌大小 <span data-setting-output="replayCardScale"></span>
+                            <input type="range" min="0.85" max="1.35" step="0.05" data-setting="replayCardScale">
+                        </label>
+                    </div>
+                    <div class="settings-toggles">
+                        <label><input type="checkbox" data-setting="showTableAura"> 牌桌光晕</label>
+                        <label><input type="checkbox" data-setting="showShortcuts"> 快捷键提示</label>
+                    </div>
+                    <button id="btn-reset-ux-settings" class="btn-small" type="button">恢复体验默认</button>
+                </details>
             </div>
             
             <!-- 新手引导 -->
@@ -171,6 +240,15 @@
     <div id="lan-screen" class="screen hidden">
         <div class="lan-container">
             <h2>🌐 局域网联机</h2>
+            <div class="lan-host-card">
+                <div class="lan-host-title">本机托管</div>
+                <p>房主电脑运行 <code>npm run lan:host</code>，同一 Wi-Fi 的玩家打开下面地址进入。</p>
+                <div id="lan-host-status" class="lan-host-status">正在检测本机托管服务...</div>
+                <div id="lan-host-url-row" class="lan-host-url-row hidden">
+                    <input type="text" id="lan-host-url" readonly>
+                    <button id="btn-copy-lan-url" class="btn-small" type="button">复制地址</button>
+                </div>
+            </div>
             <div class="lan-section">
                 <button id="btn-create-room" class="btn-primary">创建房间</button>
                 <div id="room-info" class="hidden">
@@ -235,6 +313,6 @@
         </div>
     </div>
 
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="./src/main.js"></script>
 </body>
 </html>
