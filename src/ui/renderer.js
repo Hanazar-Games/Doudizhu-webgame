@@ -9,6 +9,7 @@ import { GameState, PHASE } from '../core/game-state.js';
 import { AIPlayer } from '../players/ai-player.js';
 import { AudioManager } from './audio.js';
 import { Animations } from './animations.js';
+import { Storage } from '../utils/storage.js';
 
 class Renderer {
     constructor(containerId) {
@@ -189,6 +190,9 @@ class Renderer {
         };
         btn.addEventListener('mousedown', addRipple);
         btn.addEventListener('touchstart', addRipple, { passive: true });
+        // 按下反馈
+        btn.addEventListener('mousedown', () => this.anim.buttonPress(btn));
+        btn.addEventListener('touchstart', () => this.anim.buttonPress(btn), { passive: true });
     }
 
     _bindControls() {
@@ -198,6 +202,7 @@ class Renderer {
         for (const btn of callBtns) {
             btn.addEventListener('click', (e) => {
                 this.audio.playButtonClick();
+                this.anim.buttonPress(btn);
                 if (this.gameState?.phase !== PHASE.CALLING || this.gameState?.currentTurn !== this.mode?.humanIndex) {
                     this.hideCallControls();
                     this.showToast('当前不在叫地主阶段', 'info');
@@ -220,18 +225,51 @@ class Renderer {
         const btnReset = this.container.querySelector('#btn-reset');
         const btnHint = this.container.querySelector('#btn-hint');
 
-        btnPlay?.addEventListener('click', () => { this.audio.playButtonClick(); this._doPlay(); });
-        btnPass?.addEventListener('click', () => { this.audio.playButtonClick(); this._doPass(); });
-        btnReset?.addEventListener('click', () => { this.audio.playButtonClick(); this.clearSelection(); });
-        btnHint?.addEventListener('click', () => { this.audio.playButtonClick(); this._doHint(); });
+        btnPlay?.addEventListener('click', () => { this.audio.playButtonClick(); this.anim.buttonPress(btnPlay); this._doPlay(); });
+        btnPass?.addEventListener('click', () => { this.audio.playButtonClick(); this.anim.buttonPress(btnPass); this._doPass(); });
+        btnReset?.addEventListener('click', () => { this.audio.playButtonClick(); this.anim.buttonPress(btnReset); this.clearSelection(); });
+        btnHint?.addEventListener('click', () => { this.audio.playButtonClick(); this.anim.buttonPress(btnHint); this._doHint(); });
         [btnPlay, btnPass, btnReset, btnHint].forEach(b => this._bindRipple(b));
 
         // 托管按钮
         const btnAutoCall = this.container.querySelector('#btn-auto-call');
         const btnAutoPlay = this.container.querySelector('#btn-auto-play');
-        btnAutoCall?.addEventListener('click', () => { this.audio.playButtonClick(); this._toggleAuto(); });
-        btnAutoPlay?.addEventListener('click', () => { this.audio.playButtonClick(); this._toggleAuto(); });
+        btnAutoCall?.addEventListener('click', () => { this.audio.playButtonClick(); this.anim.buttonPress(btnAutoCall); this._toggleAuto(); });
+        btnAutoPlay?.addEventListener('click', () => { this.audio.playButtonClick(); this.anim.buttonPress(btnAutoPlay); this._toggleAuto(); });
         [btnAutoCall, btnAutoPlay].forEach(b => this._bindRipple(b));
+
+        // 双击出牌
+        const handContainer = this.container.querySelector('#player-right .hand-front');
+        if (handContainer) {
+            handContainer.addEventListener('dblclick', (e) => {
+                const settings = Storage.getSettings();
+                if (settings.doubleClickToPlay !== true) return;
+                if (this.gameState?.phase !== PHASE.PLAYING) return;
+                if (!this._isHumanPlayTurn()) return;
+                e.preventDefault();
+                this.audio.playButtonClick();
+                this._doPlay();
+            });
+            // 右键取消选牌
+            handContainer.addEventListener('contextmenu', (e) => {
+                const settings = Storage.getSettings();
+                if (settings.rightClickCancel !== false) {
+                    e.preventDefault();
+                    this.clearSelection();
+                    this.audio.playCardDeselect();
+                }
+            });
+            // 滚轮缩放
+            handContainer.addEventListener('wheel', (e) => {
+                const settings = Storage.getSettings();
+                if (settings.wheelZoom !== true) return;
+                e.preventDefault();
+                const delta = e.deltaY < 0 ? 0.05 : -0.05;
+                const current = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ddz-card-scale')) || 1;
+                const next = Math.max(0.7, Math.min(1.5, current + delta));
+                document.documentElement.style.setProperty('--ddz-card-scale', String(next));
+            }, { passive: false });
+        }
     }
 
     _bindPanelToggles() {
@@ -536,17 +574,36 @@ class Renderer {
                     <h2>⏸ 游戏暂停</h2>
                     <p>按 <kbd>ESC</kbd> 或点击按钮继续</p>
                     <button id="btn-resume" class="btn-primary">继续游戏</button>
+                    <button id="btn-pause-settings" class="btn-secondary">设置</button>
+                    <button id="btn-pause-exit" class="btn-secondary" style="color:#f44336">退出</button>
                 </div>
             `;
             document.body.appendChild(overlay);
-            overlay.querySelector('#btn-resume')?.addEventListener('click', () => this._resumeGame());
         }
+        // 仅绑定一次事件（兼容静态 HTML 和动态创建）
+        if (!this._pauseListenersBound) {
+            this._pauseListenersBound = true;
+            overlay.querySelector('#btn-resume')?.addEventListener('click', () => this._resumeGame());
+            overlay.querySelector('#btn-pause-settings')?.addEventListener('click', () => {
+                this.audio?.playButtonClick();
+                window.gameApp?.openSettings();
+            });
+            overlay.querySelector('#btn-pause-exit')?.addEventListener('click', () => {
+                this.audio?.playButtonClick();
+                this._resumeGame();
+                window.gameApp?.showMenu();
+            });
+        }
+        overlay.classList.remove('hidden');
         overlay.style.display = 'flex';
     }
 
     _removePauseOverlay() {
         const overlay = document.getElementById('pause-overlay');
-        if (overlay) overlay.remove();
+        if (overlay) {
+            overlay.remove();
+            this._pauseListenersBound = false;
+        }
     }
 
     _removeHelpPanel() {
@@ -624,11 +681,23 @@ class Renderer {
             this.showToast(`已整理为${Rules.getTypeName(selection.pattern.type)}${dropped}`, 'success');
         }
 
+        // 炸弹前确认
+        const settings = Storage.getSettings();
+        if (settings.confirmOnBomb === true) {
+            const pattern = Rules.analyze(cards);
+            if (pattern.type === 'BOMB' || pattern.type === 'ROCKET') {
+                const ok = confirm(`确定要出${pattern.type === 'ROCKET' ? '王炸' : '炸弹'}吗？`);
+                if (!ok) return;
+            }
+        }
+
         const result = this.mode?.humanPlay(cards);
         if (result && !result.success) {
             this.showToast(result.error || '出牌失败', 'error');
             this._shakeSelection();
+            this._haptic(30);
         } else {
+            this._haptic(20);
             this.clearSelection();
             this.hidePlayControls();
             this._clearHint();
@@ -639,6 +708,19 @@ class Renderer {
         if (!this._isHumanPlayTurn()) {
             this.showToast(this.gameState?.phase === PHASE.CALLING ? '叫地主阶段不能不出' : '还没轮到你', 'info');
             return;
+        }
+        const settings = Storage.getSettings();
+        // 有牌必出规则提示
+        if (this.gameState?.mustPlay) {
+            const player = this.gameState?.players[this.mode?.humanIndex];
+            if (player && player.hand.length > 0) {
+                this.showToast('规则：有牌必出，不可跳过', 'warning');
+                return;
+            }
+        }
+        if (settings.passConfirm === true) {
+            const ok = confirm('确定要不出吗？');
+            if (!ok) return;
         }
         const success = this.mode?.humanPass();
         if (!success) {
@@ -686,13 +768,15 @@ class Renderer {
         this.clearSelection();
 
         // 按顺序选中提示的牌
-        const sortedHand = Card.sortByValue(player.hand);
+        const sortedHand = this._sortHand(player.hand);
         for (const targetCard of hint) {
             const idx = sortedHand.findIndex(c => c === targetCard);
             if (idx >= 0 && cardEls[idx]) {
                 cardEls[idx].classList.add('hint');
                 this.selectedCards.add(targetCard);
                 cardEls[idx].classList.add('selected');
+                // 提示牌光晕扫过
+                this.anim.hintGlowSweep(cardEls[idx]);
             }
         }
 
@@ -714,6 +798,10 @@ class Renderer {
         this.audio.playAutoToggle(player.isAuto);
         this.showToast(player.isAuto ? '已开启托管' : '已取消托管');
         this._updateAutoButton(player.isAuto);
+
+        // 托管状态切换脉冲动画
+        const area = this._getPlayerArea(this.mode?.humanIndex);
+        this.anim.autoTogglePulse(area, player.isAuto);
 
         // 如果当前是玩家回合且开启托管，触发自动出牌
         if (player.isAuto && this.gameState?.currentTurn === this.mode?.humanIndex) {
@@ -906,7 +994,7 @@ class Renderer {
         const player = this.gameState?.players[this.mode?.humanIndex];
         if (!player || !cardEls) return;
 
-        const sorted = Card.sortByValue(player.hand);
+        const sorted = this._sortHand(player.hand);
         cardEls.forEach((el, idx) => {
             const card = sorted[idx];
             const shouldSelect = targets.has(card);
@@ -925,7 +1013,7 @@ class Renderer {
         if (!selection?.optimized) return;
 
         const playCards = new Set(selection.cards);
-        const sorted = Card.sortByValue(player.hand);
+        const sorted = this._sortHand(player.hand);
         cardEls.forEach((el, idx) => {
             const card = sorted[idx];
             if (!this.selectedCards.has(card)) return;
@@ -946,7 +1034,7 @@ class Renderer {
         }
         const player = this.gameState?.players[this.mode?.humanIndex];
         if (!player) return;
-        const sorted = Card.sortByValue(player.hand);
+        const sorted = this._sortHand(player.hand);
         if (index >= sorted.length) return;
 
         const card = sorted[index];
@@ -991,7 +1079,7 @@ class Renderer {
             const player = this.gameState?.players[this.mode?.humanIndex];
             if (!player) return;
             const cardEls = Array.from(handContainer.querySelectorAll('.card'));
-            const sorted = Card.sortByValue(player.hand);
+            const sorted = this._sortHand(player.hand);
             if (startIndex < 0 || endIndex < 0 || startIndex >= sorted.length || endIndex >= sorted.length) return;
 
             const from = Math.min(startIndex, endIndex);
@@ -1035,7 +1123,7 @@ class Renderer {
                 dragStartY = y;
                 startIndex = Array.from(handContainer.querySelectorAll('.card')).indexOf(card);
                 const player = this.gameState?.players[this.mode?.humanIndex];
-                const sorted = player ? Card.sortByValue(player.hand) : [];
+                const sorted = player ? this._sortHand(player.hand) : [];
                 rangeShouldSelect = !dragBaseSelection.has(sorted[startIndex]);
             }
         };
@@ -1099,6 +1187,24 @@ class Renderer {
         // 重新渲染前清除选择状态，避免 DOM 与 selectedCards 不一致
         this.clearSelection();
 
+        // 底牌始终可见
+        if (this.gameState?.bottomVisible && this.gameState?.bottomCards?.length > 0) {
+            const bottomEl = this.container.querySelector('#bottom-cards');
+            if (bottomEl) {
+                bottomEl.classList.remove('hidden');
+                const container = bottomEl.querySelector('.cards');
+                if (container && !container.dataset.rendered) {
+                    container.innerHTML = '';
+                    for (const c of this.gameState.bottomCards) {
+                        const el = this._createCardElement(c);
+                        el.style.transform = 'scale(0.75)';
+                        container.appendChild(el);
+                    }
+                    container.dataset.rendered = 'true';
+                }
+            }
+        }
+
         for (let i = 0; i < 3; i++) {
             const player = this.gameState.players[i];
             if (!player) continue;
@@ -1113,7 +1219,7 @@ class Renderer {
 
             handContainer.innerHTML = '';
 
-            if (player.isAI || i !== this.mode?.humanIndex) {
+            if ((player.isAI || i !== this.mode?.humanIndex) && !this.gameState?.showCards) {
                 // AI或其他玩家：只显示紧凑牌堆和数量，避免牌背铺满牌桌
                 const summary = document.createElement('div');
                 summary.className = 'opponent-hand-summary';
@@ -1150,10 +1256,22 @@ class Renderer {
                 count.textContent = `${player.hand.length}张`;
                 summary.appendChild(count);
                 handContainer.appendChild(summary);
+            } else if (this.gameState?.showCards && i !== this.mode?.humanIndex) {
+                // 明牌模式：对手手牌也显示正面（缩小）
+                const sorted = this._sortHand(player.hand);
+                for (let j = 0; j < sorted.length; j++) {
+                    const card = sorted[j];
+                    const el = this._createCardElement(card);
+                    el.style.transform = 'scale(0.6)';
+                    el.style.marginLeft = j > 0 ? '-50px' : '0';
+                    el.style.pointerEvents = 'none';
+                    el.style.opacity = '0.85';
+                    handContainer.appendChild(el);
+                }
             } else {
                 // 自己：显示正面，可点击/触摸选择
                 handContainer.classList.toggle('selection-disabled', this.gameState?.phase !== PHASE.PLAYING);
-                const sorted = Card.sortByValue(player.hand);
+                const sorted = this._sortHand(player.hand);
                 for (let j = 0; j < sorted.length; j++) {
                     const card = sorted[j];
                     const el = this._createCardElement(card);
@@ -1232,7 +1350,7 @@ class Renderer {
 
             handContainer.innerHTML = '';
             handContainer.className = 'hand-front';
-            const sorted = Card.sortByValue(player.hand);
+            const sorted = this._sortHand(player.hand);
             for (let j = 0; j < sorted.length; j++) {
                 const el = this._createCardElement(sorted[j]);
                 if (j > 0) el.style.marginLeft = '-30px';
@@ -1281,8 +1399,24 @@ class Renderer {
 
         if (shouldSelect) {
             this.audio.playCardSelect();
+            this._haptic(12);
+            // 选牌闪光粒子
+            this.anim.cardSelectSparkle(el);
         } else {
             this.audio.playCardDeselect();
+            this._haptic(8);
+            // 取消选中下沉动画
+            this.anim.cardDeselect(el);
+        }
+
+        // 一键出牌：选牌后若牌型合法，自动打出
+        const settings = Storage.getSettings();
+        if (settings.oneClickPlay === true && this._isHumanPlayTurn()) {
+            const selection = this._getPlayableSelection(this._getSelectedCards());
+            if (selection.valid && selection.cards.length > 0) {
+                // 短暂延迟让用户看到选中效果
+                setTimeout(() => this._doPlay(), 180);
+            }
         }
     }
 
@@ -1303,6 +1437,18 @@ class Renderer {
         }
     }
 
+    _sortHand(cards) {
+        return Storage.getSettings().smartSort !== false ? Card.sortSmart(cards) : Card.sortByValue(cards);
+    }
+
+    _haptic(ms = 15) {
+        const settings = Storage.getSettings();
+        if (settings.hapticEnabled === false) return;
+        if (navigator.vibrate) {
+            try { navigator.vibrate(ms); } catch (_) {}
+        }
+    }
+
     _saveSelectionHistory() {
         // 保存当前选牌状态的副本
         this._selectionHistory.push(new Set(this.selectedCards));
@@ -1320,11 +1466,11 @@ class Renderer {
         const cardEls = handContainer?.querySelectorAll('.card');
         const player = this.gameState?.players[this.mode?.humanIndex];
         if (!player || !cardEls) return;
-        const sorted = Card.sortByValue(player.hand);
+        const sorted = this._sortHand(player.hand);
         cardEls.forEach((el, idx) => {
             const card = sorted[idx];
             const isSelected = Array.from(prev).some(c =>
-                c.value === card.value && (c.suit?.name || c.rankKey) === (card.suit?.name || card.rankKey)
+                c.value === card.value && (c.suit?.name || c.rankKey) === (card.suit?.name || c.rankKey)
             );
             el.classList.toggle('selected', isSelected);
         });
@@ -1334,7 +1480,7 @@ class Renderer {
     _getSelectedCards() {
         const player = this.gameState?.players[this.mode?.humanIndex];
         if (!player) return [];
-        return Card.sortByValue(player.hand).filter(c => {
+        return this._sortHand(player.hand).filter(c => {
             for (const sc of this.selectedCards) {
                 if (sc.value === c.value && (sc.suit?.name || sc.rankKey) === (c.suit?.name || c.rankKey)) return true;
             }
@@ -1366,6 +1512,7 @@ class Renderer {
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
         let cd = area.querySelector('.countdown-timer');
+        const isNew = !cd;
         if (!cd) {
             cd = document.createElement('div');
             cd.className = 'countdown-timer';
@@ -1376,6 +1523,10 @@ class Renderer {
         if (seconds <= 5) cd.classList.add('critical');
         else if (seconds <= 10) cd.classList.add('urgent');
         cd.style.opacity = '1';
+        // 新出现的倒计时添加弹跳动画
+        if (isNew) {
+            this.anim.countdownAppear(cd);
+        }
     }
 
     hideCountdown() {
@@ -1403,6 +1554,8 @@ class Renderer {
             el.classList.remove('has-hint');
         }
         el.style.opacity = '1';
+        // 增强思考动画
+        this.anim.thinkingEnhance(el);
     }
 
     hideThinking(playerIndex) {
@@ -1558,6 +1711,10 @@ class Renderer {
         bubble.className = 'call-bubble';
         bubble.dataset.animFx = 'true';
 
+        const settings = Storage.getSettings();
+        const isOpponent = data.playerIndex !== this.mode?.humanIndex;
+        const hideDetail = isOpponent && settings.showOpponentCall === false;
+
         if (data.mode === 'grab') {
             if (data.phase === 'call') {
                 bubble.textContent = data.action === 'call' ? '叫地主' : '不叫';
@@ -1565,7 +1722,11 @@ class Renderer {
                 bubble.textContent = data.action === 'grab' ? `抢地主 ×${data.multiplier}` : '不抢';
             }
         } else {
-            bubble.textContent = data.action === 0 ? '不叫' : data.action + '分';
+            if (hideDetail) {
+                bubble.textContent = '已叫分';
+            } else {
+                bubble.textContent = data.action === 0 ? '不叫' : data.action + '分';
+            }
         }
 
         area?.appendChild(bubble);
@@ -1605,6 +1766,8 @@ class Renderer {
                 const el = this._createCardElement(c);
                 el.style.animation = `bottomReveal 0.5s ease-out ${i * 150}ms both`;
                 container.appendChild(el);
+                // 3D翻转增强
+                this.anim.bottomCardReveal(el, i * 150 + 300);
             }
             // 底牌揭示音效
             data.bottomCards.forEach((_, i) => {
@@ -1646,6 +1809,14 @@ class Renderer {
         const area = this._getPlayerArea(data.playerIndex);
         const playedArea = area?.querySelector('.played-area');
         if (!playedArea) return;
+
+        // 连击计数
+        if (!this._comboData) this._comboData = { playerIndex: -1, count: 0 };
+        if (this._comboData.playerIndex === data.playerIndex) {
+            this._comboData.count++;
+        } else {
+            this._comboData = { playerIndex: data.playerIndex, count: 1 };
+        }
 
         playedArea.innerHTML = '';
         playedArea.classList.remove('has-pass');
@@ -1707,6 +1878,11 @@ class Renderer {
             this.audio.playSingle();
         } else {
             this.audio.playPlay();
+        }
+
+        // 连击特效（连续出牌2次以上）
+        if (this._comboData.count >= 2) {
+            this.anim.comboEffect(centerX, centerY - 60, this._comboData.count);
         }
 
         // 更新记牌器
@@ -1796,6 +1972,30 @@ class Renderer {
         // 添加脉冲动画（限人类玩家回合）
         if (playerIndex === this.mode?.humanIndex) {
             area?.classList.add('turn-pulse');
+        }
+
+        // 回合切换光晕扩散
+        this.anim.turnSwitchGlow(area);
+        // 头像脉冲发光
+        const avatar = area?.querySelector('.player-avatar');
+        this.anim.avatarPulse(avatar);
+
+        // 清理当前玩家区域的旧出牌状态（避免"不出"残留）
+        const playedArea = area?.querySelector('.played-area');
+        if (playedArea && this.gameState?.phase === PHASE.PLAYING) {
+            playedArea.classList.remove('has-pass');
+            // 如果是新一轮首家，清空 played-area
+            const isNewRound = !this.gameState.lastPlay ||
+                this.gameState.lastPlay.pattern?.type === 'INVALID' ||
+                this.gameState.passCount >= 2 ||
+                this.gameState.lastPlay.playerIndex === playerIndex;
+            if (isNewRound) {
+                playedArea.innerHTML = '';
+                playedArea.classList.remove('has-cards');
+                delete playedArea.dataset.cardCount;
+                playedArea.style.removeProperty('--table-play-scale');
+                playedArea.style.removeProperty('--table-play-overlap');
+            }
         }
 
         const phaseText = this.container.querySelector('#phase-text');
@@ -1949,6 +2149,8 @@ class Renderer {
             setTimeout(() => {
                 if (this._destroyed) return;
                 this.anim.winCelebrate(data.isLandlordWin, data.winnerIndex);
+                // 金色雨
+                this.anim.goldRain();
             }, 300);
         } else {
             // 人类输了：简单闪光
@@ -2046,7 +2248,7 @@ class Renderer {
         this._lastToastTime = now;
 
         const toast = document.createElement('div');
-        toast.className = 'toast-message toast-bounce';
+        toast.className = 'toast-message toast-bounce toast-notification';
         toast.dataset.animFx = 'true';
         if (type === 'error') toast.style.background = 'rgba(244,67,54,0.85)';
         if (type === 'success') toast.style.background = 'rgba(76,175,80,0.85)';

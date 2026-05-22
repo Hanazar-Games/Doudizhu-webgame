@@ -29,7 +29,8 @@ export const Storage = {
         try {
             const records = this.getGameRecords();
             records.unshift(record);
-            if (records.length > 50) records.pop();
+            const max = Math.max(10, Math.min(200, this.getSettings().maxHistory ?? 50));
+            while (records.length > max) records.pop();
             localStorage.setItem(PREFIX + 'records', JSON.stringify(records));
         } catch (e) {}
     },
@@ -54,35 +55,205 @@ export const Storage = {
     getSettings() {
         const raw = localStorage.getItem(PREFIX + 'settings');
         const defaults = {
+            // ====== 游戏核心 (15项) ======
             difficulty: 'normal',
+            callMode: 'score',
+            laiziEnabled: false,
+            baseScore: 1,
+            scoreMultiplier: 1,
+            allowSpring: true,
+            allowAntiSpring: true,
+            bombDoubles: true,
+            rocketDoubles: true,
+            timerEnabled: true,
+            timerSeconds: 30,
+            firstPlayer: 'random',
+            jokerRule: 'standard',
+            bombRule: 'standard',
+            strictRules: true,
+
+            // ====== 游戏变体 (10项) ======
+            showCards: false,
+            exchangeThree: false,
+            noShuffle: false,
+            bottomVisible: false,
+            mustPlay: false,
+            allowPassOnFirst: true,
+            allowTripleWithSingle: true,
+            allowTripleWithPair: true,
+            allowAirplaneWithWings: true,
+            bombAsRocket: false,
+
+            // ====== AI 行为 (10项) ======
+            aiThinkTime: 1000,
+            aiCallStrategy: 'balanced',
+            aiPlayStyle: 'balanced',
+            aiMemoryLevel: 'basic',
+            aiCooperation: 'basic',
+            aiBluffRate: 10,
+            aiRiskTolerance: 50,
+            aiUseHint: true,
+            aiEmoteRate: 30,
+            aiDifficultyScale: 1.0,
+
+            // ====== 音频 (12项) ======
             soundEnabled: true,
-            animationEnabled: true,
-            showTutorial: true,
-            theme: 'green',
-            matchRounds: 1,
+            bgmEnabled: true,
+            sfxEnabled: true,
             bgmVolume: 0.5,
             sfxVolume: 0.5,
-            playerName: '玩家',
-            gameSpeed: 1.0,
+            voiceVolume: 0.7,
+            bgmTrack: 'default',
+            voicePack: 'default',
+            voiceAnnounce: false,
+            enableDealSound: true,
+            enablePlaySound: true,
+            enableBombSound: true,
+            enableWinSound: true,
+            enableTickSound: true,
+            enableChatSound: true,
+
+            // ====== 视觉主题 (10项) ======
+            theme: 'green',
             uiDensity: 'comfortable',
+            animationLevel: 'normal',
+            cardStyle: 'modern',
+            cardBackStyle: 'classic',
+            cardCornerRadius: 8,
+            cardBorderWidth: 1,
+            fontSize: 'medium',
+            darkMode: false,
+            highContrast: false,
+            colorblindMode: false,
+            colorblindType: 'none',
+
+            // ====== 布局 (10项) ======
             tableScale: 1,
             cardScale: 1,
+            playedCardScale: 1,
+            replayCardScale: 1,
+            playedOverlap: 16,
             selectedLift: 12,
             hoverLift: 7,
-            playedOverlap: 16,
-            playedCardScale: 1,
-            dragThreshold: 7,
-            animationLevel: 'normal',
-            opponentCards: 'stack',
-            showTableAura: true,
-            showShortcuts: true,
-            replayCardScale: 1,
             panelOpacity: 80,
+            handArrangement: 'fan',
+            playedCardArrangement: 'straight',
+
+            // ====== 动画与特效 (12项) ======
+            gameSpeed: 1.0,
+            animSpeed: 1.0,
+            particleIntensity: 'normal',
+            particleCount: 50,
+            screenShakeIntensity: 'normal',
+            floatingTextSize: 'normal',
+            shadowIntensity: 'normal',
+            glowIntensity: 'normal',
+            transitionSpeed: 1.0,
+            winEffectLevel: 'normal',
+            bombEffectLevel: 'normal',
+            comboAnnounce: 2,
             cardEnterStagger: 30,
+
+            // ====== 交互操作 (14项) ======
+            clickToSelect: true,
+            doubleClickToPlay: false,
+            spaceConfirm: true,
+            autoHint: true,
+            smartDiscard: true,
+            playConfirm: false,
+            passConfirm: false,
+            confirmOnBomb: false,
+            dragThreshold: 7,
+            oneClickPlay: false,
+            smartSort: true,
+            rightClickCancel: true,
+            wheelZoom: true,
+            autoArrange: true,
+            autoSortAfterPlay: false,
+            stickySelection: false,
+            showPlayPreview: true,
+            gestureEnabled: true,
+            swipeToSelect: true,
+            longPressHint: false,
+            hapticEnabled: true,
+
+            // ====== 辅助功能 (12项) ======
+            showTutorial: true,
+            showShortcuts: true,
+            showTableAura: true,
+            opponentCards: 'stack',
+            autoOpenTracker: false,
+            autoOpenHistory: false,
+            hintDetail: 'type',
+            showRemainingCount: true,
+            showWinProbability: false,
+            showBestMove: false,
+            handAnalysis: false,
+            showOpponentTendency: false,
+            showDangerCards: false,
+            highlightPlayable: true,
+            showPatternName: true,
+            showPlayerStats: false,
+
+            // ====== 面板开关 (6项) ======
+            enableCardTracker: true,
+            enableAutoHint: true,
+            enableChat: true,
+            enableEmoji: true,
+            enableReplay: true,
+            enableStats: true,
+            enableAchievements: true,
+
+            // ====== 个性化 (4项) ======
+            playerName: '玩家',
+            matchRounds: 1,
+            avatarStyle: 'default',
+            showOpponentCall: true,
+
+            // ====== 无障碍 (5项) ======
+            reduceMotion: false,
+            largeClickTargets: false,
+            highVisibility: false,
+
+            // ====== 性能与调试 (5项) ======
+            showFPS: false,
+            showMemory: false,
+            frameLimit: 60,
+            lazyRender: false,
+            debugMode: false,
+
+            // ====== 网络 (4项) ======
+            networkQuality: 'auto',
+            reconnectAttempts: 3,
+            heartbeatInterval: 5000,
+            lagCompensation: true,
+
+            // ====== 高级 (4项) ======
+            language: 'zh-CN',
+            maxHistory: 50,
+            spectatorDelay: 0,
+            autoSaveInterval: 30,
+            experimentalFeatures: false,
         };
+
         if (!raw) return defaults;
         try {
-            return { ...defaults, ...JSON.parse(raw) };
+            const parsed = JSON.parse(raw);
+            // 合并：保留旧设置 + 填充新默认值
+            const merged = { ...defaults, ...parsed };
+
+            // === 旧 key 迁移 ===
+            if (parsed.laiziMode !== undefined && parsed.laiziEnabled === undefined) {
+                merged.laiziEnabled = !!parsed.laiziMode;
+            }
+            if (parsed.turnTimeout !== undefined && parsed.timerSeconds === undefined) {
+                merged.timerSeconds = parsed.turnTimeout;
+            }
+            if (parsed.baseScore !== undefined && parsed.scoreMultiplier === undefined) {
+                merged.scoreMultiplier = parsed.baseScore;
+            }
+
+            return merged;
         } catch {
             return defaults;
         }
@@ -116,7 +287,7 @@ export const Storage = {
             .filter(k => k.startsWith(PREFIX))
             .forEach(k => localStorage.removeItem(k));
     },
-    
+
     // ========== 成就系统 ==========
     ACHIEVEMENTS: [
         { id: 'first_game', name: '初出茅庐', desc: '完成第一局游戏', icon: '🎮' },
@@ -128,7 +299,7 @@ export const Storage = {
         { id: 'rocket', name: '火箭发射', desc: '打出一次王炸', icon: '🚀' },
         { id: 'clean_sweep', name: '全歼对手', desc: '一局内打完所有手牌', icon: '🃏' },
     ],
-    
+
     getAchievements() {
         const raw = localStorage.getItem(PREFIX + 'achievements');
         const defaults = {};
@@ -141,11 +312,11 @@ export const Storage = {
             return defaults;
         }
     },
-    
+
     saveAchievements(achievements) {
         try { localStorage.setItem(PREFIX + 'achievements', JSON.stringify(achievements)); } catch (e) {}
     },
-    
+
     getAchievementProgress() {
         const raw = localStorage.getItem(PREFIX + 'achievement_progress');
         const defaults = {
@@ -163,19 +334,19 @@ export const Storage = {
             return defaults;
         }
     },
-    
+
     saveAchievementProgress(progress) {
         try { localStorage.setItem(PREFIX + 'achievement_progress', JSON.stringify(progress)); } catch (e) {}
     },
-    
+
     // 检查并解锁成就，返回新解锁的成就列表
     checkAchievements(roundData) {
         const achievements = this.getAchievements();
         const progress = this.getAchievementProgress();
         const unlocked = [];
-        
+
         progress.totalGames++;
-        
+
         if (roundData.isWin) {
             if (roundData.isLandlord) {
                 progress.landlordWins++;
@@ -183,19 +354,19 @@ export const Storage = {
                 progress.peasantWins++;
             }
         }
-        
+
         if (roundData.bombsPlayed >= 3) {
             progress.bombsPlayed = Math.max(progress.bombsPlayed, roundData.bombsPlayed);
         }
-        
+
         if (roundData.rocketPlayed) {
             progress.rocketPlayed = true;
         }
-        
+
         if (roundData.cleanSweep) {
             progress.cleanSweep = true;
         }
-        
+
         // 检查各成就条件
         if (!achievements.first_game && progress.totalGames >= 1) {
             achievements.first_game = true;
@@ -229,7 +400,7 @@ export const Storage = {
             achievements.clean_sweep = true;
             unlocked.push(this.ACHIEVEMENTS.find(a => a.id === 'clean_sweep'));
         }
-        
+
         this.saveAchievements(achievements);
         this.saveAchievementProgress(progress);
         return unlocked;

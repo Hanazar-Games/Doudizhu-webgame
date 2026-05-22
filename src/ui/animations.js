@@ -850,6 +850,344 @@ class Animations {
             this.sparkleBurst(w / 2, h / 2, 30);
         }, 500);
     }
+
+    // ==================== v1.1.7 全局动画增强 ====================
+
+    /**
+     * 选牌时的闪光粒子轨迹
+     * @param {HTMLElement} cardEl
+     */
+    cardSelectSparkle(cardEl) {
+        const rect = cardEl.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        for (let i = 0; i < 6; i++) {
+            const dot = this._createAnimElement('div');
+            dot.className = 'select-sparkle';
+            dot.style.left = cx + 'px';
+            dot.style.top = cy + 'px';
+            const angle = (Math.PI * 2 * i) / 6;
+            const dist = 20 + Math.random() * 30;
+            dot.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+            dot.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+            this.container.appendChild(dot);
+            setTimeout(() => dot.remove(), 500);
+        }
+    }
+
+    /**
+     * 提示牌的光晕扫过效果
+     * @param {HTMLElement} cardEl
+     */
+    hintGlowSweep(cardEl) {
+        const glow = this._createAnimElement('div');
+        glow.className = 'hint-glow-sweep';
+        const rect = cardEl.getBoundingClientRect();
+        glow.style.left = rect.left + 'px';
+        glow.style.top = rect.top + 'px';
+        glow.style.width = rect.width + 'px';
+        glow.style.height = rect.height + 'px';
+        this.container.appendChild(glow);
+        setTimeout(() => glow.remove(), 700);
+    }
+
+    /**
+     * 回合切换时的玩家区域光晕扩散
+     * @param {HTMLElement} areaEl
+     */
+    turnSwitchGlow(areaEl) {
+        if (!areaEl) return;
+        const rect = areaEl.getBoundingClientRect();
+        const glow = this._createAnimElement('div');
+        glow.className = 'turn-switch-glow';
+        glow.style.left = (rect.left + rect.width / 2) + 'px';
+        glow.style.top = (rect.top + rect.height / 2) + 'px';
+        this.container.appendChild(glow);
+        setTimeout(() => glow.remove(), 800);
+    }
+
+    /**
+     * 倒计时数字出现时的弹跳放大
+     * @param {HTMLElement} timerEl
+     */
+    countdownAppear(timerEl) {
+        if (!timerEl) return;
+        timerEl.style.animation = 'none';
+        timerEl.offsetHeight; // force reflow
+        timerEl.style.animation = 'countdownAppear 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+    }
+
+    /**
+     * 增强的思考指示器（旋转光环）
+     * @param {HTMLElement} indicatorEl
+     */
+    thinkingEnhance(indicatorEl) {
+        if (!indicatorEl) return;
+        indicatorEl.classList.add('thinking-enhanced');
+    }
+
+    /**
+     * 按钮按下时的涟漪+缩放反馈
+     * @param {HTMLElement} btnEl
+     */
+    buttonPress(btnEl) {
+        if (!btnEl) return;
+        btnEl.classList.add('btn-press-anim');
+        setTimeout(() => btnEl.classList.remove('btn-press-anim'), 200);
+    }
+
+    /**
+     * 连击/连续出牌特效
+     * @param {number} x
+     * @param {number} y
+     * @param {number} comboCount
+     */
+    comboEffect(x, y, comboCount) {
+        const texts = ['', '连击!', '双连击!', '三连击!', '四连击!', '无敌!'];
+        const text = texts[Math.min(comboCount, texts.length - 1)];
+        if (!text) return;
+        const el = this._createAnimElement('div');
+        el.className = 'combo-text';
+        el.textContent = text;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        this.container.appendChild(el);
+        setTimeout(() => el.remove(), 1500);
+
+        // 光环
+        this.pulseRing(x, y, '#ff9800', 80 + comboCount * 20);
+        // 星星
+        this.sparkleBurst(x, y, 8 + comboCount * 3);
+    }
+
+    /**
+     * 手牌进入时的依次飞入
+     * @param {NodeList} cardEls
+     * @param {number} baseDelay
+     */
+    handCardsEnter(cardEls, baseDelay = 30) {
+        cardEls.forEach((el, i) => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(30px) scale(0.8)';
+            setTimeout(() => {
+                el.style.transition = 'all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                el.style.opacity = '1';
+                el.style.transform = 'translateY(0) scale(1)';
+                setTimeout(() => {
+                    el.style.transition = '';
+                }, 300);
+            }, i * baseDelay);
+        });
+    }
+
+    /**
+     * 得分数字弹出（带颜色）
+     * @param {number} x
+     * @param {number} y
+     * @param {number} score
+     * @param {boolean} isPositive
+     */
+    scorePopup(x, y, score, isPositive = true) {
+        const el = this._createAnimElement('div');
+        el.className = 'score-popup';
+        el.textContent = (isPositive ? '+' : '') + score;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.style.color = isPositive ? '#4caf50' : '#f44336';
+        this.container.appendChild(el);
+        setTimeout(() => el.remove(), 1200);
+    }
+
+    /**
+     * 背景浮动粒子（少量装饰）
+     */
+    bgParticles(count = 12) {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        for (let i = 0; i < count; i++) {
+            const p = this._createAnimElement('div');
+            p.className = 'bg-particle';
+            p.style.left = Math.random() * w + 'px';
+            p.style.top = Math.random() * h + 'px';
+            p.style.animationDelay = Math.random() * 5 + 's';
+            p.style.animationDuration = (4 + Math.random() * 4) + 's';
+            this.container.appendChild(p);
+        }
+    }
+
+    /**
+     * 清除背景粒子
+     */
+    clearBgParticles() {
+        document.querySelectorAll('.bg-particle').forEach(p => p.remove());
+    }
+
+    /**
+     * 模态框内容切换时的缩放过渡
+     * @param {HTMLElement} contentEl
+     */
+    modalContentSwitch(contentEl) {
+        if (!contentEl) return;
+        contentEl.style.animation = 'modalContentSwitch 0.3s ease';
+        setTimeout(() => { contentEl.style.animation = ''; }, 300);
+    }
+
+    /**
+     * 玩家头像脉冲发光（回合切换时）
+     * @param {HTMLElement} avatarEl
+     */
+    avatarPulse(avatarEl) {
+        if (!avatarEl) return;
+        avatarEl.classList.add('avatar-pulse-anim');
+        setTimeout(() => avatarEl.classList.remove('avatar-pulse-anim'), 600);
+    }
+
+    /**
+     * 卡牌取消选中时的下沉动画
+     * @param {HTMLElement} cardEl
+     */
+    cardDeselect(cardEl) {
+        if (!cardEl) return;
+        cardEl.classList.add('card-deselect-anim');
+        setTimeout(() => cardEl.classList.remove('card-deselect-anim'), 200);
+    }
+
+    /**
+     * 控制面板切换时的淡入淡出
+     * @param {HTMLElement} panelEl
+     * @param {boolean} show
+     */
+    panelFadeToggle(panelEl, show) {
+        if (!panelEl) return;
+        if (show) {
+            panelEl.style.opacity = '0';
+            panelEl.style.transform = 'translateY(20px)';
+            panelEl.style.transition = 'all 0.3s ease-out';
+            requestAnimationFrame(() => {
+                panelEl.style.opacity = '1';
+                panelEl.style.transform = 'translateY(0)';
+            });
+        } else {
+            panelEl.style.transition = 'all 0.2s ease-in';
+            panelEl.style.opacity = '0';
+            panelEl.style.transform = 'translateY(10px)';
+        }
+    }
+
+    /**
+     * 快捷短语发送时的飞行动画
+     * @param {number} fromX
+     * @param {number} fromY
+     * @param {number} toX
+     * @param {number} toY
+     */
+    phraseFly(fromX, fromY, toX, toY) {
+        const el = this._createAnimElement('div');
+        el.className = 'phrase-fly';
+        el.textContent = '💬';
+        el.style.left = fromX + 'px';
+        el.style.top = fromY + 'px';
+        el.style.setProperty('--to-x', (toX - fromX) + 'px');
+        el.style.setProperty('--to-y', (toY - fromY) + 'px');
+        this.container.appendChild(el);
+        setTimeout(() => el.remove(), 600);
+    }
+
+    /**
+     * 记牌器/历史记录按钮徽章弹跳
+     * @param {HTMLElement} badgeEl
+     */
+    badgeBounce(badgeEl) {
+        if (!badgeEl) return;
+        badgeEl.classList.add('badge-bounce-anim');
+        setTimeout(() => badgeEl.classList.remove('badge-bounce-anim'), 400);
+    }
+
+    /**
+     * 底牌揭示时的3D翻转增强
+     * @param {HTMLElement} cardEl
+     * @param {number} delay
+     */
+    bottomCardReveal(cardEl, delay = 0) {
+        if (!cardEl) return;
+        setTimeout(() => {
+            cardEl.style.transition = 'transform 0.5s ease-in-out';
+            cardEl.style.transformStyle = 'preserve-3d';
+            cardEl.style.transform = 'rotateY(90deg) scale(1.1)';
+            setTimeout(() => {
+                cardEl.style.transform = 'rotateY(0deg) scale(1)';
+                this.sparkleBurst(
+                    cardEl.getBoundingClientRect().left + cardEl.offsetWidth / 2,
+                    cardEl.getBoundingClientRect().top + cardEl.offsetHeight / 2,
+                    5
+                );
+            }, 250);
+        }, delay);
+    }
+
+    /**
+     * 托管状态切换时的脉冲提示
+     * @param {HTMLElement} areaEl
+     * @param {boolean} isAuto
+     */
+    autoTogglePulse(areaEl, isAuto) {
+        if (!areaEl) return;
+        const pulse = this._createAnimElement('div');
+        pulse.className = isAuto ? 'auto-pulse-on' : 'auto-pulse-off';
+        const rect = areaEl.getBoundingClientRect();
+        pulse.style.left = (rect.left + rect.width / 2) + 'px';
+        pulse.style.top = (rect.top + rect.height / 2) + 'px';
+        this.container.appendChild(pulse);
+        setTimeout(() => pulse.remove(), 700);
+    }
+
+    /**
+     * 胜利时的金色雨
+     * @param {number} duration
+     */
+    goldRain(duration = 3000) {
+        const w = window.innerWidth;
+        const count = 40;
+        for (let i = 0; i < count; i++) {
+            const drop = this._createAnimElement('div');
+            drop.className = 'gold-rain-drop';
+            drop.textContent = Math.random() > 0.5 ? '✦' : '★';
+            drop.style.left = Math.random() * w + 'px';
+            drop.style.top = '-20px';
+            drop.style.fontSize = (10 + Math.random() * 14) + 'px';
+            drop.style.animationDelay = Math.random() * 2 + 's';
+            drop.style.animationDuration = (1.5 + Math.random() * 2) + 's';
+            this.container.appendChild(drop);
+            setTimeout(() => drop.remove(), duration);
+        }
+    }
+
+    /**
+     * 卡牌整理/排序时的洗牌动画
+     * @param {NodeList} cardEls
+     */
+    shuffleCards(cardEls) {
+        cardEls.forEach((el, i) => {
+            el.style.transition = 'transform 0.3s ease';
+            el.style.transform = `translateX(${(Math.random() - 0.5) * 20}px) rotate(${(Math.random() - 0.5) * 10}deg)`;
+            setTimeout(() => {
+                el.style.transform = 'translateX(0) rotate(0)';
+                setTimeout(() => { el.style.transition = ''; }, 300);
+            }, 200 + i * 20);
+        });
+    }
+
+    /**
+     * 新记录/最高分时的闪光横幅
+     * @param {string} text
+     */
+    newRecordBanner(text) {
+        const el = this._createAnimElement('div');
+        el.className = 'new-record-banner';
+        el.textContent = '🏆 ' + text;
+        this.container.appendChild(el);
+        setTimeout(() => el.remove(), 2500);
+    }
 }
 
 export { Animations };

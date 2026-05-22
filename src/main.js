@@ -10,12 +10,14 @@ import { Renderer } from './ui/renderer.js';
 import { AudioManager } from './ui/audio.js';
 import { Storage } from './utils/storage.js';
 import { ReplayManager } from './utils/replay.js';
+import { Tutorial } from './ui/tutorial.js';
 
 class GameApp {
     constructor() {
         this.currentMode = null;
         this.renderer = null;
         this.menuAudio = new AudioManager();
+        this.tutorial = new Tutorial(this.menuAudio);
         this._hasUserInteracted = false;
         this.settings = Storage.getSettings();
         this.stats = { gamesPlayed: 0, wins: 0, losses: 0, totalScore: 0, streak: 0, ...Storage.getStats() };
@@ -33,6 +35,8 @@ class GameApp {
             { id: 'btn-custom-mode', action: () => this.startCustomMode() },
             { id: 'btn-replay-mode', action: () => this.showReplayList() },
             { id: 'btn-achievements', action: () => this.showAchievements() },
+            { id: 'btn-tutorial', action: () => this.openTutorial() },
+            { id: 'btn-settings', action: () => this.openSettings() },
             { id: 'btn-back', action: () => this.showMenu() },
         ];
         for (const { id, action } of menuBtns) {
@@ -127,6 +131,14 @@ class GameApp {
             document.getElementById('achievement-panel')?.classList.add('hidden');
         });
 
+        // 设置面板关闭
+        document.getElementById('btn-close-settings')?.addEventListener('click', () => {
+            this.closeSettings();
+        });
+        document.getElementById('settings-overlay')?.addEventListener('click', (e) => {
+            if (e.target.id === 'settings-overlay') this.closeSettings();
+        });
+
         // 返回按钮（跨屏幕通用）
         document.getElementById('btn-back-lan')?.addEventListener('click', () => {
             this._playButtonClick();
@@ -185,6 +197,8 @@ class GameApp {
     _syncAudioSettings(audio) {
         if (!audio) return;
         audio.enabled = this.settings.soundEnabled !== false;
+        audio.bgmEnabled = this.settings.bgmEnabled !== false;
+        audio.sfxEnabled = this.settings.sfxEnabled !== false;
         audio.setBGMVolume(this.settings.bgmVolume ?? 0.5);
         audio.setSFXVolume(this.settings.sfxVolume ?? 0.5);
     }
@@ -279,6 +293,12 @@ class GameApp {
         const roundsSelect = document.getElementById('match-rounds');
         if (roundsSelect) roundsSelect.value = String(this.settings.matchRounds || 1);
 
+        const speedSelect = document.getElementById('game-speed');
+        if (speedSelect) speedSelect.value = String(this.settings.gameSpeed || 1.0);
+
+        const nameInput = document.getElementById('player-name');
+        if (nameInput) nameInput.value = this.settings.playerName || '玩家';
+
         // 音量滑块
         const bgmSlider = document.getElementById('cfg-bgm-volume');
         const bgmVal = document.getElementById('cfg-bgm-volume-value');
@@ -295,6 +315,9 @@ class GameApp {
     }
 
     _bindUXSettings() {
+        // 滑块音效防抖计时器
+        let sliderSfxTimer = null;
+
         const controls = document.querySelectorAll('[data-setting]');
         controls.forEach(control => {
             const eventName = control.type === 'range' ? 'input' : 'change';
@@ -311,32 +334,214 @@ class GameApp {
                 Storage.saveSettings(this.settings);
                 this._applyUXSettings();
                 this._updateUXSettingLabel(key);
+
+                // === 音效反馈 ===
+                const audio = this._getActiveAudio();
+                if (control.type === 'checkbox') {
+                    audio?.playSettingToggle?.(control.checked);
+                } else if (control.type === 'range') {
+                    clearTimeout(sliderSfxTimer);
+                    sliderSfxTimer = setTimeout(() => {
+                        audio?.playSettingSlider?.();
+                    }, 120);
+                }
+
+                // === 视觉反馈 ===
+                const parent = control.closest('.setting-row, .toggle-switch-wrap, .setting-slider, .volume-control');
+                if (parent) {
+                    parent.classList.remove('setting-changed');
+                    void parent.offsetWidth; // force reflow
+                    parent.classList.add('setting-changed');
+                    setTimeout(() => parent.classList.remove('setting-changed'), 500);
+                }
             });
         });
 
         document.getElementById('btn-reset-ux-settings')?.addEventListener('click', () => {
             this._playButtonClick();
+            this._getActiveAudio()?.playSettingReset?.();
             Object.assign(this.settings, {
-                uiDensity: 'comfortable',
-                tableScale: 1,
-                cardScale: 1,
-                selectedLift: 12,
-                hoverLift: 7,
-                playedOverlap: 16,
-                playedCardScale: 1,
-                dragThreshold: 7,
-                animationLevel: 'normal',
-                opponentCards: 'stack',
-                showTableAura: true,
-                showShortcuts: true,
-                replayCardScale: 1,
-                panelOpacity: 80,
+                // 视觉
+                uiDensity: 'comfortable', animationLevel: 'normal', cardStyle: 'modern',
+                cardBackStyle: 'classic', cardCornerRadius: 8, cardBorderWidth: 1,
+                fontSize: 'medium', darkMode: false, highContrast: false,
+                colorblindMode: false, colorblindType: 'none',
+                // 布局
+                tableScale: 1, cardScale: 1, playedCardScale: 1, replayCardScale: 1,
+                playedOverlap: 16, selectedLift: 12, hoverLift: 7, panelOpacity: 80,
+                handArrangement: 'fan', playedCardArrangement: 'straight',
+                // 动画
+                animSpeed: 1.0, particleIntensity: 'normal', particleCount: 50,
+                screenShakeIntensity: 'normal', floatingTextSize: 'normal',
+                shadowIntensity: 'normal', glowIntensity: 'normal', transitionSpeed: 1.0,
+                winEffectLevel: 'normal', bombEffectLevel: 'normal', comboAnnounce: 2,
                 cardEnterStagger: 30,
+                // 交互
+                clickToSelect: true, doubleClickToPlay: false, spaceConfirm: true,
+                autoHint: true, smartDiscard: true, playConfirm: false, passConfirm: false,
+                confirmOnBomb: false, dragThreshold: 7, oneClickPlay: false,
+                smartSort: true, rightClickCancel: true, wheelZoom: true,
+                autoArrange: true, autoSortAfterPlay: false, stickySelection: false,
+                showPlayPreview: true, gestureEnabled: true, swipeToSelect: true,
+                longPressHint: false, hapticEnabled: true,
+                // 辅助
+                showTutorial: true, showShortcuts: true, showTableAura: true,
+                opponentCards: 'stack', autoOpenTracker: false, autoOpenHistory: false,
+                hintDetail: 'type', sortOrder: 'auto', showRemainingCount: true,
+                showWinProbability: false, showBestMove: false, handAnalysis: false,
+                showOpponentTendency: false, showDangerCards: false,
+                highlightPlayable: true, showPatternName: true, showPlayerStats: false,
+                showOpponentCall: true,
+                // 面板
+                enableCardTracker: true, enableAutoHint: true, enableChat: true,
+                enableEmoji: true, enableReplay: true, enableStats: true,
+                enableAchievements: true,
+                // 无障碍
+                reduceMotion: false, largeClickTargets: false, highVisibility: false,
+                // 性能
+                showFPS: false, showMemory: false, frameLimit: 60, lazyRender: false,
+                debugMode: false, experimentalFeatures: false,
+                // 网络
+                networkQuality: 'auto', reconnectAttempts: 3, heartbeatInterval: 5,
+                lagCompensation: true,
+                // 高级
+                spectatorDelay: 0, autoSaveInterval: 30, maxHistory: 50,
+                // 个性化
+                avatarStyle: 'default', language: 'zh-CN',
             });
             Storage.saveSettings(this.settings);
             this._syncUXSettingControls();
             this._applyUXSettings();
         });
+
+        // 恢复所有默认（包括游戏规则）
+        document.getElementById('btn-reset-all-settings')?.addEventListener('click', () => {
+            this._playButtonClick();
+            this._getActiveAudio()?.playSettingReset?.();
+            if (confirm('确定要恢复所有设置到默认状态吗？这将重置包括游戏规则在内的所有参数。')) {
+                this.settings = Storage.getSettings(); // 重新获取默认值
+                Storage.saveSettings(this.settings);
+                this._syncAllSettings();
+                this._applyUXSettings();
+                this._applyTheme(this.settings.theme || 'green');
+            }
+        });
+    }
+
+    // ===== 设置面板打开/关闭 =====
+    openSettings() {
+        const overlay = document.getElementById('settings-overlay');
+        if (!overlay) return;
+        overlay.classList.remove('hidden');
+        // 降低 BGM
+        const audio = this._getActiveAudio();
+        if (audio && this._savedBGMVolume === undefined) {
+            this._savedBGMVolume = this.settings.bgmVolume ?? 0.5;
+            audio.setBGMVolume(this._savedBGMVolume * 0.25);
+        }
+        audio?.playSettingOpen?.();
+        // 聚焦搜索框
+        setTimeout(() => {
+            document.getElementById('settings-search-input')?.focus();
+        }, 100);
+        // 初始化搜索
+        this._initSettingsSearch();
+    }
+
+    closeSettings() {
+        const audio = this._getActiveAudio();
+        audio?.playSettingClose?.();
+        // 恢复 BGM（优先使用用户在面板内调节后的最新值）
+        if (this._savedBGMVolume !== undefined) {
+            const restoredVolume = this.settings.bgmVolume ?? this._savedBGMVolume;
+            audio?.setBGMVolume?.(restoredVolume);
+            this._savedBGMVolume = undefined;
+        }
+        document.getElementById('settings-overlay')?.classList.add('hidden');
+        // 清空搜索
+        const searchInput = document.getElementById('settings-search-input');
+        if (searchInput) {
+            searchInput.value = '';
+            this._filterSettings('');
+        }
+    }
+
+    // ===== 设置搜索过滤 =====
+    _initSettingsSearch() {
+        if (this._settingsSearchBound) return;
+        this._settingsSearchBound = true;
+
+        const searchInput = document.getElementById('settings-search-input');
+        const clearBtn = document.getElementById('settings-search-clear');
+
+        let debounceTimer = null;
+        searchInput?.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                this._filterSettings(e.target.value.trim());
+            }, 150);
+        });
+
+        clearBtn?.addEventListener('click', () => {
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.focus();
+                this._filterSettings('');
+            }
+        });
+
+        searchInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                searchInput.value = '';
+                this._filterSettings('');
+            }
+        });
+    }
+
+    _filterSettings(query) {
+        const panel = document.querySelector('.settings-panel');
+        if (!panel) return;
+        const countEl = document.getElementById('settings-search-count');
+
+        if (!query) {
+            // 显示所有
+            panel.querySelectorAll('.setting-hidden').forEach(el => el.classList.remove('setting-hidden'));
+            panel.querySelectorAll('.setting-search-match').forEach(el => el.classList.remove('setting-search-match'));
+            panel.querySelectorAll('.advanced-settings').forEach(d => { d.open = false; });
+            if (countEl) countEl.textContent = '';
+            return;
+        }
+
+        const q = query.toLowerCase();
+        let matchCount = 0;
+
+        // 收集所有可搜索元素
+        const searchable = [];
+        panel.querySelectorAll('.setting-row, .toggle-switch-wrap, .setting-slider, .volume-control').forEach(el => {
+            const text = el.textContent.toLowerCase();
+            searchable.push({ el, text });
+        });
+
+        // 先全部隐藏
+        searchable.forEach(({ el }) => el.classList.add('setting-hidden'));
+        panel.querySelectorAll('.setting-search-match').forEach(el => el.classList.remove('setting-search-match'));
+
+        // 显示匹配的
+        searchable.forEach(({ el, text }) => {
+            if (text.includes(q)) {
+                el.classList.remove('setting-hidden');
+                el.classList.add('setting-search-match');
+                matchCount++;
+                // 展开父级 details
+                let parent = el.parentElement;
+                while (parent && parent !== panel) {
+                    if (parent.tagName === 'DETAILS') parent.open = true;
+                    parent = parent.parentElement;
+                }
+            }
+        });
+
+        if (countEl) countEl.textContent = matchCount > 0 ? `${matchCount} 项匹配` : '无匹配';
     }
 
     _syncUXSettingControls() {
@@ -353,19 +558,81 @@ class GameApp {
         });
     }
 
+    _syncAllSettings() {
+        // 同步所有设置控件（包括非 data-setting 的基础控件）
+        const diffSelect = document.getElementById('difficulty');
+        if (diffSelect) diffSelect.value = this.settings.difficulty;
+
+        const themeSelect = document.getElementById('theme');
+        if (themeSelect) themeSelect.value = this.settings.theme || 'green';
+
+        const roundsSelect = document.getElementById('match-rounds');
+        if (roundsSelect) roundsSelect.value = String(this.settings.matchRounds || 1);
+
+        const speedSelect = document.getElementById('game-speed');
+        if (speedSelect) speedSelect.value = String(this.settings.gameSpeed || 1.0);
+
+        const nameInput = document.getElementById('player-name');
+        if (nameInput) nameInput.value = this.settings.playerName || '玩家';
+
+        const soundCheckbox = document.getElementById('cfg-sound');
+        if (soundCheckbox) soundCheckbox.checked = this.settings.soundEnabled;
+
+        const bgmSlider = document.getElementById('cfg-bgm-volume');
+        const bgmVal = document.getElementById('cfg-bgm-volume-value');
+        if (bgmSlider) bgmSlider.value = this.settings.bgmVolume ?? 0.5;
+        if (bgmVal) bgmVal.textContent = Math.round((this.settings.bgmVolume ?? 0.5) * 100) + '%';
+
+        const sfxSlider = document.getElementById('cfg-sfx-volume');
+        const sfxVal = document.getElementById('cfg-sfx-volume-value');
+        if (sfxSlider) sfxSlider.value = this.settings.sfxVolume ?? 0.5;
+        if (sfxVal) sfxVal.textContent = Math.round((this.settings.sfxVolume ?? 0.5) * 100) + '%';
+
+        this._syncUXSettingControls();
+    }
+
     _updateUXSettingLabel(key) {
         const output = document.querySelector(`[data-setting-output="${key}"]`);
         if (!output) return;
         const value = this.settings[key];
-        const percentKeys = new Set(['tableScale', 'cardScale', 'playedCardScale', 'replayCardScale']);
+        const percentKeys = new Set([
+            'tableScale', 'cardScale', 'playedCardScale', 'replayCardScale',
+            'animSpeed', 'transitionSpeed', 'aiDifficultyScale'
+        ]);
         if (percentKeys.has(key)) {
             output.textContent = Math.round(Number(value || 1) * 100) + '%';
-        } else if (key === 'selectedLift' || key === 'hoverLift' || key === 'playedOverlap' || key === 'dragThreshold') {
+        } else if (key === 'selectedLift' || key === 'hoverLift' || key === 'playedOverlap' || key === 'dragThreshold' || key === 'cardCornerRadius') {
+            output.textContent = `${value}px`;
+        } else if (key === 'cardBorderWidth') {
             output.textContent = `${value}px`;
         } else if (key === 'panelOpacity') {
             output.textContent = `${value}%`;
         } else if (key === 'cardEnterStagger') {
             output.textContent = `${value}ms`;
+        } else if (key === 'turnTimeout' || key === 'timerSeconds') {
+            output.textContent = value === 0 || value === '0' ? '无限制' : `${value}秒`;
+        } else if (key === 'baseScore' || key === 'scoreMultiplier') {
+            output.textContent = `${value}分`;
+        } else if (key === 'aiThinkTime') {
+            output.textContent = `${value}ms`;
+        } else if (key === 'aiBluffRate' || key === 'aiEmoteRate') {
+            output.textContent = `${value}%`;
+        } else if (key === 'aiRiskTolerance') {
+            output.textContent = `${value}%`;
+        } else if (key === 'spectatorDelay') {
+            output.textContent = `${value}s`;
+        } else if (key === 'heartbeatInterval' || key === 'autoSaveInterval') {
+            output.textContent = `${value}s`;
+        } else if (key === 'voiceVolume' || key === 'bgmVolume' || key === 'sfxVolume') {
+            output.textContent = Math.round(Number(value || 0) * 100) + '%';
+        } else if (key === 'particleCount') {
+            output.textContent = `${value}个`;
+        } else if (key === 'comboAnnounce') {
+            output.textContent = `${value}连击`;
+        } else if (key === 'maxHistory') {
+            output.textContent = `${value}局`;
+        } else if (key === 'reconnectAttempts') {
+            output.textContent = `${value}次`;
         } else {
             output.textContent = String(value ?? '');
         }
@@ -377,12 +644,51 @@ class GameApp {
         const s = this.settings;
         const panelAlpha = Math.max(0.45, Math.min(0.95, (s.panelOpacity ?? 80) / 100));
 
+        // === Body data attributes (CSS响应式) ===
         body.dataset.density = s.uiDensity || 'comfortable';
         body.dataset.motion = s.animationLevel || 'normal';
         body.dataset.opponentCards = s.opponentCards || 'stack';
         body.dataset.showShortcuts = s.showShortcuts === false ? 'false' : 'true';
         body.dataset.tableAura = s.showTableAura === false ? 'false' : 'true';
+        body.dataset.cardStyle = s.cardStyle || 'modern';
+        body.dataset.cardBack = s.cardBackStyle || 'classic';
+        body.dataset.fontSize = s.fontSize || 'medium';
+        body.dataset.particleIntensity = s.particleIntensity || 'normal';
+        body.dataset.shakeIntensity = s.screenShakeIntensity || 'normal';
+        body.dataset.floatingText = s.floatingTextSize || 'normal';
+        body.dataset.shadowIntensity = s.shadowIntensity || 'normal';
+        body.dataset.glowIntensity = s.glowIntensity || 'normal';
+        body.dataset.winEffectLevel = s.winEffectLevel || 'normal';
+        body.dataset.bombEffectLevel = s.bombEffectLevel || 'normal';
+        body.dataset.debug = s.debugMode === true ? 'true' : 'false';
+        body.dataset.chat = s.enableChat === false ? 'false' : 'true';
+        body.dataset.emoji = s.enableEmoji === false ? 'false' : 'true';
+        body.dataset.cardTracker = s.enableCardTracker === false ? 'false' : 'true';
+        body.dataset.autoHint = s.enableAutoHint === false ? 'false' : 'true';
+        body.dataset.darkMode = s.darkMode === true ? 'true' : 'false';
+        body.dataset.highContrast = s.highContrast === true ? 'true' : 'false';
+        body.dataset.colorblindMode = s.colorblindMode === true ? 'true' : 'false';
+        body.dataset.colorblindType = s.colorblindType || 'none';
+        body.dataset.handArrangement = s.handArrangement || 'fan';
+        body.dataset.playedArrangement = s.playedCardArrangement || 'straight';
+        body.dataset.reduceMotion = s.reduceMotion === true ? 'true' : 'false';
+        body.dataset.largeTargets = s.largeClickTargets === true ? 'true' : 'false';
+        body.dataset.highVisibility = s.highVisibility === true ? 'true' : 'false';
+        body.dataset.showRemaining = s.showRemainingCount === false ? 'false' : 'true';
+        body.dataset.showPatternName = s.showPatternName === false ? 'false' : 'true';
+        body.dataset.highlightPlayable = s.highlightPlayable === false ? 'false' : 'true';
+        body.dataset.showPlayerStats = s.showPlayerStats === true ? 'true' : 'false';
+        body.dataset.lazyRender = s.lazyRender === true ? 'true' : 'false';
+        body.dataset.experimental = s.experimentalFeatures === true ? 'true' : 'false';
+        body.dataset.avatarStyle = s.avatarStyle || 'default';
 
+        document.documentElement.lang = s.language || 'zh-CN';
+
+        // 回放按钮显示/隐藏
+        const btnReplay = document.getElementById('btn-replay');
+        if (btnReplay) btnReplay.style.display = s.enableReplay === false ? 'none' : '';
+
+        // === CSS Variables ===
         root.style.setProperty('--ddz-table-scale', String(s.tableScale ?? 1));
         root.style.setProperty('--ddz-card-scale', String(s.cardScale ?? 1));
         root.style.setProperty('--ddz-selected-lift', `${s.selectedLift ?? 12}px`);
@@ -393,6 +699,16 @@ class GameApp {
         root.style.setProperty('--ddz-replay-card-scale', String(s.replayCardScale ?? 1));
         root.style.setProperty('--ddz-panel-alpha', String(panelAlpha));
         root.style.setProperty('--ddz-card-enter-stagger', `${s.cardEnterStagger ?? 30}ms`);
+        root.style.setProperty('--ddz-anim-speed', String(s.animSpeed ?? 1));
+        root.style.setProperty('--ddz-transition-speed', String(s.transitionSpeed ?? 1));
+        root.style.setProperty('--ddz-card-radius', `${s.cardCornerRadius ?? 8}px`);
+        root.style.setProperty('--ddz-card-border', `${s.cardBorderWidth ?? 1}px`);
+
+        // FPS / Memory 显示
+        const fpsEl = document.getElementById('fps-counter');
+        if (fpsEl) fpsEl.style.display = s.showFPS ? 'block' : 'none';
+        const memEl = document.getElementById('memory-counter');
+        if (memEl) memEl.style.display = s.showMemory ? 'block' : 'none';
     }
 
     _applyTheme(theme) {
@@ -481,26 +797,43 @@ class GameApp {
     }
 
     _initTutorial() {
-        const panel = document.getElementById('tutorial-panel');
-        const btnClose = document.getElementById('btn-close-tutorial');
-        const chkSkip = document.getElementById('chk-skip-tutorial');
-        if (!panel || !btnClose) return;
+        // showTutorial 为 false 时直接跳过引导
+        if (this.settings.showTutorial === false) return;
 
-        btnClose.addEventListener('click', () => {
+        const overlay = document.getElementById('welcome-guide-overlay');
+        const btnNewbie = document.getElementById('btn-guide-newbie');
+        const btnExpert = document.getElementById('btn-guide-expert');
+        const chkSkip = document.getElementById('chk-guide-skip');
+        if (!overlay || !btnNewbie || !btnExpert) return;
+
+        const closeGuide = () => {
+            overlay.classList.add('hidden');
+            this._playMenuBGM();
+        };
+
+        btnNewbie.addEventListener('click', () => {
             this._playButtonClick();
             if (chkSkip?.checked) {
                 this.settings.showTutorial = false;
                 Storage.saveSettings(this.settings);
             }
-            panel.classList.add('hidden');
+            closeGuide();
+            // 延迟打开完整教程，让过渡更自然
+            setTimeout(() => this.openTutorial(), 300);
         });
 
-        // 首次进入显示引导
-        if (this.settings.showTutorial !== false) {
-            setTimeout(() => {
-                panel.classList.remove('hidden');
-            }, 1200);
-        }
+        btnExpert.addEventListener('click', () => {
+            this._playButtonClick();
+            if (chkSkip?.checked) {
+                this.settings.showTutorial = false;
+                Storage.saveSettings(this.settings);
+            }
+            closeGuide();
+        });
+
+        setTimeout(() => {
+            overlay.classList.remove('hidden');
+        }, 1000);
     }
 
     _saveGameResult(data) {
@@ -830,6 +1163,36 @@ class GameApp {
                 });
             });
         }
+        this._lockGameRuleSettings(false);
+    }
+
+    /**
+     * 锁定/解锁游戏规则相关设置控件，防止游戏进行中修改破坏公平性。
+     * 仅影响影响游戏平衡的规则类设置，视觉/音频设置不受限制。
+     */
+    _lockGameRuleSettings(locked) {
+        const ruleSettings = [
+            // 核心规则
+            'callMode', 'laiziEnabled', 'baseScore', 'scoreMultiplier',
+            'firstPlayer', 'jokerRule', 'bombRule', 'strictRules',
+            'timerEnabled', 'timerSeconds',
+            // 游戏变体
+            'showCards', 'exchangeThree', 'noShuffle', 'bottomVisible',
+            'mustPlay', 'allowPassOnFirst', 'allowTripleWithSingle',
+            'allowTripleWithPair', 'allowAirplaneWithWings', 'bombAsRocket',
+            // 春天/炸弹规则
+            'allowSpring', 'allowAntiSpring', 'bombDoubles', 'rocketDoubles',
+        ];
+        ruleSettings.forEach(key => {
+            const el = document.querySelector(`[data-setting="${key}"]`);
+            if (el) {
+                el.disabled = locked;
+                const label = el.closest('label');
+                if (label) {
+                    label.classList.toggle('setting-locked', locked);
+                }
+            }
+        });
     }
 
     // ---- 回放 ----
@@ -880,6 +1243,15 @@ class GameApp {
         }
 
         panel.classList.remove('hidden');
+    }
+
+    openTutorial() {
+        this._playButtonClick();
+        this._stopMenuAudio();
+        this.tutorial.open(() => {
+            // 教程完成后，如果设置了自动开始游戏，可以在这里触发
+            this._playMenuBGM();
+        });
     }
 
     showGame() {
@@ -953,6 +1325,7 @@ class GameApp {
         this._bindRoundEndListener();
 
         this.showGame();
+        this._lockGameRuleSettings(true);
         await this.currentMode.startGame();
     }
 
@@ -1015,6 +1388,7 @@ class GameApp {
         // 应用自定义玩家名称
         const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
         if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
+        this._lockGameRuleSettings(true);
     }
 
     // ---- 自定义模式 ----
@@ -1035,6 +1409,7 @@ class GameApp {
         // 应用自定义玩家名称
         const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
         if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
+        this._lockGameRuleSettings(true);
     }
 }
 

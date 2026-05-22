@@ -4,64 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1a5f2a">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>斗地主 - WebGame</title>
-    <link rel="manifest" href="./manifest.json">
-    <link rel="apple-touch-icon" href="./icon-192.png">
+    <title>斗地主 - 经典棋牌游戏</title>
     <link rel="stylesheet" href="./src/styles/main.css">
+    <link rel="manifest" href="./manifest.json">
 </head>
-<body>
-    <!-- 加载画面 -->
-    <div id="loading-screen" class="screen">
-        <div class="loading-container">
-            <div class="loading-spinner">🃏</div>
-            <h2>斗地主</h2>
-            <p>正在加载...</p>
-        </div>
-    </div>
-    
+<body data-theme="green">
     <!-- 菜单界面 -->
     <div id="menu-screen" class="screen">
         <div class="menu-container">
-            <h1 class="game-title">🃏 斗地主</h1>
-            <p class="game-subtitle">网页版</p>
+            <h1 class="game-title">斗地主</h1>
+            <p class="game-subtitle">经典三人棋牌游戏</p>
             
             <div class="menu-buttons">
-                <button id="btn-ai-mode" class="btn-primary">
-                    <span class="icon">🤖</span>
-                    <span class="text">人机对战</span>
-                    <span class="desc">1人 vs 2个AI</span>
-                </button>
-                
-                <button id="btn-lan-mode" class="btn-primary">
-                    <span class="icon">🌐</span>
-                    <span class="text">局域网联机</span>
-                    <span class="desc">3人P2P对战</span>
-                </button>
-                
-                <button id="btn-custom-mode" class="btn-primary">
-                    <span class="icon">⚙️</span>
-                    <span class="text">自定义模式</span>
-                    <span class="desc">自定义规则与牌局</span>
-                </button>
-                
-                <button id="btn-replay-mode" class="btn-primary">
-                    <span class="icon">📹</span>
-                    <span class="text">牌局回放</span>
-                    <span class="desc">查看历史对局</span>
-                </button>
-                
-                <button id="btn-achievements" class="btn-primary">
-                    <span class="icon">🏆</span>
-                    <span class="text">成就</span>
-                    <span class="desc">查看解锁进度</span>
-                </button>
+                <button id="btn-ai-mode" class="btn-primary">人机对战</button>
+                <button id="btn-lan-mode" class="btn-secondary">局域网联机</button>
+                <button id="btn-custom-mode" class="btn-secondary">自定义模式</button>
+                <button id="btn-replay" class="btn-secondary">牌局回放</button>
+                <button id="btn-achievements" class="btn-secondary">成就系统</button>
+                <button id="btn-tutorial" class="btn-secondary">📖 新手教程</button>
+                <button id="btn-settings" class="btn-small">设置</button>
             </div>
             
+            <div class="version-info">v1.1.8</div>
+        </div>
+    </div>
+
+    <!-- 设置面板（覆盖层） -->
+    <div id="settings-overlay" class="hidden">
+        <div class="settings-modal">
+            <div class="settings-header">
+                <h2>游戏设置</h2>
+                <button id="btn-close-settings" class="btn-close">✕</button>
+            </div>
+            <div class="settings-search-wrap">
+                <div class="settings-search">
+                    <span class="settings-search-icon">🔍</span>
+                    <input type="text" id="settings-search-input" placeholder="搜索设置..." autocomplete="off">
+                    <button class="settings-search-clear" id="settings-search-clear" type="button">✕</button>
+                    <span class="settings-search-match-count" id="settings-search-count"></span>
+                </div>
+            </div>
             <div class="settings-panel">
-                <div class="settings-section-title">基础设置</div>
+                <!-- 基础设置 -->
+                <div class="settings-section-title" data-icon="basic">基础设置</div>
                 <div class="settings-grid">
                     <label class="setting-row">玩家名称
                         <input type="text" id="player-name" placeholder="输入昵称" maxlength="12" value="玩家">
@@ -91,42 +76,380 @@
                             <option value="16">16局</option>
                         </select>
                     </label>
-                    <label class="setting-row">游戏速度
-                        <select id="game-speed">
-                            <option value="0.7">慢速</option>
-                            <option value="1.0" selected>正常</option>
-                            <option value="1.5">快速</option>
-                            <option value="2.0">极速</option>
+                    <label class="setting-row">头像风格
+                        <select data-setting="avatarStyle">
+                            <option value="default">默认</option>
+                            <option value="anime">动漫</option>
+                            <option value="pixel">像素</option>
+                            <option value="minimal">极简</option>
                         </select>
                     </label>
-                    <label class="setting-row">界面密度
-                        <select data-setting="uiDensity">
-                            <option value="comfortable">舒适</option>
-                            <option value="compact">紧凑</option>
-                            <option value="spacious">宽松</option>
+                    <label class="setting-row">语言
+                        <select data-setting="language">
+                            <option value="zh-CN" selected>简体中文</option>
+                            <option value="zh-TW">繁體中文</option>
+                            <option value="en">English</option>
+                            <option value="ja">日本語</option>
                         </select>
                     </label>
                 </div>
+
+                <!-- 音频设置 -->
+                <div class="settings-section-title" data-icon="audio">音频</div>
                 <div class="volume-control">
                     <label>BGM</label>
-                    <input type="range" id="cfg-bgm-volume" min="0" max="1" step="0.1" value="0.5">
+                    <input type="range" class="settings-slider-input" id="cfg-bgm-volume" min="0" max="1" step="0.1" value="0.5">
                     <span class="volume-value" id="cfg-bgm-volume-value">50%</span>
                 </div>
                 <div class="volume-control">
                     <label>SFX</label>
-                    <input type="range" id="cfg-sfx-volume" min="0" max="1" step="0.1" value="0.5">
+                    <input type="range" class="settings-slider-input" id="cfg-sfx-volume" min="0" max="1" step="0.1" value="0.5">
                     <span class="volume-value" id="cfg-sfx-volume-value">50%</span>
                 </div>
+                <div class="volume-control">
+                    <label>语音</label>
+                    <input type="range" class="settings-slider-input" data-setting="voiceVolume" min="0" max="1" step="0.1" value="0.7">
+                    <span class="volume-value" data-setting-output="voiceVolume">70%</span>
+                </div>
+                <div class="settings-grid" style="margin-top:8px">
+                    <label class="setting-row">背景音乐
+                        <select data-setting="bgmTrack">
+                            <option value="default">默认</option>
+                            <option value="calm">舒缓</option>
+                            <option value="intense">紧张</option>
+                            <option value="none">静音</option>
+                        </select>
+                    </label>
+                    <label class="setting-row">语音包
+                        <select data-setting="voicePack">
+                            <option value="default">默认女声</option>
+                            <option value="male">男声</option>
+                            <option value="cute">萌系</option>
+                            <option value="none">关闭</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="settings-toggles" style="margin-top:8px">
+                    <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="bgmEnabled" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">BGM开关</span>
+                    </label>
+                    <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="sfxEnabled" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">SFX开关</span>
+                    </label>
+                    <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="voiceAnnounce">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">语音播报</span>
+                    </label>
+                    <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="enableDealSound" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">发牌音效</span>
+                    </label>
+                    <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="enablePlaySound" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">出牌音效</span>
+                    </label>
+                    <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="enableBombSound" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">炸弹音效</span>
+                    </label>
+                    <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="enableWinSound" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">胜利音效</span>
+                    </label>
+                    <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="enableTickSound" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">倒计时滴答</span>
+                    </label>
+                    <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="enableChatSound" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">聊天音效</span>
+                    </label>
+                </div>
 
+                <!-- 游戏规则（公平性关键：局前确定，局中锁定）-->
                 <details class="advanced-settings">
-                    <summary>体验调校</summary>
+                    <summary>游戏规则 ⚖️</summary>
                     <div class="settings-grid">
-                        <label class="setting-row">动画强度
-                            <select data-setting="animationLevel">
-                                <option value="reduced">轻量</option>
-                                <option value="normal">正常</option>
-                                <option value="fancy">华丽</option>
-                                <option value="none">关闭</option>
+                        <label class="setting-row">叫分模式
+                            <select data-setting="callMode">
+                                <option value="score" selected>叫分（1-3分）</option>
+                                <option value="grab">抢地主</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">底分
+                            <select data-setting="baseScore">
+                                <option value="1">1分</option>
+                                <option value="2">2分</option>
+                                <option value="5">5分</option>
+                                <option value="10">10分</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">倍数
+                            <select data-setting="scoreMultiplier">
+                                <option value="1">1x</option>
+                                <option value="2">2x</option>
+                                <option value="3">3x</option>
+                                <option value="5">5x</option>
+                                <option value="10">10x</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">倒计时开关
+                            <select data-setting="timerEnabled">
+                                <option value="true" selected>开启</option>
+                                <option value="false">关闭</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">出牌时限
+                            <select data-setting="timerSeconds">
+                                <option value="10">10秒</option>
+                                <option value="15">15秒</option>
+                                <option value="20">20秒</option>
+                                <option value="30" selected>30秒</option>
+                                <option value="45">45秒</option>
+                                <option value="60">60秒</option>
+                                <option value="90">90秒</option>
+                                <option value="120">120秒</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">AI思考时间
+                            <select data-setting="aiThinkTime">
+                                <option value="0">即时</option>
+                                <option value="500">0.5秒</option>
+                                <option value="800">0.8秒</option>
+                                <option value="1000" selected>1秒</option>
+                                <option value="1500">1.5秒</option>
+                                <option value="2000">2秒</option>
+                                <option value="3000">3秒</option>
+                                <option value="5000">5秒</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">先手规则
+                            <select data-setting="firstPlayer">
+                                <option value="random" selected>随机</option>
+                                <option value="winner">上局赢家</option>
+                                <option value="landlord">固定地主位</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">大小王规则
+                            <select data-setting="jokerRule">
+                                <option value="standard" selected>标准（火箭最大）</option>
+                                <option value="split">可拆分使用</option>
+                                <option value="disabled">禁用大小王</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">炸弹规则
+                            <select data-setting="bombRule">
+                                <option value="standard" selected>标准（4张同点）</option>
+                                <option value="soft">软炸弹（可带牌）</option>
+                                <option value="strict">严格（仅限4张）</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">游戏速度
+                            <select id="game-speed">
+                                <option value="0.7">慢速</option>
+                                <option value="1.0" selected>正常</option>
+                                <option value="1.5">快速</option>
+                                <option value="2.0">极速</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="settings-toggles">
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="laiziEnabled">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">癞子模式（百变牌）</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="allowSpring" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">春天加倍</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="allowAntiSpring" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">反春天加倍</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="bombDoubles" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">炸弹翻倍</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="rocketDoubles" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">火箭翻倍</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="strictRules" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">严格规则模式</span>
+                    </label>
+                    </div>
+                    <p class="settings-fairness-note">⚖️ 以上规则在开始游戏后锁定，保证对局公平</p>
+                </details>
+
+                <!-- 游戏变体 -->
+                <details class="advanced-settings">
+                    <summary>游戏变体 ⚖️</summary>
+                    <div class="settings-toggles">
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showCards">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">明牌（所有人手牌可见）</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="exchangeThree">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">换三张（开局互换）</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="noShuffle">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">不洗牌模式</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="bottomVisible">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">底牌始终可见</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="mustPlay">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">有牌必出</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="allowPassOnFirst" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">首家允许pass</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="allowTripleWithSingle" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">三带一</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="allowTripleWithPair" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">三带一对</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="allowAirplaneWithWings" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">飞机带翅膀</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="bombAsRocket">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">四王炸算火箭</span>
+                    </label>
+                    </div>
+                    <p class="settings-fairness-note">⚖️ 变体规则在开始游戏后锁定</p>
+                </details>
+
+                <!-- AI 行为 -->
+                <details class="advanced-settings">
+                    <summary>AI 行为</summary>
+                    <div class="settings-grid">
+                        <label class="setting-row">叫分策略
+                            <select data-setting="aiCallStrategy">
+                                <option value="conservative">保守</option>
+                                <option value="balanced" selected>平衡</option>
+                                <option value="aggressive">激进</option>
+                                <option value="random">随机</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">出牌风格
+                            <select data-setting="aiPlayStyle">
+                                <option value="conservative">保守</option>
+                                <option value="balanced" selected>平衡</option>
+                                <option value="aggressive">激进</option>
+                                <option value="random">随机</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">记牌水平
+                            <select data-setting="aiMemoryLevel">
+                                <option value="none">不记牌</option>
+                                <option value="basic" selected>基础记牌</option>
+                                <option value="perfect">完美记牌</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">合作程度
+                            <select data-setting="aiCooperation">
+                                <option value="none">独立作战</option>
+                                <option value="basic" selected>基础配合</option>
+                                <option value="perfect">完美配合</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="settings-slider-list">
+                        <label class="setting-slider">
+                        <div class="slider-label-row">虚张声势概率<span class="setting-value-output" data-setting-output="aiBluffRate"></span></div>
+                            <input type="range" class="settings-slider-input" min="0" max="50" step="5" data-setting="aiBluffRate" value="10">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">风险容忍度<span class="setting-value-output" data-setting-output="aiRiskTolerance"></span></div>
+                            <input type="range" class="settings-slider-input" min="0" max="100" step="10" data-setting="aiRiskTolerance" value="50">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">AI难度缩放<span class="setting-value-output" data-setting-output="aiDifficultyScale"></span></div>
+                            <input type="range" class="settings-slider-input" min="0.5" max="2.0" step="0.1" data-setting="aiDifficultyScale" value="1.0">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">AI表情频率<span class="setting-value-output" data-setting-output="aiEmoteRate"></span></div>
+                            <input type="range" class="settings-slider-input" min="0" max="100" step="10" data-setting="aiEmoteRate" value="30">
+                        </label>
+                    </div>
+                    <div class="settings-toggles">
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="aiUseHint" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">AI使用提示系统</span>
+                    </label>
+                    </div>
+                </details>
+
+                <!-- 视觉设置 -->
+                <details class="advanced-settings">
+                    <summary>视觉</summary>
+                    <div class="settings-grid">
+                        <label class="setting-row">界面密度
+                            <select data-setting="uiDensity">
+                                <option value="comfortable">舒适</option>
+                                <option value="compact">紧凑</option>
+                                <option value="spacious">宽松</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">卡牌风格
+                            <select data-setting="cardStyle">
+                                <option value="modern">现代</option>
+                                <option value="classic">经典</option>
+                                <option value="minimal">极简</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">卡牌背面
+                            <select data-setting="cardBackStyle">
+                                <option value="classic">经典蓝</option>
+                                <option value="red">中国红</option>
+                                <option value="pattern">几何纹</option>
+                                <option value="minimal">纯色</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">字体大小
+                            <select data-setting="fontSize">
+                                <option value="small">小</option>
+                                <option value="medium" selected>中</option>
+                                <option value="large">大</option>
                             </select>
                         </label>
                         <label class="setting-row">对手牌显示
@@ -136,180 +459,782 @@
                                 <option value="spread">展开牌背</option>
                             </select>
                         </label>
+                        <label class="setting-row">手牌排列
+                            <select data-setting="handArrangement">
+                                <option value="fan">扇形</option>
+                                <option value="straight">直线</option>
+                                <option value="stack">堆叠</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">出牌排列
+                            <select data-setting="playedCardArrangement">
+                                <option value="straight">直线</option>
+                                <option value="arc">弧线</option>
+                                <option value="fan">扇形</option>
+                            </select>
+                        </label>
                     </div>
                     <div class="settings-slider-list">
-                        <label class="setting-slider">牌桌缩放 <span data-setting-output="tableScale"></span>
-                            <input type="range" min="0.85" max="1.15" step="0.05" data-setting="tableScale">
+                        <label class="setting-slider">
+                        <div class="slider-label-row">卡牌圆角<span class="setting-value-output" data-setting-output="cardCornerRadius"></span></div>
+                            <input type="range" class="settings-slider-input" min="0" max="16" step="1" data-setting="cardCornerRadius" value="8">
                         </label>
-                        <label class="setting-slider">手牌大小 <span data-setting-output="cardScale"></span>
-                            <input type="range" min="0.85" max="1.2" step="0.05" data-setting="cardScale">
-                        </label>
-                        <label class="setting-slider">选牌上浮 <span data-setting-output="selectedLift"></span>
-                            <input type="range" min="4" max="24" step="1" data-setting="selectedLift">
-                        </label>
-                        <label class="setting-slider">悬停上浮 <span data-setting-output="hoverLift"></span>
-                            <input type="range" min="0" max="16" step="1" data-setting="hoverLift">
-                        </label>
-                        <label class="setting-slider">出牌重叠 <span data-setting-output="playedOverlap"></span>
-                            <input type="range" min="6" max="28" step="1" data-setting="playedOverlap">
-                        </label>
-                        <label class="setting-slider">出牌大小 <span data-setting-output="playedCardScale"></span>
-                            <input type="range" min="0.8" max="1.15" step="0.05" data-setting="playedCardScale">
-                        </label>
-                        <label class="setting-slider">拖选灵敏度 <span data-setting-output="dragThreshold"></span>
-                            <input type="range" min="2" max="18" step="1" data-setting="dragThreshold">
-                        </label>
-                        <label class="setting-slider">面板透明度 <span data-setting-output="panelOpacity"></span>
-                            <input type="range" min="45" max="95" step="5" data-setting="panelOpacity">
-                        </label>
-                        <label class="setting-slider">发牌节奏 <span data-setting-output="cardEnterStagger"></span>
-                            <input type="range" min="0" max="60" step="5" data-setting="cardEnterStagger">
-                        </label>
-                        <label class="setting-slider">回放牌大小 <span data-setting-output="replayCardScale"></span>
-                            <input type="range" min="0.85" max="1.35" step="0.05" data-setting="replayCardScale">
+                        <label class="setting-slider">
+                        <div class="slider-label-row">卡牌边框<span class="setting-value-output" data-setting-output="cardBorderWidth"></span></div>
+                            <input type="range" class="settings-slider-input" min="0" max="3" step="0.5" data-setting="cardBorderWidth" value="1">
                         </label>
                     </div>
                     <div class="settings-toggles">
-                        <label><input type="checkbox" data-setting="showTableAura"> 牌桌光晕</label>
-                        <label><input type="checkbox" data-setting="showShortcuts"> 快捷键提示</label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showTableAura" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">牌桌光晕</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="darkMode">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">深色模式</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="highContrast">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">高对比度</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="colorblindMode">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">色盲友好</span>
+                    </label>
                     </div>
-                    <button id="btn-reset-ux-settings" class="btn-small" type="button">恢复体验默认</button>
+                    <div class="settings-grid" style="margin-top:6px">
+                        <label class="setting-row">色盲类型
+                            <select data-setting="colorblindType">
+                                <option value="none" selected>无</option>
+                                <option value="deuteranopia">红绿色盲</option>
+                                <option value="tritanopia">蓝黄色盲</option>
+                                <option value="achromatopsia">全色盲</option>
+                            </select>
+                        </label>
+                    </div>
+                </details>
+
+                <!-- 布局设置 -->
+                <details class="advanced-settings">
+                    <summary>布局</summary>
+                    <div class="settings-slider-list">
+                        <label class="setting-slider">
+                        <div class="slider-label-row">牌桌缩放<span class="setting-value-output" data-setting-output="tableScale"></span></div>
+                            <input type="range" class="settings-slider-input" min="0.85" max="1.15" step="0.05" data-setting="tableScale" value="1">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">手牌大小<span class="setting-value-output" data-setting-output="cardScale"></span></div>
+                            <input type="range" class="settings-slider-input" min="0.85" max="1.2" step="0.05" data-setting="cardScale" value="1">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">出牌大小<span class="setting-value-output" data-setting-output="playedCardScale"></span></div>
+                            <input type="range" class="settings-slider-input" min="0.8" max="1.15" step="0.05" data-setting="playedCardScale" value="1">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">回放牌大小<span class="setting-value-output" data-setting-output="replayCardScale"></span></div>
+                            <input type="range" class="settings-slider-input" min="0.85" max="1.35" step="0.05" data-setting="replayCardScale" value="1">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">出牌重叠<span class="setting-value-output" data-setting-output="playedOverlap"></span></div>
+                            <input type="range" class="settings-slider-input" min="6" max="28" step="1" data-setting="playedOverlap" value="16">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">选牌上浮<span class="setting-value-output" data-setting-output="selectedLift"></span></div>
+                            <input type="range" class="settings-slider-input" min="4" max="24" step="1" data-setting="selectedLift" value="12">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">悬停上浮<span class="setting-value-output" data-setting-output="hoverLift"></span></div>
+                            <input type="range" class="settings-slider-input" min="0" max="16" step="1" data-setting="hoverLift" value="7">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">面板透明度<span class="setting-value-output" data-setting-output="panelOpacity"></span></div>
+                            <input type="range" class="settings-slider-input" min="45" max="95" step="5" data-setting="panelOpacity" value="80">
+                        </label>
+                    </div>
+                </details>
+
+                <!-- 动画与特效 -->
+                <details class="advanced-settings">
+                    <summary>动画与特效</summary>
+                    <div class="settings-grid">
+                        <label class="setting-row">动画强度
+                            <select data-setting="animationLevel">
+                                <option value="none">关闭</option>
+                                <option value="reduced">轻量</option>
+                                <option value="normal" selected>正常</option>
+                                <option value="fancy">华丽</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">粒子效果
+                            <select data-setting="particleIntensity">
+                                <option value="none">关闭</option>
+                                <option value="low">少量</option>
+                                <option value="normal" selected>正常</option>
+                                <option value="high">大量</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">屏幕震动
+                            <select data-setting="screenShakeIntensity">
+                                <option value="none">关闭</option>
+                                <option value="low">轻微</option>
+                                <option value="normal" selected>正常</option>
+                                <option value="high">强烈</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">浮动文字
+                            <select data-setting="floatingTextSize">
+                                <option value="small">小</option>
+                                <option value="normal" selected>正常</option>
+                                <option value="large">大</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">阴影强度
+                            <select data-setting="shadowIntensity">
+                                <option value="none">无</option>
+                                <option value="low">轻</option>
+                                <option value="normal" selected>正常</option>
+                                <option value="high">重</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">光效强度
+                            <select data-setting="glowIntensity">
+                                <option value="none">无</option>
+                                <option value="low">轻</option>
+                                <option value="normal" selected>正常</option>
+                                <option value="high">强</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">胜利特效
+                            <select data-setting="winEffectLevel">
+                                <option value="none">无</option>
+                                <option value="low">简单</option>
+                                <option value="normal" selected>标准</option>
+                                <option value="high">豪华</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">炸弹特效
+                            <select data-setting="bombEffectLevel">
+                                <option value="none">无</option>
+                                <option value="low">简单</option>
+                                <option value="normal" selected>标准</option>
+                                <option value="high">震撼</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="settings-slider-list">
+                        <label class="setting-slider">
+                        <div class="slider-label-row">动画速度<span class="setting-value-output" data-setting-output="animSpeed"></span></div>
+                            <input type="range" class="settings-slider-input" min="0.5" max="2.0" step="0.1" data-setting="animSpeed" value="1.0">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">过渡速度<span class="setting-value-output" data-setting-output="transitionSpeed"></span></div>
+                            <input type="range" class="settings-slider-input" min="0.3" max="2.0" step="0.1" data-setting="transitionSpeed" value="1.0">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">发牌节奏<span class="setting-value-output" data-setting-output="cardEnterStagger"></span></div>
+                            <input type="range" class="settings-slider-input" min="0" max="60" step="5" data-setting="cardEnterStagger" value="30">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">粒子数量<span class="setting-value-output" data-setting-output="particleCount"></span></div>
+                            <input type="range" class="settings-slider-input" min="0" max="200" step="10" data-setting="particleCount" value="50">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">连击播报阈值<span class="setting-value-output" data-setting-output="comboAnnounce"></span></div>
+                            <input type="range" class="settings-slider-input" min="2" max="10" step="1" data-setting="comboAnnounce" value="2">
+                        </label>
+                    </div>
+                </details>
+
+                <!-- 交互操作 -->
+                <details class="advanced-settings">
+                    <summary>交互操作</summary>
+                    <div class="settings-toggles">
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="clickToSelect" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">单击选牌</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="doubleClickToPlay">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">双击出牌</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="spaceConfirm" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">空格确认出牌</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="autoHint" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">自动提示可出牌</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="smartDiscard" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">智能弃牌纠正</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="playConfirm">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">出牌前确认</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="passConfirm">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">不出需确认</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="confirmOnBomb">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">炸弹前确认</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showShortcuts" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">快捷键提示</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="oneClickPlay">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">一键出牌</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="smartSort" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">智能排序</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="rightClickCancel" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">右键取消选牌</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="wheelZoom" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">滚轮缩放</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="autoArrange" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">自动整理手牌</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="autoSortAfterPlay">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">出牌后自动排序</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="stickySelection">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">粘滞选牌</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showPlayPreview" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">显示出牌预览</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="gestureEnabled" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">触摸手势</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="swipeToSelect" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">滑动选牌</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="longPressHint">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">长按牌型提示</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="hapticEnabled" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">触觉反馈</span>
+                    </label>
+                    </div>
+                    <div class="settings-slider-list">
+                        <label class="setting-slider">
+                        <div class="slider-label-row">拖选灵敏度<span class="setting-value-output" data-setting-output="dragThreshold"></span></div>
+                            <input type="range" class="settings-slider-input" min="2" max="18" step="1" data-setting="dragThreshold" value="7">
+                        </label>
+                    </div>
+                </details>
+
+                <!-- 辅助功能 -->
+                <details class="advanced-settings">
+                    <summary>辅助功能</summary>
+                    <div class="settings-grid">
+                        <label class="setting-row">提示详细度
+                            <select data-setting="hintDetail">
+                                <option value="none">仅高亮</option>
+                                <option value="type" selected>显示牌型</option>
+                                <option value="full">牌型+牌名</option>
+                            </select>
+                        </label>
+                        <label class="setting-row">手牌排序
+                            <select data-setting="sortOrder">
+                                <option value="value">按点数</option>
+                                <option value="suit">按花色</option>
+                                <option value="auto" selected>智能</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="settings-toggles">
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showTutorial" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">新手引导</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="autoOpenTracker">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">自动打开记牌器</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="autoOpenHistory">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">自动打开出牌历史</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showRemainingCount" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">显示剩余牌数</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showWinProbability">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">显示胜率估算</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showBestMove">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">显示推荐出牌</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="handAnalysis">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">手牌分析面板</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showOpponentTendency">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">显示对手倾向</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showDangerCards">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">标记危险牌</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="highlightPlayable" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">高亮可出牌</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showPatternName" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">显示牌型名称</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showPlayerStats">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">显示玩家统计</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showOpponentCall" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">显示对手叫分</span>
+                    </label>
+                    </div>
+                </details>
+
+                <!-- 面板开关 -->
+                <details class="advanced-settings">
+                    <summary>面板开关</summary>
+                    <div class="settings-toggles">
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="enableCardTracker" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">记牌器</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="enableAutoHint" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">智能提示</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="enableChat" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">快捷聊天</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="enableEmoji" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">表情反馈</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="enableReplay" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">牌局回放</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="enableStats" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">统计记录</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="enableAchievements" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">成就系统</span>
+                    </label>
+                    </div>
+                </details>
+
+                <!-- 无障碍 -->
+                <details class="advanced-settings">
+                    <summary>无障碍</summary>
+                    <div class="settings-toggles">
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="reduceMotion">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">减少动画</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="largeClickTargets">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">大点击区域</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="highVisibility">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">高可见度模式</span>
+                    </label>
+                    </div>
+                </details>
+
+                <!-- 网络 -->
+                <details class="advanced-settings">
+                    <summary>网络</summary>
+                    <div class="settings-grid">
+                        <label class="setting-row">网络质量
+                            <select data-setting="networkQuality">
+                                <option value="auto" selected>自动检测</option>
+                                <option value="excellent">极佳</option>
+                                <option value="good">良好</option>
+                                <option value="poor">较差</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="settings-slider-list">
+                        <label class="setting-slider">
+                        <div class="slider-label-row">重连次数<span class="setting-value-output" data-setting-output="reconnectAttempts"></span></div>
+                            <input type="range" class="settings-slider-input" min="0" max="10" step="1" data-setting="reconnectAttempts" value="3">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">心跳间隔(秒)<span class="setting-value-output" data-setting-output="heartbeatInterval"></span></div>
+                            <input type="range" class="settings-slider-input" min="1" max="15" step="1" data-setting="heartbeatInterval" value="5">
+                        </label>
+                    </div>
+                    <div class="settings-toggles">
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="lagCompensation" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">延迟补偿</span>
+                    </label>
+                    </div>
+                </details>
+
+                <!-- 性能与调试 -->
+                <details class="advanced-settings">
+                    <summary>性能与调试</summary>
+                    <div class="settings-grid">
+                        <label class="setting-row">帧率限制
+                            <select data-setting="frameLimit">
+                                <option value="30">30 FPS</option>
+                                <option value="60" selected>60 FPS</option>
+                                <option value="120">120 FPS</option>
+                                <option value="0">无限制</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="settings-toggles">
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showFPS">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">显示FPS</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="showMemory">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">显示内存使用</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="lazyRender">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">懒渲染模式</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="debugMode">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">调试模式</span>
+                    </label>
+                        <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="experimentalFeatures">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">实验性功能</span>
+                    </label>
+                    </div>
+                </details>
+
+                <!-- 高级设置 -->
+                <details class="advanced-settings">
+                    <summary>高级 ⚙️</summary>
+                    <div class="settings-slider-list">
+                        <label class="setting-slider">
+                        <div class="slider-label-row">观战延迟(秒)<span class="setting-value-output" data-setting-output="spectatorDelay"></span></div>
+                            <input type="range" class="settings-slider-input" min="0" max="5" step="0.5" data-setting="spectatorDelay" value="0">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">自动保存(秒)<span class="setting-value-output" data-setting-output="autoSaveInterval"></span></div>
+                            <input type="range" class="settings-slider-input" min="10" max="120" step="10" data-setting="autoSaveInterval" value="30">
+                        </label>
+                        <label class="setting-slider">
+                        <div class="slider-label-row">历史上限<span class="setting-value-output" data-setting-output="maxHistory"></span></div>
+                            <input type="range" class="settings-slider-input" min="10" max="200" step="10" data-setting="maxHistory" value="50">
+                        </label>
+                    </div>
+                    <div class="settings-reset-row">
+                        <button id="btn-reset-ux-settings" class="btn-small" type="button">恢复体验默认</button>
+                        <button id="btn-reset-all-settings" class="btn-small danger" type="button">恢复所有默认</button>
+                    </div>
                 </details>
             </div>
-            
-            <!-- 新手引导 -->
-            <div id="tutorial-panel" class="overlay-panel hidden">
-                <div class="overlay-header">
-                    <h3>🎮 欢迎来到斗地主</h3>
-                </div>
-                <div class="tutorial-content">
-                    <div class="tutorial-step">
-                        <div class="tut-icon">🃏</div>
-                        <p><strong>选择模式</strong><br>人机对战、局域网联机或自定义规则</p>
-                    </div>
-                    <div class="tutorial-step">
-                        <div class="tut-icon">👆</div>
-                        <p><strong>选牌出牌</strong><br>点击或滑动选择手牌，按 Space 出牌</p>
-                    </div>
-                    <div class="tutorial-step">
-                        <div class="tut-icon">⌨️</div>
-                        <p><strong>快捷键</strong><br>H提示 P不出 ESC暂停 ?帮助</p>
-                    </div>
-                    <div class="tutorial-step">
-                        <div class="tut-icon">🏆</div>
-                        <p><strong>解锁成就</strong><br>完成各种挑战，收集成就</p>
-                    </div>
-                </div>
-                <label class="tutorial-skip">
-                    <input type="checkbox" id="chk-skip-tutorial"> 下次不再显示
-                </label>
-                <button id="btn-close-tutorial" class="btn-primary" style="margin-top:12px">开始游戏</button>
-            </div>
-            
-            <!-- 成就面板 -->
-            <div id="achievement-panel" class="overlay-panel hidden">
-                <div class="overlay-header">
-                    <h3>🏆 成就</h3>
-                    <button id="btn-close-achievements" class="btn-small">✕</button>
-                </div>
-                <div id="achievement-list" class="achievement-list"></div>
-            </div>
         </div>
     </div>
 
-    <!-- 回放界面 -->
-    <div id="replay-screen" class="screen hidden">
-        <div id="replay-container"></div>
+    <!-- 首次进入引导选择对话框 -->
+    <div id="welcome-guide-overlay" class="hidden">
+        <div class="welcome-guide-bg"></div>
+        <div class="welcome-guide-modal">
+            <div class="welcome-guide-emoji">🃏</div>
+            <h2 class="welcome-guide-title">欢迎来到斗地主！</h2>
+            <p class="welcome-guide-desc">经典三人扑克游戏 · 1个地主 vs 2个农民</p>
+            <div class="welcome-guide-choices">
+                <button id="btn-guide-newbie" class="welcome-guide-btn welcome-guide-btn-primary">
+                    <span class="wgb-icon">📖</span>
+                    <span class="wgb-text">我是新手</span>
+                    <span class="wgb-sub">查看完整教程（5分钟）</span>
+                </button>
+                <button id="btn-guide-expert" class="welcome-guide-btn welcome-guide-btn-secondary">
+                    <span class="wgb-icon">😎</span>
+                    <span class="wgb-text">我是大神</span>
+                    <span class="wgb-sub">直接开始游戏</span>
+                </button>
+            </div>
+            <label class="welcome-guide-skip">
+                <input type="checkbox" id="chk-guide-skip"> 不再询问，下次直接进入游戏
+            </label>
+        </div>
     </div>
 
-    <!-- 游戏界面 -->
+    <!-- 游戏主界面 -->
     <div id="game-screen" class="screen hidden">
         <div class="game-header">
-            <button id="btn-back" class="btn-small">← 返回</button>
-            <h2>斗地主</h2>
-            <div class="header-right">
-                <div class="mode-badge" id="mode-display">人机对战</div>
+            <button id="btn-back-menu" class="btn-small">← 返回</button>
+            <span id="mode-display">人机对战</span>
+            <div class="header-controls">
+                <button id="btn-pause" class="btn-small" title="暂停">⏸</button>
+                <button id="btn-sound-toggle" class="btn-small" title="音效开关">🔊</button>
                 <button id="btn-fullscreen" class="btn-small" title="全屏">⛶</button>
-                <button id="btn-sound-toggle" class="btn-small" title="开关音效">🔊</button>
             </div>
         </div>
-        <div id="game-table"></div>
+        
+        <div id="game-table">
+            <div id="ddz-table">
+                <div class="table-aura"></div>
+                <!-- 玩家区域由JS动态生成 -->
+            </div>
+            
+            <div id="side-panels">
+                <button id="btn-toggle-card-tracker" class="btn-panel-toggle" title="记牌器">🃏 记牌</button>
+                <button id="btn-toggle-history" class="btn-panel-toggle" title="出牌历史">📜 历史</button>
+                <button id="btn-toggle-chat" class="btn-panel-toggle" title="发送快捷短语">💬 聊天</button>
+                <div id="card-tracker" class="side-panel hidden">
+                    <h4>记牌器</h4>
+                    <div class="tracker-grid" id="tracker-content"></div>
+                </div>
+                <div id="play-history" class="side-panel hidden">
+                    <h4>出牌历史</h4>
+                    <div class="history-list" id="history-content"></div>
+                </div>
+                <div id="chat-panel" class="side-panel hidden">
+                    <h4>聊天</h4>
+                    <div class="quick-phrases" id="quick-phrases"></div>
+                    <div class="chat-list" id="chat-content"></div>
+                    <div class="chat-input-area">
+                        <input type="text" id="chat-input" placeholder="输入消息..." maxlength="100">
+                        <button id="btn-chat-send">发送</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="controls-area">
+                <div id="call-controls" class="hidden">
+                    <button data-call="0">不叫</button>
+                    <button data-call="1">1分</button>
+                    <button data-call="2">2分</button>
+                    <button data-call="3">3分</button>
+                    <button id="btn-auto-call" class="btn-auto">托管</button>
+                </div>
+                <div id="play-controls" class="hidden">
+                    <button id="btn-play">出牌 <kbd>Space</kbd></button>
+                    <button id="btn-pass">不出 <kbd>P</kbd></button>
+                    <button id="btn-hint">提示 <kbd>H</kbd></button>
+                    <button id="btn-reset">重选 <kbd>R</kbd></button>
+                    <button id="btn-auto-play" class="btn-auto">托管</button>
+                </div>
+                <div id="game-info">
+                    <span id="phase-text">准备中</span>
+                    <span id="score-text"></span>
+                    <span id="shortcut-hint">快捷键: H提示 P不出 Space出牌</span>
+                </div>
+            </div>
+            
+            <div id="modal-overlay" class="hidden">
+                <div id="modal-content"></div>
+            </div>
+        </div>
+        
+        <div id="fps-counter" style="display:none;position:fixed;top:4px;left:4px;background:rgba(0,0,0,0.5);color:#0f0;font-family:monospace;font-size:11px;padding:2px 6px;border-radius:4px;z-index:9999">FPS: --</div>
+        <div id="memory-counter" style="display:none;position:fixed;top:24px;left:4px;background:rgba(0,0,0,0.5);color:#0ff;font-family:monospace;font-size:11px;padding:2px 6px;border-radius:4px;z-index:9999">MEM: --</div>
     </div>
 
-    <!-- 局域网界面 -->
+    <!-- LAN 联机界面 -->
     <div id="lan-screen" class="screen hidden">
         <div class="lan-container">
-            <h2>🌐 局域网联机</h2>
-            <div class="lan-host-card">
-                <div class="lan-host-title">本机托管</div>
-                <p>房主电脑运行 <code>npm run lan:host</code>，同一 Wi-Fi 的玩家打开下面地址进入。</p>
-                <div id="lan-host-status" class="lan-host-status">正在检测本机托管服务...</div>
-                <div id="lan-host-url-row" class="lan-host-url-row hidden">
+            <h2>局域网联机</h2>
+            <div class="lan-tabs">
+                <button class="lan-tab active" data-tab="join">加入房间</button>
+                <button class="lan-tab" data-tab="host">创建房间</button>
+            </div>
+            <div id="lan-join-panel">
+                <input type="text" id="lan-room-id" placeholder="房间号" maxlength="8">
+                <input type="text" id="lan-player-name" placeholder="玩家名称" maxlength="12">
+                <button id="btn-lan-join" class="btn-primary">加入</button>
+            </div>
+            <div id="lan-host-panel" class="hidden">
+                <p id="lan-host-status" class="lan-host-status">正在检测本机托管服务...</p>
+                <div id="lan-host-url-row" class="hidden">
+                    <label>局域网地址</label>
                     <input type="text" id="lan-host-url" readonly>
-                    <button id="btn-copy-lan-url" class="btn-small" type="button">复制地址</button>
                 </div>
+                <button id="btn-lan-host" class="btn-primary">创建房间</button>
             </div>
-            <div class="lan-section">
-                <button id="btn-create-room" class="btn-primary">创建房间</button>
-                <div id="room-info" class="hidden">
-                    <p>房间号: <strong id="room-id-display"></strong></p>
-                    <p>分享给好友让他们加入</p>
-                </div>
-            </div>
-            <div class="lan-divider">或</div>
-            <div class="lan-section">
-                <input type="text" id="room-id-input" placeholder="输入房间号">
-                <button id="btn-join-room" class="btn-primary">加入房间</button>
-            </div>
-            <div id="player-list" class="lan-player-list"></div>
-            <div id="lan-status" class="lan-status">请选择创建或加入房间</div>
-            <button id="btn-lan-start" class="btn-primary hidden">开始游戏</button>
-            <button id="btn-back-lan" class="btn-small">← 返回</button>
+            <button id="btn-back-lan" class="btn-small" style="margin-top:20px">← 返回</button>
         </div>
     </div>
 
     <!-- 自定义模式界面 -->
     <div id="custom-screen" class="screen hidden">
         <div class="custom-container">
-            <h2>⚙️ 自定义模式</h2>
-            
-            <div class="config-group">
-                <h3>AI设置</h3>
-                <label>AI难度:
-                    <select id="cfg-ai-diff">
-                        <option value="easy">简单</option>
-                        <option value="normal" selected>普通</option>
-                        <option value="hard">困难</option>
-                    </select>
-                </label>
+            <h2>自定义模式</h2>
+            <div class="custom-options">
+                <label class="toggle-switch-wrap">
+                        <input type="checkbox"  id="cfg-show-all">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">显示所有手牌（观战模式）</span>
+                    </label>
+                <label class="toggle-switch-wrap">
+                        <input type="checkbox"  id="cfg-auto-play">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">开启托管</span>
+                    </label>
+                <label>AI难度 <select id="cfg-ai-diff"><option value="easy">简单</option><option value="normal" selected>普通</option><option value="hard">困难</option></select></label>
+                <label>音效 <input type="checkbox" id="cfg-sound" checked></label>
+                <label>叫分模式 <select id="cfg-call-mode"><option value="score">叫分</option><option value="grab">抢地主</option></select></label>
+                <label class="toggle-switch-wrap">
+                        <input type="checkbox"  id="cfg-laizi">
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">癞子模式</span>
+                    </label>
             </div>
-            
-            <div class="config-group">
-                <h3>游戏选项</h3>
-                <label>叫牌模式:
-                    <select id="cfg-call-mode">
-                        <option value="score" selected>叫分模式 (0/1/2/3分)</option>
-                        <option value="grab">抢地主模式 (叫/抢)</option>
-                    </select>
-                </label>
-                <label>
-                    <input type="checkbox" id="cfg-laizi"> 癞子模式（百变牌）
-                </label>
-                <label>
-                    <input type="checkbox" id="cfg-show-all"> 显示所有玩家手牌（测试）
-                </label>
-                <label>
-                    <input type="checkbox" id="cfg-auto-play"> 自动运行（观战模式）
-                </label>
-                <label>
-                    <input type="checkbox" id="cfg-sound" checked> 启用音效
-                </label>
-            </div>
-            
-            <div class="config-actions">
-                <button id="btn-custom-start" class="btn-primary">开始游戏</button>
-                <button id="btn-back-custom" class="btn-small">← 返回</button>
-            </div>
+            <button id="btn-custom-start" class="btn-primary">开始游戏</button>
+            <button id="btn-back-custom" class="btn-small" style="margin-top:12px">← 返回</button>
+        </div>
+    </div>
+
+    <!-- 回放界面 -->
+    <div id="replay-screen" class="screen hidden">
+        <div class="replay-container" id="replay-container"></div>
+        <button id="btn-back-replay" class="btn-small" style="position:fixed;top:12px;left:12px;z-index:100">← 返回</button>
+    </div>
+
+    <!-- 成就面板 -->
+    <div id="achievement-panel" class="hidden">
+        <div class="achievement-content">
+            <h3>成就系统</h3>
+            <div id="achievement-list"></div>
+            <button id="btn-close-achievements" class="btn-small">关闭</button>
+        </div>
+    </div>
+
+    <!-- 暂停覆盖层 -->
+    <div id="pause-overlay" class="hidden">
+        <div class="pause-content">
+            <h2>游戏暂停</h2>
+            <button id="btn-resume" class="btn-primary">继续</button>
+            <button id="btn-pause-settings" class="btn-secondary">设置</button>
+            <button id="btn-pause-exit" class="btn-secondary" style="color:#f44336">退出</button>
+        </div>
+    </div>
+
+    <!-- 完整教程覆盖层 -->
+    <div id="tutorial-fullscreen" class="hidden">
+        <div class="tutorial-bg"></div>
+        <div class="tutorial-container">
+            <nav class="tutorial-nav">
+                <h3>📖 斗地主教程</h3>
+                <ul class="tutorial-chapters">
+                    <li data-chapter="0" class="active"><span class="tut-chap-num">1</span> 欢迎来到斗地主</li>
+                    <li data-chapter="1"><span class="tut-chap-num">2</span> 认识牌型</li>
+                    <li data-chapter="2"><span class="tut-chap-num">3</span> 牌型大小比较</li>
+                    <li data-chapter="3"><span class="tut-chap-num">4</span> 角色与发牌</li>
+                    <li data-chapter="4"><span class="tut-chap-num">5</span> 叫分与抢地主</li>
+                    <li data-chapter="5"><span class="tut-chap-num">6</span> 出牌规则</li>
+                    <li data-chapter="6"><span class="tut-chap-num">7</span> 特殊规则与得分</li>
+                    <li data-chapter="7"><span class="tut-chap-num">8</span> 实战演练</li>
+                    <li data-chapter="8"><span class="tut-chap-num">9</span> 记牌与读牌</li>
+                    <li data-chapter="9"><span class="tut-chap-num">10</span> 进阶技巧与误区</li>
+                </ul>
+                <div class="tutorial-progress">
+                    <div class="tutorial-progress-track">
+                        <div class="tutorial-progress-bar"></div>
+                    </div>
+                    <div class="tutorial-progress-text">0%</div>
+                </div>
+            </nav>
+            <main class="tutorial-main">
+                <div class="tutorial-header">
+                    <div class="tutorial-header-text">
+                        <h2 class="tutorial-title">欢迎来到斗地主</h2>
+                        <p class="tutorial-subtitle">中国最受欢迎的扑克游戏</p>
+                    </div>
+                    <button class="tutorial-close" title="关闭教程">✕</button>
+                </div>
+                <div class="tutorial-body"></div>
+                <div class="tutorial-footer">
+                    <button class="tutorial-prev" disabled>← 上一步</button>
+                    <div class="tutorial-dots"></div>
+                    <button class="tutorial-next">下一步 →</button>
+                </div>
+            </main>
         </div>
     </div>
 

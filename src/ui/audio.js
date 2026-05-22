@@ -140,7 +140,9 @@ class AudioManager {
     setBGMVolume(v) {
         this.bgmVolume = Math.max(0, Math.min(1, v));
         if (this._bgmGain) {
-            this._bgmGain.gain.value = 0.08 * this.bgmVolume;
+            const now = this.ctx.currentTime;
+            const target = 0.08 * this.bgmVolume;
+            this._bgmGain.gain.setTargetAtTime(target, now, 0.15);
         }
     }
 
@@ -493,6 +495,12 @@ class AudioManager {
         this._tone(900, 0.05, 'sine', 0.06);
     }
 
+    playCardPlace() {
+        // 出牌放置：轻快的落牌声
+        this._tone(600, 0.04, 'sine', 0.07);
+        setTimeout(() => this._tone(800, 0.05, 'sine', 0.06), 40);
+    }
+
     playError() {
         // 错误/无效操作：不和谐低音
         this._tone(150, 0.15, 'sawtooth', 0.08);
@@ -534,6 +542,49 @@ class AudioManager {
         // 过牌（轮到下一家）：轻柔滑音
         this._tone(400, 0.08, 'sine', 0.06);
         setTimeout(() => this._tone(350, 0.1, 'sine', 0.05), 60);
+    }
+
+    // ==================== 设置面板音效 ====================
+
+    playSettingToggle(on) {
+        if (!this.sfxEnabled) return;
+        if (on) {
+            // 开启：清脆上升音
+            this._tone(880, 0.06, 'sine', 0.06);
+            setTimeout(() => this._tone(1100, 0.08, 'sine', 0.07), 50);
+        } else {
+            // 关闭：低沉下降音
+            this._tone(660, 0.06, 'sine', 0.05);
+            setTimeout(() => this._tone(440, 0.08, 'sine', 0.04), 50);
+        }
+    }
+
+    playSettingSlider() {
+        if (!this.sfxEnabled) return;
+        // 滑块：清晰滴答
+        this._tone(1000, 0.05, 'sine', 0.06);
+    }
+
+    playSettingOpen() {
+        if (!this.sfxEnabled) return;
+        // 面板打开：明亮展开音
+        this._tone(660, 0.08, 'sine', 0.06);
+        setTimeout(() => this._tone(880, 0.1, 'sine', 0.07), 60);
+        setTimeout(() => this._tone(1100, 0.12, 'sine', 0.06), 130);
+    }
+
+    playSettingClose() {
+        if (!this.sfxEnabled) return;
+        // 面板关闭：收拢音
+        this._tone(880, 0.06, 'sine', 0.05);
+        setTimeout(() => this._tone(660, 0.08, 'sine', 0.04), 60);
+    }
+
+    playSettingReset() {
+        if (!this.sfxEnabled) return;
+        // 重置：警示音
+        this._tone(440, 0.1, 'triangle', 0.07);
+        setTimeout(() => this._tone(330, 0.12, 'triangle', 0.06), 100);
     }
 
     // ==================== 控制接口 ====================

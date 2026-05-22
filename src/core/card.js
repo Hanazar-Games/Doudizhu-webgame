@@ -105,6 +105,23 @@ class Card {
     static sortByValue(cards) {
         return [...cards].sort((a, b) => a.value - b.value);
     }
+
+    /**
+     * 智能排序：按牌值分组，组大小降序（炸弹>三带>对子>单牌），
+     * 同组大小按牌值升序。便于快速识别牌型组合。
+     */
+    static sortSmart(cards) {
+        const groups = new Map();
+        for (const c of cards) {
+            if (!groups.has(c.value)) groups.set(c.value, []);
+            groups.get(c.value).push(c);
+        }
+        const arr = [...groups.values()].sort((a, b) => {
+            if (a.length !== b.length) return b.length - a.length;
+            return a[0].value - b[0].value;
+        });
+        return arr.flat();
+    }
 }
 
 export { Card, SUITS, RANKS };

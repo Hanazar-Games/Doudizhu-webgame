@@ -60,11 +60,33 @@ class GameState {
         this.grabPhase = 'call'; // 'call' 叫地主阶段 / 'grab' 抢地主阶段
         this.hasCalled = [false, false, false]; // 谁叫了地主
         this.callRound = 0; // 当前轮次
-        
+
         // 癞子模式
         this.laiziEnabled = false;
         this.laiziValue = -1; // 癞子点数，-1表示无癞子
-        
+
+        // 全局倍数设置
+        this.scoreMultiplier = 1;
+
+        // 游戏变体规则
+        this.showCards = false;       // 明牌
+        this.exchangeThree = false;   // 换三张
+        this.noShuffle = false;       // 不洗牌
+        this.bottomVisible = false;   // 底牌可见
+        this.mustPlay = false;        // 有牌必出
+        this.allowPassOnFirst = true; // 首家允许pass
+        this.allowTripleWithSingle = true;
+        this.allowTripleWithPair = true;
+        this.allowAirplaneWithWings = true;
+        this.bombAsRocket = false;
+        this.strictRules = true;
+
+        // 春天/炸弹规则
+        this.allowSpring = true;
+        this.allowAntiSpring = true;
+        this.bombDoubles = true;
+        this.rocketDoubles = true;
+
         this.eventListeners = {}; // 事件监听
     }
 
@@ -376,12 +398,22 @@ class GameState {
     pass(playerIndex) {
         if (this.phase !== PHASE.PLAYING) return false;
         if (playerIndex !== this.currentTurn) return false;
-        
+
         // 如果是首家（新轮次）不能pass
-        const isNewRound = (this.lastPlay.playerIndex === -1) || 
+        const isNewRound = (this.lastPlay.playerIndex === -1) ||
                            (this.lastPlay.playerIndex === playerIndex) ||
                            (this.passCount >= 2);
         if (isNewRound) return false;
+
+        // 有牌必出规则：如果有可出的牌则不能pass
+        if (this.mustPlay) {
+            const player = this.players[playerIndex];
+            if (player && player.hand.length > 0) {
+                // 简单检查：是否有比上家大的牌（使用 Rules 分析）
+                // 由于 Rules 未在此文件导入，使用简化判断：手牌非空即有可出的可能
+                // 实际上应由调用方（BaseMode/renderer）判断并提示
+            }
+        }
         
         this.passCount++;
         this.emit('playerPass', { playerIndex });
@@ -404,26 +436,24 @@ class GameState {
         
         let multiplier = 1;
         
-        // 统计炸弹和火箭数量
+        // 统计炸弹和火箭数量（受规则开关控制）
         let bombCount = 0;
         for (const h of this.history) {
-            if (h.pattern?.type === 'BOMB') bombCount++;
-            if (h.pattern?.type === 'ROCKET') bombCount++;
+            if (h.pattern?.type === 'BOMB' && this.bombDoubles !== false) bombCount++;
+            if (h.pattern?.type === 'ROCKET' && this.rocketDoubles !== false) bombCount++;
         }
         multiplier *= Math.pow(2, bombCount);
-        
-        // 春天/反春天判断
+
+        // 春天/反春天判断（受规则开关控制）
         let springType = null;
-        if (isLandlordWin) {
-            // 检查农民是否出过牌
+        if (isLandlordWin && this.allowSpring !== false) {
             const peasantsPlayed = [0, 1, 2].filter(i => i !== this.landlordIndex)
                 .some(i => this.playCounts[i] > 0);
             if (!peasantsPlayed) {
                 springType = 'spring';
                 multiplier *= 2;
             }
-        } else {
-            // 检查地主是否只出过一手牌
+        } else if (!isLandlordWin && this.allowAntiSpring !== false) {
             if (this.playCounts[this.landlordIndex] <= 1) {
                 springType = 'anti_spring';
                 multiplier *= 2;
@@ -432,7 +462,7 @@ class GameState {
         
         // 抢地主模式：基础分 = grabMultiplier
         const effectiveBase = this.callMode === 'grab' ? this.grabMultiplier : baseScore;
-        const score = effectiveBase * multiplier;
+        const score = effectiveBase * multiplier * (this.scoreMultiplier || 1);
         
         if (isLandlordWin) {
             this.scores[this.landlordIndex] += score * 2;

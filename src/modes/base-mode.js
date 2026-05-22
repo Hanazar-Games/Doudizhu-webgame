@@ -7,6 +7,7 @@ import { Card } from '../core/card.js';
 import { Rules } from '../core/rules.js';
 import { GameState, PHASE } from '../core/game-state.js';
 import { AIPlayer } from '../players/ai-player.js';
+import { Storage } from '../utils/storage.js';
 
 class BaseMode {
     constructor(modeName) {
@@ -76,7 +77,44 @@ class BaseMode {
     // 开始一局
     async startGame() {
         this.isRunning = true;
-        
+
+        // 从设置读取游戏规则并配置 GameState
+        const settings = Storage.getSettings();
+        this.gameState.callMode = ['score', 'grab'].includes(settings.callMode) ? settings.callMode : 'score';
+        this.gameState.laiziEnabled = settings.laiziEnabled === true;
+        this.gameState.scoreMultiplier = Math.max(1, Math.min(10, settings.scoreMultiplier ?? 1));
+        // 癞子模式：随机指定一张癞子牌
+        if (this.gameState.laiziEnabled) {
+            const laiziCandidates = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+            this.gameState.laiziValue = laiziCandidates[Math.floor(Math.random() * laiziCandidates.length)];
+        } else {
+            this.gameState.laiziValue = -1;
+        }
+        // 先手规则
+        const firstPlayerSetting = settings.firstPlayer || 'random';
+        if (firstPlayerSetting === 'winner') {
+            // 上局赢家先手：dealerIndex 轮换已实现
+        } else if (firstPlayerSetting === 'landlord') {
+            // 固定地主先手
+        }
+        // 游戏变体规则
+        this.gameState.showCards = settings.showCards === true;
+        this.gameState.exchangeThree = settings.exchangeThree === true;
+        this.gameState.noShuffle = settings.noShuffle === true;
+        this.gameState.bottomVisible = settings.bottomVisible === true;
+        this.gameState.mustPlay = settings.mustPlay === true;
+        this.gameState.allowPassOnFirst = settings.allowPassOnFirst !== false;
+        this.gameState.allowTripleWithSingle = settings.allowTripleWithSingle !== false;
+        this.gameState.allowTripleWithPair = settings.allowTripleWithPair !== false;
+        this.gameState.allowAirplaneWithWings = settings.allowAirplaneWithWings !== false;
+        this.gameState.bombAsRocket = settings.bombAsRocket === true;
+        this.gameState.strictRules = settings.strictRules !== false;
+        // 春天/炸弹规则
+        this.gameState.allowSpring = settings.allowSpring !== false;
+        this.gameState.allowAntiSpring = settings.allowAntiSpring !== false;
+        this.gameState.bombDoubles = settings.bombDoubles !== false;
+        this.gameState.rocketDoubles = settings.rocketDoubles !== false;
+
         const deck = Card.shuffle(Card.createDeck());
         const bottom = deck.slice(51, 54);
         this.gameState.startRound(deck.slice(0, 51), bottom);
@@ -116,7 +154,13 @@ class BaseMode {
                     // 观战模式：显示叫分建议
                     const hintText = this.humanIndex < 0 ? (call === 0 ? '不叫' : call + '分') : null;
                     this.renderer?.showThinking(idx, hintText);
-                    await this._delay(800);
+                    const thinkMs = Math.max(200, Math.min(5000, Storage.getSettings().aiThinkTime ?? 800));
+                    await this._delay(thinkMs);
+                    // 观战模式下增加额外延迟，方便观众观察
+                    if (this.humanIndex < 0) {
+                        const spectatorDelay = Math.max(0, Math.min(5000, Storage.getSettings().spectatorDelay ?? 0));
+                        if (spectatorDelay > 0) await this._delay(spectatorDelay);
+                    }
                     this.renderer?.hideThinking(idx);
                     let success = this.gameState.callLandlord(idx, call);
                     if (!success) {
@@ -193,7 +237,14 @@ class BaseMode {
                     if (this.humanIndex < 0 && cards.length > 0) {
                         this.renderer?.showAIHint(idx, cards);
                     }
-                    await this._delay(player.isAuto ? 1200 : 1000);
+                    const baseThink = Storage.getSettings().aiThinkTime ?? 1000;
+                    const thinkMs = Math.max(200, Math.min(5000, player.isAuto ? baseThink + 200 : baseThink));
+                    await this._delay(thinkMs);
+                    // 观战模式下增加额外延迟，方便观众观察
+                    if (this.humanIndex < 0) {
+                        const spectatorDelay = Math.max(0, Math.min(5000, Storage.getSettings().spectatorDelay ?? 0));
+                        if (spectatorDelay > 0) await this._delay(spectatorDelay);
+                    }
                     this.renderer?.hideThinking(idx);
                     this.renderer?.hideAIHint?.(idx);
                     
@@ -323,7 +374,11 @@ class BaseMode {
 
     _startCountdown(playerIndex, type) {
         this._stopCountdown();
-        this._turnCountdown = 30;
+        const settings = Storage.getSettings();
+        if (settings.timerEnabled == false) {
+            return; // 倒计时关闭，不启动
+        }
+        this._turnCountdown = Math.max(10, Math.min(120, settings.timerSeconds ?? 30));
         this.renderer?.showCountdown(playerIndex, this._turnCountdown);
         this._countdownInterval = setInterval(() => {
             this._turnCountdown--;

@@ -140,22 +140,42 @@ docker-compose up -d
 
 ## 版本公告
 
-### v1.1.7 (当前版本) — 稳定性、手感与发布修复
+### v1.1.8 (当前版本) — 设置面板全面 UI/UX/SFX/BGM 升级 & 深度 Bug 修复
 
-**深度修复**
-- 🃏 **连续牌规则收紧**：顺子、连对、飞机及癞子顺子统一禁止包含 2 和王，AI、提示和自动纠错路径同步修复
-- 🎯 **智能误选纠正**：非法选择会优先识别可出的连续牌/剪枝牌型，例如重复选到顺子时自动提示去掉多余牌
-- 🃏 **打出牌显示修复**：出牌区使用更清晰的卡牌尺寸、对比背景和自动紧凑重叠，长顺子/长连对不再挤出牌桌
-- 🎚️ **体验参数生效**：出牌重叠、出牌大小、手牌大小、拖选灵敏度、动画强度等设置统一接入实际渲染
-- 🎵 **BGM/SFX 生命周期修复**：菜单音频改为 App 级管理，返回菜单不再复用旧 renderer 的音频实例，菜单按钮声和音量预览在未开局时也能工作
-- 🌐 **LAN 联机稳固**：非房主收到开局同步会自动进入牌桌，房主开始游戏权限更明确，异常 WebSocket 消息会被忽略并提示
-- 🧭 **主菜单比例优化**：高级体验设置默认收起，宽屏/矮屏下压缩标题、按钮和设置高度，避免主页面内容被挤出首屏
-- 📱 **PWA 图标路径补全**：补充 `assets/` 与 `public/assets/` 图标文件，兼容旧缓存/旧 manifest 请求，减少 GitHub Pages 404
+**🎛️ 设置面板全面重构**
+- 🔄 **现代 Toggle Switch**：80 个设置项全部替换为带动画滑动开关，开启绿色/关闭灰色，带弹性按压效果
+- 🎚️ **自定义 Range Slider**：28 个滑块全面美化，金色渐变滑块、hover 放大发光、实时数值反馈
+- 🔍 **实时搜索过滤**：顶部新增搜索框，支持防抖 150ms 实时过滤，匹配项自动高亮并展开父级分类
+- 🏷️ **分类图标增强**：14 个设置分类全部添加 emoji 图标 + 竖条装饰 + 字母间距，视觉层次更清晰
+- ✨ **修改视觉反馈**：设置变更时播放金色涟漪脉冲动画，即时感知操作生效
+- 📱 **移动端抽屉适配**：小屏下设置面板变为底部抽屉式滑入，单列布局、触控友好
+- 🎨 **Hover 状态系统**：所有设置行/滑块/折叠面板都有 hover 背景色和边框过渡
 
-**验证**
-- `manifest.json`、`public/manifest.json`、`package.json` JSON 校验通过
-- 静态资源路径检查通过：`/main.js`、`/main.css`、`/manifest.json`、`/assets/icon-192.png`、`/assets/icon-512.png`
-- 受限环境缺少 `node`/`npm`，核心测试需在本地安装 Node 后运行 `npm test`
+**🎵 SFX/BGM 深度集成**
+- 🎶 **面板打开音效**：明亮三音展开（660→880→1100Hz），增强打开仪式感
+- 🔇 **面板关闭音效**：收拢两音（880→660Hz），与打开形成呼应
+- ⚡ **开关切换音效**：开启时上升双音，关闭时下降双音，听觉反馈明确
+- 🎚️ **滑块拖动音效**：清晰滴答（1000Hz/50ms），停止拖动 120ms 后触发防抖播放
+- 🔄 **重置音效**：警示三角波音（440→330Hz），提示操作重要性
+- 🎼 **BGM 动态调节**：打开设置面板时 BGM 平滑降至 25%，关闭时恢复，过渡自然
+
+**🐛 深度 Bug 修复（15 项）**
+- 🔴 **#settings-overlay.hidden 语义破坏**：CSS 中 `display: flex !important` 覆盖全局 `.hidden`，导致遮罩层无法真正隐藏，持续占用渲染层 — 已移除错误覆盖
+- 🔴 **timerEnabled 类型不一致**：HTML select 值为字符串 `"false"`，base-mode.js 使用严格相等 `=== false` 判断，导致倒计时关闭后仍继续运行 — 改为松散相等 `== false`
+- 🔴 **暂停按钮全部未绑定**：renderer.js 只在动态创建 overlay 时绑定事件，HTML 静态 overlay 中"继续/设置/退出"三个按钮全部无响应 — 重构为统一事件绑定（`_pauseListenersBound` 标志）
+- 🔴 **locked 状态下 toggle switch 仍可点击**：游戏进行中锁定的规则设置，toggle switch 的 label 点击仍能切换值 — 添加 `pointer-events: none`
+- 🟡 **BGM 音量调节后被覆盖**：用户在面板内拖动 BGM 滑块调节音量，关闭面板后恢复为打开前的旧值 — 关闭时优先使用 `settings.bgmVolume` 最新值
+- 🟡 **BGM 静音时打开面板强制出声**：BGM 设为 0 时，`Math.max(0.05, ...)` 强制提升到可闻音量 — 移除最低音量限制
+- 🟡 **打开设置面板按钮音效重复**：menuBtns 通用 handler 已播放按钮音效，`openSettings()` 内又播放一次 — 移除重复调用
+- 🟡 **setBGMVolume 瞬切突兀**：直接赋值 `gain.value` 导致音量跳变 — 改用 `setTargetAtTime` 0.15s 平滑过渡
+- 🟡 **playSettingSlider 几乎无声**：音量仅 0.03、时长 30ms，极易被掩盖 — 增大到 0.06/50ms
+- 🟡 **.settings-panel 高度限制**：旧 `max-height: min(48vh, 500px)` 限制模态框内面板无法填满 — 添加 `max-height: none !important`
+- 🟡 **搜索图标 focus 死代码**：`input:focus + .settings-search-icon` 相邻兄弟选择器永远不会命中（icon 在 input 之前）— 移除无效规则
+- 🟡 **.settings-toggles 布局松散**：grid 强制等宽拉伸，短文本项产生多余空白 — 改为 `repeat(auto-fill, minmax(140px, max-content))`
+- 🟢 **_showPauseOverlay 重复绑定**：每次暂停都 `addEventListener`，多次暂停后一个按钮触发多次 — 使用 `_pauseListenersBound` 标志只绑定一次
+- 🟢 **_removePauseOverlay 内存泄漏**：改为 `classList.add('hidden')` 而不移除 DOM，动态 overlay 累积 — 恢复 `overlay.remove()` 并同步重置绑定标志
+
+**历史公告**
 
 ---
 
