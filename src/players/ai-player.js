@@ -54,7 +54,7 @@ class AIPlayer extends Player {
         strength += bigCards * 0.3;
         
         // 顺子潜力
-        const values = [...groups.keys()].filter(v => v <= 15).sort((a, b) => a - b);
+        const values = [...groups.keys()].filter(v => v <= 14).sort((a, b) => a - b);
         let straightLen = 1, maxStraight = 1;
         for (let i = 1; i < values.length; i++) {
             if (values[i] - values[i-1] === 1) straightLen++;
@@ -241,7 +241,7 @@ class AIPlayer extends Player {
         }
         
         // 顺子 (5+)
-        const normalValues = entries.filter(([v, g]) => v <= 15).map(([v]) => v).sort((a, b) => a - b);
+        const normalValues = entries.filter(([v, g]) => v <= 14).map(([v]) => v).sort((a, b) => a - b);
         for (let i = 0; i < normalValues.length; i++) {
             for (let j = i + 4; j < normalValues.length; j++) {
                 const seq = normalValues.slice(i, j + 1);
@@ -254,7 +254,7 @@ class AIPlayer extends Player {
         }
         
         // 连对 (3+对)
-        const pairValues = entries.filter(([v, g]) => g.length >= 2 && v <= 15).map(([v]) => v).sort((a, b) => a - b);
+        const pairValues = entries.filter(([v, g]) => g.length >= 2 && v <= 14).map(([v]) => v).sort((a, b) => a - b);
         for (let i = 0; i < pairValues.length; i++) {
             for (let j = i + 2; j < pairValues.length; j++) {
                 const seq = pairValues.slice(i, j + 1);
@@ -268,7 +268,7 @@ class AIPlayer extends Player {
         }
         
         // 飞机 (2+连续三张)
-        const tripleValues = entries.filter(([v, g]) => g.length >= 3 && v <= 15).map(([v]) => v).sort((a, b) => a - b);
+        const tripleValues = entries.filter(([v, g]) => g.length >= 3 && v <= 14).map(([v]) => v).sort((a, b) => a - b);
         for (let i = 0; i < tripleValues.length; i++) {
             for (let j = i + 1; j < tripleValues.length; j++) {
                 const seq = tripleValues.slice(i, j + 1);

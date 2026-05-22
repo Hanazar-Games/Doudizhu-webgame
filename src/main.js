@@ -7,6 +7,7 @@ import { AIMode } from './modes/ai-mode.js';
 import { LANMode } from './modes/lan-mode.js';
 import { CustomMode } from './modes/custom-mode.js';
 import { Renderer } from './ui/renderer.js';
+import { AudioManager } from './ui/audio.js';
 import { Storage } from './utils/storage.js';
 import { ReplayManager } from './utils/replay.js';
 
@@ -14,6 +15,8 @@ class GameApp {
     constructor() {
         this.currentMode = null;
         this.renderer = null;
+        this.menuAudio = new AudioManager();
+        this._hasUserInteracted = false;
         this.settings = Storage.getSettings();
         this.stats = { gamesPlayed: 0, wins: 0, losses: 0, totalScore: 0, streak: 0, ...Storage.getStats() };
         this.init();
@@ -32,21 +35,19 @@ class GameApp {
             { id: 'btn-achievements', action: () => this.showAchievements() },
             { id: 'btn-back', action: () => this.showMenu() },
         ];
-        // 首次用户交互标记（用于解锁 AudioContext）
-        this._hasUserInteracted = false;
-
         for (const { id, action } of menuBtns) {
             document.getElementById(id)?.addEventListener('click', () => {
                 // 首次交互：尝试恢复被阻止的 BGM
                 if (!this._hasUserInteracted) {
                     this._hasUserInteracted = true;
-                    this.renderer?.audio?._ensureContext().then(ok => {
-                        if (ok && !this.renderer?.audio?._currentBGM) {
-                            this.renderer?.audio?.playMenuBGM();
+                    const audio = this._getActiveAudio();
+                    audio?._ensureContext().then(ok => {
+                        if (ok && !this.renderer) {
+                            audio?.playMenuBGM();
                         }
                     });
                 }
-                this.renderer?.audio?.playButtonClick();
+                this._playButtonClick();
                 action();
             });
         }
@@ -62,15 +63,14 @@ class GameApp {
                 this.settings[key] = v;
                 if (val) val.textContent = Math.round(v * 100) + '%';
                 Storage.saveSettings(this.settings);
-                if (this.renderer?.audio) {
-                    this.renderer.audio[setter](v);
-                    // SFX 音量调节时播放预览音效（节流 150ms）
-                    if (isSFX) {
-                        if (sfxPreviewTimer) clearTimeout(sfxPreviewTimer);
-                        sfxPreviewTimer = setTimeout(() => {
-                            this.renderer?.audio?.playTick();
-                        }, 150);
-                    }
+                this.menuAudio?.[setter]?.(v);
+                this.renderer?.audio?.[setter]?.(v);
+                // SFX 音量调节时播放预览音效（节流 150ms）
+                if (isSFX) {
+                    if (sfxPreviewTimer) clearTimeout(sfxPreviewTimer);
+                    sfxPreviewTimer = setTimeout(() => {
+                        this._getActiveAudio()?.playTick();
+                    }, 150);
                 }
             });
         };
@@ -123,17 +123,17 @@ class GameApp {
 
         // 成就面板关闭
         document.getElementById('btn-close-achievements')?.addEventListener('click', () => {
-            this.renderer?.audio?.playButtonClick();
+            this._playButtonClick();
             document.getElementById('achievement-panel')?.classList.add('hidden');
         });
 
         // 返回按钮（跨屏幕通用）
         document.getElementById('btn-back-lan')?.addEventListener('click', () => {
-            this.renderer?.audio?.playButtonClick();
+            this._playButtonClick();
             this.showMenu();
         });
         document.getElementById('btn-back-custom')?.addEventListener('click', () => {
-            this.renderer?.audio?.playButtonClick();
+            this._playButtonClick();
             this.showMenu();
         });
 
@@ -149,7 +149,7 @@ class GameApp {
 
         // 全屏切换
         document.getElementById('btn-fullscreen')?.addEventListener('click', () => {
-            this.renderer?.audio?.playButtonClick();
+            this._playButtonClick();
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(() => {});
             } else {
@@ -173,9 +173,43 @@ class GameApp {
             this._animateMenuEntrance();
             // 延迟播放菜单BGM（等待用户交互解锁AudioContext）
             setTimeout(() => {
-                this.renderer?.audio?.playMenuBGM();
+                this._playMenuBGM();
             }, 500);
         }, 600);
+    }
+
+    _getActiveAudio() {
+        return this.renderer?.audio || this.menuAudio;
+    }
+
+    _syncAudioSettings(audio) {
+        if (!audio) return;
+        audio.enabled = this.settings.soundEnabled !== false;
+        audio.setBGMVolume(this.settings.bgmVolume ?? 0.5);
+        audio.setSFXVolume(this.settings.sfxVolume ?? 0.5);
+    }
+
+    _configureRendererAudio(renderer) {
+        this._syncAudioSettings(renderer?.audio);
+        return renderer;
+    }
+
+    _playButtonClick() {
+        this._syncAudioSettings(this._getActiveAudio());
+        this._getActiveAudio()?.playButtonClick();
+    }
+
+    _playMenuBGM(delay = 300) {
+        if (this.renderer) return;
+        this._syncAudioSettings(this.menuAudio);
+        this.menuAudio?.stopBGM();
+        setTimeout(() => {
+            if (!this.renderer) this.menuAudio?.playMenuBGM();
+        }, delay);
+    }
+
+    _stopMenuAudio() {
+        this.menuAudio?.stopBGM();
     }
 
     _animateMenuEntrance() {
@@ -281,7 +315,7 @@ class GameApp {
         });
 
         document.getElementById('btn-reset-ux-settings')?.addEventListener('click', () => {
-            this.renderer?.audio?.playButtonClick();
+            this._playButtonClick();
             Object.assign(this.settings, {
                 uiDensity: 'comfortable',
                 tableScale: 1,
@@ -453,7 +487,7 @@ class GameApp {
         if (!panel || !btnClose) return;
 
         btnClose.addEventListener('click', () => {
-            this.renderer?.audio?.playButtonClick();
+            this._playButtonClick();
             if (chkSkip?.checked) {
                 this.settings.showTutorial = false;
                 Storage.saveSettings(this.settings);
@@ -593,7 +627,7 @@ class GameApp {
         const btnCopyHostUrl = document.getElementById('btn-copy-lan-url');
 
         btnCopyHostUrl?.addEventListener('click', async () => {
-            this.renderer?.audio?.playButtonClick();
+            this._playButtonClick();
             const input = document.getElementById('lan-host-url');
             const url = input?.value;
             if (!url) return;
@@ -608,7 +642,7 @@ class GameApp {
         });
 
         btnCreate?.addEventListener('click', async () => {
-            this.renderer?.audio?.playButtonClick();
+            this._playButtonClick();
             if (!this.currentMode || !(this.currentMode instanceof LANMode)) return;
             try {
                 const roomId = await this.currentMode.createRoom();
@@ -623,7 +657,7 @@ class GameApp {
         });
 
         btnJoin?.addEventListener('click', async () => {
-            this.renderer?.audio?.playButtonClick();
+            this._playButtonClick();
             if (!this.currentMode || !(this.currentMode instanceof LANMode)) return;
             const roomId = document.getElementById('room-id-input')?.value?.trim();
             if (!roomId) return alert('请输入房间号');
@@ -637,18 +671,53 @@ class GameApp {
         });
 
         btnStart?.addEventListener('click', async () => {
-            this.renderer?.audio?.playButtonClick();
+            this._playButtonClick();
             if (!this.currentMode || !(this.currentMode instanceof LANMode)) return;
+            if (!this.currentMode.isHost) {
+                document.getElementById('lan-status').textContent = '只有房主可以开始游戏';
+                return;
+            }
+            const playerCount = this.currentMode.gameState?.players?.filter(Boolean).length || 0;
+            if (playerCount < 3) {
+                document.getElementById('lan-status').textContent = '需要 3 人到齐后才能开始游戏';
+                return;
+            }
             this.renderer?.destroy?.();
             this.renderer = new Renderer('game-table');
             this.renderer.setGameState(this.currentMode.gameState);
             this.renderer.setMode(this.currentMode);
+            this._configureRendererAudio(this.renderer);
             this.currentMode.setRenderer(this.renderer);
+            this._bindRoundEndListener();
+            this._stopMenuAudio();
 
             document.getElementById('lan-screen')?.classList.add('hidden');
             document.getElementById('game-screen')?.classList.remove('hidden');
             await this.currentMode.startGame();
         });
+    }
+
+    _enterLANGameFromNetwork(mode) {
+        if (!mode || mode !== this.currentMode) return;
+        if (!this.renderer) {
+            this.renderer = new Renderer('game-table');
+            this.renderer.setGameState(mode.gameState);
+            this.renderer.setMode(mode);
+            this._configureRendererAudio(this.renderer);
+            mode.setRenderer(this.renderer);
+            this._bindRoundEndListener();
+        }
+        this._stopMenuAudio();
+        document.getElementById('menu-screen')?.classList.add('hidden');
+        document.getElementById('lan-screen')?.classList.add('hidden');
+        document.getElementById('custom-screen')?.classList.add('hidden');
+        const game = document.getElementById('game-screen');
+        game?.classList.remove('hidden');
+        if (game) {
+            game.style.opacity = '';
+            game.style.transform = '';
+            game.style.transition = '';
+        }
     }
 
     async _refreshLANHostInfo() {
@@ -680,7 +749,7 @@ class GameApp {
 
     _initCustomListeners() {
         document.getElementById('btn-custom-start')?.addEventListener('click', async () => {
-            this.renderer?.audio?.playButtonClick();
+            this._playButtonClick();
             if (!this.currentMode || !(this.currentMode instanceof CustomMode)) return;
 
             const showAll = document.getElementById('cfg-show-all')?.checked;
@@ -700,10 +769,10 @@ class GameApp {
             this.renderer = new Renderer('game-table');
             this.renderer.setGameState(this.currentMode.gameState);
             this.renderer.setMode(this.currentMode);
+            this._configureRendererAudio(this.renderer);
             this.renderer.audio.enabled = soundOn;
-            this.renderer.audio.setBGMVolume(this.settings.bgmVolume ?? 0.5);
-            this.renderer.audio.setSFXVolume(this.settings.sfxVolume ?? 0.5);
             this.currentMode.setRenderer(this.renderer);
+            this._stopMenuAudio();
 
             this._bindRoundEndListener();
 
@@ -725,13 +794,12 @@ class GameApp {
             this.currentMode.isRunning = false;
             this.currentMode.destroy?.();
         }
-        const audio = this.renderer?.audio;
         this.renderer?.destroy?.();
         this.renderer = null;
+        this.currentMode = null;
 
         // 切换回菜单BGM
-        audio?.stopBGM();
-        setTimeout(() => audio?.playMenuBGM(), 300);
+        this._playMenuBGM();
 
         // 淡出当前屏幕
         [game, lan, custom, replay].forEach(s => {
@@ -850,6 +918,7 @@ class GameApp {
         }
 
         // 切换为游戏BGM（延迟等发牌动画）
+        this._stopMenuAudio();
         this.renderer?.audio?.stopBGM();
         setTimeout(() => this.renderer?.audio?.playGameBGM(), 1500);
     }
@@ -878,8 +947,7 @@ class GameApp {
         this.renderer = new Renderer('game-table');
         this.renderer.setGameState(this.currentMode.gameState);
         this.renderer.setMode(this.currentMode);
-        this.renderer.audio.setBGMVolume(this.settings.bgmVolume ?? 0.5);
-        this.renderer.audio.setSFXVolume(this.settings.sfxVolume ?? 0.5);
+        this._configureRendererAudio(this.renderer);
         this.currentMode.setRenderer(this.renderer);
 
         this._bindRoundEndListener();
@@ -929,6 +997,7 @@ class GameApp {
         }
         this.renderer?.destroy?.();
         this.renderer = null;
+        this._playMenuBGM(0);
         this._transitionToScreen('lan-screen');
 
         // 重置LAN UI状态
@@ -956,6 +1025,7 @@ class GameApp {
         }
         this.renderer?.destroy?.();
         this.renderer = null;
+        this._playMenuBGM(0);
         this._transitionToScreen('custom-screen');
 
         this.currentMode = new CustomMode();

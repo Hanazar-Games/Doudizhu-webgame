@@ -136,21 +136,21 @@ class Rules {
 
         // 8. 顺子 (5+连续单张, 不能含2和王)
         if (n >= 5 && groupSizes.every(s => s === 1)) {
-            if (Rules.isConsecutive(groupValues) && groupValues[groupValues.length - 1] <= 15) {
+            if (Rules.isConsecutive(groupValues) && groupValues[groupValues.length - 1] <= 14) {
                 return new HandPattern(HAND_TYPE.STRAIGHT, cards, groupValues[groupValues.length - 1], n);
             }
         }
 
         // 9. 连对 (3+连续对子, 不能含2和王)
         if (n >= 6 && n % 2 === 0 && groupSizes.every(s => s === 2)) {
-            if (Rules.isConsecutive(groupValues) && groupValues[groupValues.length - 1] <= 15) {
+            if (Rules.isConsecutive(groupValues) && groupValues[groupValues.length - 1] <= 14) {
                 return new HandPattern(HAND_TYPE.DOUBLE_STRAIGHT, cards, groupValues[groupValues.length - 1], n);
             }
         }
 
         // 10. 飞机 (2+连续三张, 不能含2和王)
         if (n >= 6 && n % 3 === 0 && groupSizes.every(s => s === 3)) {
-            if (Rules.isConsecutive(groupValues) && groupValues[groupValues.length - 1] <= 15) {
+            if (Rules.isConsecutive(groupValues) && groupValues[groupValues.length - 1] <= 14) {
                 return new HandPattern(HAND_TYPE.TRIPLE_STRAIGHT, cards, groupValues[groupValues.length - 1], n);
             }
         }
@@ -164,7 +164,7 @@ class Rules {
                 else if (grp.length === 1) singles.push(val);
             }
             const k = n / 4;
-            if (triples.length === k && singles.length === k && Rules.isConsecutive(triples) && triples[triples.length - 1] <= 15) {
+            if (triples.length === k && singles.length === k && Rules.isConsecutive(triples) && triples[triples.length - 1] <= 14) {
                 return new HandPattern(HAND_TYPE.TRIPLE_STRAIGHT_WITH_SINGLES, cards, triples[triples.length - 1], n);
             }
         }
@@ -178,7 +178,7 @@ class Rules {
                 else if (grp.length === 2) pairs.push(val);
             }
             const k = n / 5;
-            if (triples.length === k && pairs.length === k && Rules.isConsecutive(triples) && triples[triples.length - 1] <= 15) {
+            if (triples.length === k && pairs.length === k && Rules.isConsecutive(triples) && triples[triples.length - 1] <= 14) {
                 return new HandPattern(HAND_TYPE.TRIPLE_STRAIGHT_WITH_PAIRS, cards, triples[triples.length - 1], n);
             }
         }
@@ -332,7 +332,8 @@ class Rules {
         const allCards = [...normalCards, ...laiziCards];
         
         // 所有真实牌必须是单张（不能有重复值，除非重复值是癞子可替代的）
-        const values = [...new Set(normalCards.map(c => c.value))].filter(v => v <= 15).sort((a, b) => a - b);
+        if (normalCards.some(c => c.value >= 15)) return null;
+        const values = [...new Set(normalCards.map(c => c.value))].filter(v => v <= 14).sort((a, b) => a - b);
         if (values.length === 0 && laiziCount >= 5) {
             // 全是癞子，最小顺子 3-7
             return new HandPattern(HAND_TYPE.STRAIGHT, allCards, 7, n, true);
@@ -476,7 +477,7 @@ class Rules {
         }
         
         // 7. 顺子 (5+, 不含2和王)
-        const normalValues = values.filter(v => v <= 15).sort((a, b) => a - b);
+        const normalValues = values.filter(v => v <= 14).sort((a, b) => a - b);
         for (let start = 0; start < normalValues.length; start++) {
             for (let end = start + 4; end < normalValues.length; end++) {
                 const seq = normalValues.slice(start, end + 1);
@@ -487,7 +488,7 @@ class Rules {
         }
         
         // 8. 连对 (3+对, 不含2和王)
-        const pairValues = groupEntries.filter(([v, g]) => g.length >= 2 && v <= 15).map(([v]) => v).sort((a, b) => a - b);
+        const pairValues = groupEntries.filter(([v, g]) => g.length >= 2 && v <= 14).map(([v]) => v).sort((a, b) => a - b);
         for (let start = 0; start < pairValues.length; start++) {
             for (let end = start + 2; end < pairValues.length; end++) {
                 const seq = pairValues.slice(start, end + 1);
@@ -500,7 +501,7 @@ class Rules {
         }
         
         // 9. 飞机 (2+连续三张, 不含2和王)
-        const tripleValues = groupEntries.filter(([v, g]) => g.length >= 3 && v <= 15).map(([v]) => v).sort((a, b) => a - b);
+        const tripleValues = groupEntries.filter(([v, g]) => g.length >= 3 && v <= 14).map(([v]) => v).sort((a, b) => a - b);
         for (let start = 0; start < tripleValues.length; start++) {
             for (let end = start + 1; end < tripleValues.length; end++) {
                 const seq = tripleValues.slice(start, end + 1);
@@ -693,7 +694,7 @@ class Rules {
             }
             case HAND_TYPE.STRAIGHT: {
                 const k = len;
-                const values = [...groups.keys()].filter(v => v <= 15).sort((a, b) => a - b);
+                const values = [...groups.keys()].filter(v => v <= 14).sort((a, b) => a - b);
                 for (let i = 0; i <= values.length - k; i++) {
                     const seq = values.slice(i, i + k);
                     if (Rules.isConsecutive(seq) && seq[seq.length - 1] > mainVal) {
@@ -705,7 +706,7 @@ class Rules {
             }
             case HAND_TYPE.DOUBLE_STRAIGHT: {
                 const pairCount = len / 2;
-                const pairValues = groupEntries.filter(([v, g]) => g.length >= 2 && v <= 15).map(([v]) => v);
+                const pairValues = groupEntries.filter(([v, g]) => g.length >= 2 && v <= 14).map(([v]) => v);
                 for (let i = 0; i <= pairValues.length - pairCount; i++) {
                     const seq = pairValues.slice(i, i + pairCount);
                     if (Rules.isConsecutive(seq) && seq[seq.length - 1] > mainVal) {
@@ -718,7 +719,7 @@ class Rules {
             }
             case HAND_TYPE.TRIPLE_STRAIGHT: {
                 const tripleCount = len / 3;
-                const tripleValues = groupEntries.filter(([v, g]) => g.length >= 3 && v <= 15).map(([v]) => v);
+                const tripleValues = groupEntries.filter(([v, g]) => g.length >= 3 && v <= 14).map(([v]) => v);
                 for (let i = 0; i <= tripleValues.length - tripleCount; i++) {
                     const seq = tripleValues.slice(i, i + tripleCount);
                     if (Rules.isConsecutive(seq) && seq[seq.length - 1] > mainVal) {

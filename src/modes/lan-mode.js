@@ -28,6 +28,7 @@ class LANMode extends BaseMode {
     }
 
     destroy() {
+        this.isRunning = false;
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
@@ -97,7 +98,14 @@ class LANMode extends BaseMode {
                     resolve();
                 };
                 
-                this.ws.onmessage = (e) => this._onWsMessage(JSON.parse(e.data));
+                this.ws.onmessage = (e) => {
+                    try {
+                        this._onWsMessage(JSON.parse(e.data));
+                    } catch (err) {
+                        console.warn('[LANMode] 忽略异常网络消息:', err);
+                        this.showToast('收到异常网络消息，已忽略');
+                    }
+                };
                 
                 this.ws.onclose = () => {
                     console.warn('[LANMode] WebSocket断开');
@@ -144,6 +152,8 @@ class LANMode extends BaseMode {
     _send(msg) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(msg));
+        } else if (msg?.type !== 'ping') {
+            console.warn('[LANMode] WebSocket 未连接，消息未发送:', msg?.type);
         }
     }
 
@@ -224,7 +234,7 @@ class LANMode extends BaseMode {
 
     async startGame() {
         if (!this.isHost) {
-            this._send({ type: 'request_start' });
+            this.showToast('只有房主可以开始游戏');
             return;
         }
 
@@ -248,6 +258,9 @@ class LANMode extends BaseMode {
     }
 
     _syncGameStart(data) {
+        if (!this.renderer) {
+            window.gameApp?._enterLANGameFromNetwork?.(this);
+        }
         // 确保所有位置都有 Player 对象（非 host 客户端可能只设置了自己）
         for (let i = 0; i < 3; i++) {
             if (!this.gameState.players[i]) {
@@ -258,6 +271,7 @@ class LANMode extends BaseMode {
         const bottom = this._deserializeDeck(data.bottomCards);
         this.gameState.dealerIndex = data.dealerIndex;
         this.gameState.startRound(deck, bottom);
+        this.isRunning = true;
         
         // 音效 + BGM
         this.renderer?.audio?.playDeal();

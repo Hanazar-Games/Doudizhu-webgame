@@ -87,12 +87,24 @@ test('Rules.analyze STRAIGHT with 10', () => {
     assert(p.length === 7);
 });
 
+test('Rules.analyze STRAIGHT rejects 2', () => {
+    assert(Rules.analyze(makeCards(['10', 'J', 'Q', 'K', 'A', '2'])).type === HAND_TYPE.INVALID);
+});
+
 test('Rules.analyze DOUBLE_STRAIGHT', () => {
     assert(Rules.analyze(makeCards(['3', '3', '4', '4', '5', '5'])).type === HAND_TYPE.DOUBLE_STRAIGHT);
 });
 
+test('Rules.analyze DOUBLE_STRAIGHT rejects 2', () => {
+    assert(Rules.analyze(makeCards(['Q', 'Q', 'K', 'K', 'A', 'A', '2', '2'])).type === HAND_TYPE.INVALID);
+});
+
 test('Rules.analyze TRIPLE_STRAIGHT', () => {
     assert(Rules.analyze(makeCards(['3', '3', '3', '4', '4', '4'])).type === HAND_TYPE.TRIPLE_STRAIGHT);
+});
+
+test('Rules.analyze TRIPLE_STRAIGHT rejects 2', () => {
+    assert(Rules.analyze(makeCards(['K', 'K', 'K', 'A', 'A', 'A', '2', '2', '2'])).type === HAND_TYPE.INVALID);
 });
 
 test('Rules.analyze BOMB', () => {

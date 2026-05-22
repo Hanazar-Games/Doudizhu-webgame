@@ -1652,16 +1652,18 @@ class Renderer {
         playedArea.classList.add('has-cards');
         playedArea.dataset.cardCount = String(data.cards.length);
         const sorted = Card.sortByValue(data.cards);
-        const playScale = sorted.length >= 12 ? '0.78' : sorted.length >= 8 ? '0.84' : sorted.length >= 5 ? '0.9' : '1';
-        const overlap = sorted.length >= 12 ? '24px' : sorted.length >= 8 ? '20px' : sorted.length >= 5 ? '14px' : '8px';
-        playedArea.style.setProperty('--table-play-scale', playScale);
-        playedArea.style.setProperty('--table-play-overlap', overlap);
+        const playScale = '1';
+        const configuredOverlap = parseFloat(
+            getComputedStyle(document.documentElement).getPropertyValue('--ddz-play-overlap')
+        ) || 16;
+        const compactOverlap = sorted.length >= 12 ? 34 : sorted.length >= 8 ? 26 : sorted.length >= 5 ? 18 : 10;
+        playedArea.style.setProperty('--table-play-overlap', `${Math.max(configuredOverlap, compactOverlap)}px`);
         for (let i = 0; i < sorted.length; i++) {
             const el = this._createCardElement(sorted[i]);
             el.classList.add('table-play-card');
             el.style.setProperty('--play-index', i);
             el.style.setProperty('--play-scale', playScale);
-            el.style.transform = `translateY(8px) scale(${playScale})`;
+            el.style.transform = 'translateY(10px) scale(0.96)';
             el.style.opacity = '0';
             el.style.animation = `cardPlayFlyIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${i * 40}ms forwards`;
             playedArea.appendChild(el);
