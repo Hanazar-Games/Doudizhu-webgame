@@ -33,7 +33,7 @@ class GameApp {
             { id: 'btn-ai-mode', action: () => this.startAIMode() },
             { id: 'btn-lan-mode', action: () => this.startLANMode() },
             { id: 'btn-custom-mode', action: () => this.startCustomMode() },
-            { id: 'btn-replay-mode', action: () => this.showReplayList() },
+            { id: 'btn-replay', action: () => this.showReplayList() },
             { id: 'btn-achievements', action: () => this.showAchievements() },
             { id: 'btn-tutorial', action: () => this.openTutorial() },
             { id: 'btn-settings', action: () => this.openSettings() },
@@ -129,7 +129,14 @@ class GameApp {
         // 成就面板关闭
         document.getElementById('btn-close-achievements')?.addEventListener('click', () => {
             this._playButtonClick();
-            document.getElementById('achievement-panel')?.classList.add('hidden');
+            const panel = document.getElementById('achievement-panel');
+            if (!panel) return;
+            if (this._achCloseTimer) clearTimeout(this._achCloseTimer);
+            panel.classList.add('panel-exit');
+            this._achCloseTimer = setTimeout(() => {
+                panel.classList.add('hidden');
+                this._achCloseTimer = null;
+            }, 200);
         });
 
         // 设置面板关闭
@@ -437,6 +444,15 @@ class GameApp {
         const overlay = document.getElementById('settings-overlay');
         if (!overlay || !overlay.classList.contains('hidden')) return;
         overlay.classList.remove('hidden');
+        overlay.style.opacity = '0';
+        overlay.style.transform = 'scale(0.96)';
+        requestAnimationFrame(() => {
+            overlay.style.transition = 'opacity 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            requestAnimationFrame(() => {
+                overlay.style.opacity = '1';
+                overlay.style.transform = 'scale(1)';
+            });
+        });
         this._settingsOpen = true;
         this._getActiveAudio()?.playSettingOpen?.();
         // 聚焦搜索框
@@ -452,13 +468,23 @@ class GameApp {
         if (!overlay || overlay.classList.contains('hidden')) return;
         this._getActiveAudio()?.playSettingClose?.();
         this._settingsOpen = false;
-        overlay.classList.add('hidden');
+        overlay.style.transition = 'opacity 0.2s ease-in, transform 0.2s ease-in';
+        overlay.style.opacity = '0';
+        overlay.style.transform = 'scale(0.96)';
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            overlay.style.opacity = '';
+            overlay.style.transform = '';
+            overlay.style.transition = '';
+        }, 200);
         // 清空搜索
         const searchInput = document.getElementById('settings-search-input');
         if (searchInput) {
             searchInput.value = '';
             this._filterSettings('');
         }
+        // 焦点返回到设置按钮
+        document.getElementById('btn-settings')?.focus();
     }
 
     // ===== 设置搜索过滤 =====
@@ -951,8 +977,8 @@ class GameApp {
     }
 
     _initLANListeners() {
-        const btnCreate = document.getElementById('btn-create-room');
-        const btnJoin = document.getElementById('btn-join-room');
+        const btnCreate = document.getElementById('btn-lan-host');
+        const btnJoin = document.getElementById('btn-lan-join');
         const btnStart = document.getElementById('btn-lan-start');
         const btnCopyHostUrl = document.getElementById('btn-copy-lan-url');
 
@@ -989,7 +1015,7 @@ class GameApp {
         btnJoin?.addEventListener('click', async () => {
             this._playButtonClick();
             if (!this.currentMode || !(this.currentMode instanceof LANMode)) return;
-            const roomId = document.getElementById('room-id-input')?.value?.trim();
+            const roomId = document.getElementById('lan-room-id')?.value?.trim();
             if (!roomId) return alert('请输入房间号');
             try {
                 await this.currentMode.joinRoom(roomId);
@@ -1215,6 +1241,7 @@ class GameApp {
         const panel = document.getElementById('achievement-panel');
         const list = document.getElementById('achievement-list');
         if (!panel || !list) return;
+        if (this._achCloseTimer) clearTimeout(this._achCloseTimer);
 
         const achievements = Storage.getAchievements();
         const defs = Storage.ACHIEVEMENTS;
@@ -1239,7 +1266,7 @@ class GameApp {
             list.appendChild(item);
         }
 
-        panel.classList.remove('hidden');
+        panel.classList.remove('hidden', 'panel-exit');
     }
 
     openTutorial() {
@@ -1294,36 +1321,42 @@ class GameApp {
 
     // ---- AI模式 ----
     async startAIMode() {
-        // 停止旧游戏并清理 renderer
-        if (this.currentMode) {
-            this.currentMode.isRunning = false;
-            this.currentMode.destroy?.();
+        try {
+            // 停止旧游戏并清理 renderer
+            if (this.currentMode) {
+                this.currentMode.isRunning = false;
+                this.currentMode.destroy?.();
+            }
+            this.renderer?.destroy?.();
+            this.renderer = null;
+
+            const diff = document.getElementById('difficulty')?.value || this.settings.difficulty || 'normal';
+            const rounds = parseInt(document.getElementById('match-rounds')?.value || this.settings.matchRounds || 1);
+            this.currentMode = new AIMode(diff);
+            await this.currentMode.init();
+            this.currentMode.setMatchRounds(rounds);
+            this.currentMode.speedFactor = Math.max(0.3, Math.min(5.0, this.settings.gameSpeed || 1.0));
+            // 应用自定义玩家名称
+            const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
+            if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
+            document.getElementById('mode-display').textContent = `人机对战 (${diff === 'easy' ? '简单' : diff === 'hard' ? '困难' : '普通'})${rounds > 1 ? ' · ' + rounds + '局' : ''}`;
+
+            this.renderer = new Renderer('game-table');
+            this.renderer.setGameState(this.currentMode.gameState);
+            this.renderer.setMode(this.currentMode);
+            this._configureRendererAudio(this.renderer);
+            this.currentMode.setRenderer(this.renderer);
+
+            this._bindRoundEndListener();
+
+            this.showGame();
+            this._lockGameRuleSettings(true);
+            await this.currentMode.startGame();
+        } catch (err) {
+            console.error('启动 AI 模式失败:', err);
+            this.showToast?.('游戏启动失败，请返回菜单重试');
+            this.showMenu();
         }
-        this.renderer?.destroy?.();
-        this.renderer = null;
-
-        const diff = document.getElementById('difficulty')?.value || this.settings.difficulty || 'normal';
-        const rounds = parseInt(document.getElementById('match-rounds')?.value || this.settings.matchRounds || 1);
-        this.currentMode = new AIMode(diff);
-        await this.currentMode.init();
-        this.currentMode.setMatchRounds(rounds);
-        this.currentMode.speedFactor = this.settings.gameSpeed || 1.0;
-        // 应用自定义玩家名称
-        const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
-        if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
-        document.getElementById('mode-display').textContent = `人机对战 (${diff === 'easy' ? '简单' : diff === 'hard' ? '困难' : '普通'})${rounds > 1 ? ' · ' + rounds + '局' : ''}`;
-
-        this.renderer = new Renderer('game-table');
-        this.renderer.setGameState(this.currentMode.gameState);
-        this.renderer.setMode(this.currentMode);
-        this._configureRendererAudio(this.renderer);
-        this.currentMode.setRenderer(this.renderer);
-
-        this._bindRoundEndListener();
-
-        this.showGame();
-        this._lockGameRuleSettings(true);
-        await this.currentMode.startGame();
     }
 
     // ---- 通用页面过渡 ----
@@ -1361,58 +1394,72 @@ class GameApp {
 
     // ---- 局域网模式 ----
     async startLANMode() {
-        if (this.currentMode) {
-            this.currentMode.isRunning = false;
-            this.currentMode.destroy?.();
+        try {
+            if (this.currentMode) {
+                this.currentMode.isRunning = false;
+                this.currentMode.destroy?.();
+            }
+            this.renderer?.destroy?.();
+            this.renderer = null;
+            this._playMenuBGM(0);
+            this._transitionToScreen('lan-screen');
+
+            // 重置LAN UI状态
+            setTimeout(() => {
+                document.getElementById('room-info')?.classList.add('hidden');
+                document.getElementById('btn-lan-start')?.classList.add('hidden');
+                document.getElementById('lan-status').textContent = '请选择创建或加入房间';
+                this._refreshLANHostInfo();
+            }, 400);
+
+            this.currentMode = new LANMode();
+            await this.currentMode.init();
+            this.currentMode.speedFactor = Math.max(0.3, Math.min(5.0, this.settings.gameSpeed || 1.0));
+            document.getElementById('mode-display').textContent = '局域网联机';
+            // 应用自定义玩家名称
+            const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
+            if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
+            this._lockGameRuleSettings(true);
+        } catch (err) {
+            console.error('启动局域网模式失败:', err);
+            this.showToast?.('连接失败，请返回菜单重试');
+            this.showMenu();
         }
-        this.renderer?.destroy?.();
-        this.renderer = null;
-        this._playMenuBGM(0);
-        this._transitionToScreen('lan-screen');
-
-        // 重置LAN UI状态
-        setTimeout(() => {
-            document.getElementById('room-info')?.classList.add('hidden');
-            document.getElementById('btn-lan-start')?.classList.add('hidden');
-            document.getElementById('lan-status').textContent = '请选择创建或加入房间';
-            this._refreshLANHostInfo();
-        }, 400);
-
-        this.currentMode = new LANMode();
-        await this.currentMode.init();
-        this.currentMode.speedFactor = this.settings.gameSpeed || 1.0;
-        document.getElementById('mode-display').textContent = '局域网联机';
-        // 应用自定义玩家名称
-        const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
-        if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
-        this._lockGameRuleSettings(true);
     }
 
     // ---- 自定义模式 ----
     async startCustomMode() {
-        if (this.currentMode) {
-            this.currentMode.isRunning = false;
-            this.currentMode.destroy?.();
-        }
-        this.renderer?.destroy?.();
-        this.renderer = null;
-        this._playMenuBGM(0);
-        this._transitionToScreen('custom-screen');
+        try {
+            if (this.currentMode) {
+                this.currentMode.isRunning = false;
+                this.currentMode.destroy?.();
+            }
+            this.renderer?.destroy?.();
+            this.renderer = null;
+            this._playMenuBGM(0);
+            this._transitionToScreen('custom-screen');
 
-        this.currentMode = new CustomMode();
-        await this.currentMode.init();
-        this.currentMode.speedFactor = this.settings.gameSpeed || 1.0;
-        document.getElementById('mode-display').textContent = '自定义模式';
-        // 应用自定义玩家名称
-        const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
-        if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
-        this._lockGameRuleSettings(true);
+            this.currentMode = new CustomMode();
+            await this.currentMode.init();
+            this.currentMode.speedFactor = Math.max(0.3, Math.min(5.0, this.settings.gameSpeed || 1.0));
+            document.getElementById('mode-display').textContent = '自定义模式';
+            // 应用自定义玩家名称
+            const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
+            if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
+            this._lockGameRuleSettings(true);
+        } catch (err) {
+            console.error('启动自定义模式失败:', err);
+            this.showToast?.('游戏启动失败，请返回菜单重试');
+            this.showMenu();
+        }
     }
 }
 
-// 页面加载完成后启动
-window.addEventListener('DOMContentLoaded', () => {
+// 页面加载完成后启动（模块脚本已 defer，需检查 readyState）
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', () => { window.gameApp = new GameApp(); });
+} else {
     window.gameApp = new GameApp();
-});
+}
 
 export { GameApp };

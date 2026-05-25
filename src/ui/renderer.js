@@ -55,6 +55,7 @@ class Renderer {
         document.querySelectorAll('[data-anim-fx="true"]').forEach(el => {
             try { el.remove(); } catch (e) {}
         });
+        this._comboData = null;
         // 隐藏侧边面板，防止它们出现在其他屏幕上
         this.container?.querySelector('#card-tracker')?.classList.add('hidden');
         this.container?.querySelector('#play-history')?.classList.add('hidden');
@@ -136,9 +137,9 @@ class Renderer {
                 <div id="play-history" class="side-panel hidden">
                     <h4>出牌历史</h4>
                     <div class="history-list" id="history-content"></div>
-                    <div style="display:flex;gap:6px;margin-top:8px">
-                        <button id="btn-export-history" class="btn-small" style="flex:1">📋 导出</button>
-                        <button id="btn-clear-history" class="btn-small" style="flex:1">🗑️ 清空</button>
+                    <div class="history-actions">
+                        <button id="btn-export-history" class="btn-small">📋 导出</button>
+                        <button id="btn-clear-history" class="btn-small">🗑️ 清空</button>
                     </div>
                 </div>
                 <div id="chat-panel" class="side-panel hidden">
@@ -179,20 +180,17 @@ class Renderer {
 
         this._bindControls();
         this._bindPanelToggles();
+        this._initEmptyStates();
     }
 
     _bindRipple(btn) {
         if (!btn) return;
         const addRipple = (e) => {
-            const x = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-            const y = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
-            this.anim.ripple(x, y, 'rgba(240,192,64,0.3)');
+            this.anim.ripple(e.clientX, e.clientY, 'rgba(240,192,64,0.3)');
         };
-        btn.addEventListener('mousedown', addRipple);
-        btn.addEventListener('touchstart', addRipple, { passive: true });
-        // 按下反馈
-        btn.addEventListener('mousedown', () => this.anim.buttonPress(btn));
-        btn.addEventListener('touchstart', () => this.anim.buttonPress(btn), { passive: true });
+        // 使用 pointerdown 统一处理鼠标和触摸，避免 ghost click 双重触发
+        btn.addEventListener('pointerdown', addRipple);
+        btn.addEventListener('pointerdown', () => this.anim.buttonPress(btn));
     }
 
     _bindControls() {
@@ -208,7 +206,7 @@ class Renderer {
                     this.showToast('当前不在叫地主阶段', 'info');
                     return;
                 }
-                const action = parseInt(e.target.dataset.call);
+                const action = parseInt(e.currentTarget.dataset.call);
                 if (this.mode) {
                     const success = this.mode.humanCall(action);
                     if (success) this.hideCallControls();
@@ -282,25 +280,35 @@ class Renderer {
         const history = this.container.querySelector('#play-history');
         const chat = this.container.querySelector('#chat-panel');
 
-        btnTracker?.addEventListener('click', () => {
+        const _toggleSidePanel = (panel, others, btn) => {
             this.audio.playButtonClick();
-            tracker.classList.toggle('hidden');
-            history.classList.add('hidden');
-            chat?.classList.add('hidden');
-        });
+            const wasHidden = panel.classList.contains('hidden');
+            // 先关闭其他面板（带动画）
+            for (const other of others) {
+                if (other && !other.classList.contains('hidden')) {
+                    other.classList.add('panel-exit');
+                    setTimeout(() => { other.classList.add('hidden'); other.classList.remove('panel-exit'); }, 180);
+                }
+            }
+            if (wasHidden) {
+                panel.classList.remove('hidden', 'panel-exit');
+                btn?.setAttribute('aria-expanded', 'true');
+            } else {
+                panel.classList.add('panel-exit');
+                setTimeout(() => { panel.classList.add('hidden'); panel.classList.remove('panel-exit'); }, 180);
+                btn?.setAttribute('aria-expanded', 'false');
+            }
+        };
+
+        btnTracker?.addEventListener('click', () => _toggleSidePanel(tracker, [history, chat], btnTracker));
         this._bindRipple(btnTracker);
-        btnHistory?.addEventListener('click', () => {
-            this.audio.playButtonClick();
-            history.classList.toggle('hidden');
-            tracker.classList.add('hidden');
-            chat?.classList.add('hidden');
-        });
+        btnHistory?.addEventListener('click', () => _toggleSidePanel(history, [tracker, chat], btnHistory));
         this._bindRipple(btnHistory);
         btnChat?.addEventListener('click', () => {
-            this.audio.playButtonClick();
-            chat.classList.toggle('hidden');
-            tracker.classList.add('hidden');
-            history.classList.add('hidden');
+            _toggleSidePanel(chat, [tracker, history], btnChat);
+            if (chat && !chat.classList.contains('hidden') && !chat.classList.contains('panel-exit')) {
+                setTimeout(() => chatInput?.focus(), 100);
+            }
         });
         this._bindRipple(btnChat);
 
@@ -319,6 +327,12 @@ class Renderer {
         btnSend?.addEventListener('click', sendChat);
         chatInput?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') sendChat();
+        });
+        // 移动端键盘弹出时确保输入框可见
+        chatInput?.addEventListener('focus', () => {
+            setTimeout(() => {
+                chatInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
         });
 
         // 导出出牌历史
@@ -342,6 +356,17 @@ class Renderer {
             this.audio.playButtonClick();
             this._toggleHelpPanel();
         });
+    }
+
+    _initEmptyStates() {
+        const historyContent = this.container.querySelector('#history-content');
+        const chatContent = this.container.querySelector('#chat-content');
+        if (historyContent && !historyContent.children.length) {
+            historyContent.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📜</div>暂无出牌记录</div>';
+        }
+        if (chatContent && !chatContent.children.length) {
+            chatContent.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div>暂无消息，发送一条快捷短语吧</div>';
+        }
     }
 
     _initQuickPhrases() {
@@ -403,14 +428,25 @@ class Renderer {
         const content = this.container.querySelector('#chat-content');
         if (!content) return;
 
+        // 移除空状态提示
+        const emptyEl = content.querySelector('.empty-state');
+        if (emptyEl) emptyEl.remove();
+
         const entry = document.createElement('div');
         entry.className = 'chat-message';
+        entry.style.opacity = '0';
+        entry.style.transform = 'translateX(-12px)';
+        entry.style.transition = 'opacity 0.25s ease-out, transform 0.25s ease-out';
         const senderSpan = document.createElement('span');
         senderSpan.className = 'chat-sender';
         senderSpan.textContent = msg.sender + ':';
         entry.appendChild(senderSpan);
         entry.appendChild(document.createTextNode(msg.text));
         content.appendChild(entry);
+        requestAnimationFrame(() => {
+            entry.style.opacity = '1';
+            entry.style.transform = 'translateX(0)';
+        });
         content.scrollTop = content.scrollHeight;
 
         // 限制消息数
@@ -446,9 +482,21 @@ class Renderer {
                 return;
             }
 
-            // Escape 暂停/恢复
+            // Escape 暂停/恢复（优先关闭模态框）
             if (e.key === 'Escape') {
                 e.preventDefault();
+                if (document.querySelector('#settings-overlay:not(.hidden)')) {
+                    window.gameApp?.closeSettings?.();
+                    return;
+                }
+                const helpPanel = document.getElementById('help-panel');
+                if (helpPanel && !helpPanel.classList.contains('hidden')) {
+                    this._toggleHelpPanel();
+                    return;
+                }
+                if (document.querySelector('#modal-overlay:not(.hidden)')) {
+                    return; // 模态框打开时忽略 Esc
+                }
                 if (this._isPaused) {
                     this._resumeGame();
                 } else {
@@ -575,7 +623,7 @@ class Renderer {
                     <p>按 <kbd>ESC</kbd> 或点击按钮继续</p>
                     <button id="btn-resume" class="btn-primary">继续游戏</button>
                     <button id="btn-pause-settings" class="btn-secondary">设置</button>
-                    <button id="btn-pause-exit" class="btn-secondary" style="color:#f44336">退出</button>
+                    <button id="btn-pause-exit" class="btn-secondary btn-danger">退出</button>
                 </div>
             `;
             document.body.appendChild(overlay);
@@ -596,14 +644,22 @@ class Renderer {
         }
         overlay.classList.remove('hidden');
         overlay.style.display = 'flex';
+        overlay.style.opacity = '0';
+        requestAnimationFrame(() => {
+            overlay.style.transition = 'opacity 0.25s ease';
+            overlay.style.opacity = '1';
+        });
     }
 
     _removePauseOverlay() {
         const overlay = document.getElementById('pause-overlay');
-        if (overlay) {
+        if (!overlay) return;
+        overlay.style.transition = 'opacity 0.25s ease-in';
+        overlay.style.opacity = '0';
+        setTimeout(() => {
             overlay.remove();
             this._pauseListenersBound = false;
-        }
+        }, 250);
     }
 
     _removeHelpPanel() {
@@ -742,18 +798,19 @@ class Renderer {
 
         this.audio.playHint();
 
-        const lastPattern = this.gameState?.lastPlay?.pattern;
-        const isNewRound = !lastPattern || lastPattern.type === 'INVALID' ||
-                           (this.gameState?.passCount >= 2) ||
-                           (this.gameState?.lastPlay?.playerIndex === this.mode?.humanIndex);
-        const ai = new AIPlayer('hint', 'hard');
-        ai.hand = player.hand;
-        const hint = ai.getHint(player.hand, lastPattern, isNewRound);
+        try {
+            const lastPattern = this.gameState?.lastPlay?.pattern;
+            const isNewRound = !lastPattern || lastPattern.type === 'INVALID' ||
+                               (this.gameState?.passCount >= 2) ||
+                               (this.gameState?.lastPlay?.playerIndex === this.mode?.humanIndex);
+            const ai = new AIPlayer('hint', 'hard');
+            ai.hand = player.hand;
+            const hint = ai.getHint(player.hand, lastPattern, isNewRound);
 
-        if (hint.length === 0) {
-            this.showToast('建议：不出');
-            return;
-        }
+            if (hint.length === 0) {
+                this.showToast('建议：不出');
+                return;
+            }
 
         // 清除旧提示
         this._clearHint();
@@ -780,8 +837,12 @@ class Renderer {
             }
         }
 
-        // 显示牌型
-        this._updateHandHint(hint);
+            // 显示牌型
+            this._updateHandHint(hint);
+        } catch (e) {
+            console.error('提示计算失败:', e);
+            this.showToast('提示计算失败', 'error');
+        }
     }
 
     _clearHint() {
@@ -852,6 +913,49 @@ class Renderer {
                 hintEl.className = 'hand-hint invalid';
                 this._renderSmartSelection(null);
             }
+        }
+    }
+
+    /**
+     * 增量更新人类手牌：从 DOM 中移除已出的牌，避免全量 renderHands() 导致的卡片飞入跳动。
+     * CSS flex + margin-left 规则会自动让剩余卡片重新居中，无需手动重算 overlap。
+     */
+    _updateHumanHand(playedCards) {
+        if (!playedCards || playedCards.length === 0) return;
+        const container = this.container?.querySelector('#player-right .hand-front');
+        if (!container) return;
+
+        // 构建已出牌的唯一键集合（value + suit / joker-rankKey）
+        const playedKeys = new Set();
+        for (const c of playedCards) {
+            const key = c.isJoker()
+                ? `joker-${c.rankKey}`
+                : `${c.value}-${c.suit?.name || ''}`;
+            playedKeys.add(key);
+        }
+
+        // 按顺序移除已出的牌（带动画）
+        const cards = Array.from(container.querySelectorAll('.card'));
+        let removedCount = 0;
+        for (const el of cards) {
+            const isJoker = el.classList.contains('joker');
+            const v = el.dataset.value;
+            const s = el.dataset.suit;
+            const key = isJoker ? `joker-${s}` : `${v}-${s}`;
+            if (playedKeys.has(key)) {
+                el.classList.remove('selected');
+                el.style.pointerEvents = 'none';
+                el.style.transition = 'opacity 0.15s ease-in, transform 0.15s ease-in';
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(-20px) scale(0.9)';
+                setTimeout(() => el.remove(), 150);
+                removedCount++;
+            }
+        }
+
+        // 兜底：若未全部匹配，说明 DOM 与手牌状态不一致，回退到全量重绘
+        if (removedCount !== playedCards.length) {
+            this.renderHands();
         }
     }
 
@@ -1024,7 +1128,10 @@ class Renderer {
     _shakeSelection() {
         const handContainer = this.container.querySelector('#player-right .hand-front');
         handContainer?.classList.add('shake');
-        setTimeout(() => handContainer?.classList.remove('shake'), 400);
+        setTimeout(() => {
+            if (this._destroyed) return;
+            handContainer?.classList.remove('shake');
+        }, 400);
     }
 
     _toggleCardByIndex(index) {
@@ -1193,7 +1300,11 @@ class Renderer {
             if (bottomEl) {
                 bottomEl.classList.remove('hidden');
                 const container = bottomEl.querySelector('.cards');
-                if (container && !container.dataset.rendered) {
+                // 重置底牌渲染标志，确保每局都重新渲染
+        if (container) {
+            delete container.dataset.rendered;
+        }
+        if (container && !container.dataset.rendered) {
                     container.innerHTML = '';
                     for (const c of this.gameState.bottomCards) {
                         const el = this._createCardElement(c);
@@ -1259,6 +1370,7 @@ class Renderer {
             } else if (this.gameState?.showCards && i !== this.mode?.humanIndex) {
                 // 明牌模式：对手手牌也显示正面（缩小）
                 const sorted = this._sortHand(player.hand);
+                const fragment = document.createDocumentFragment();
                 for (let j = 0; j < sorted.length; j++) {
                     const card = sorted[j];
                     const el = this._createCardElement(card);
@@ -1266,12 +1378,14 @@ class Renderer {
                     el.style.marginLeft = j > 0 ? '-50px' : '0';
                     el.style.pointerEvents = 'none';
                     el.style.opacity = '0.85';
-                    handContainer.appendChild(el);
+                    fragment.appendChild(el);
                 }
+                handContainer.appendChild(fragment);
             } else {
                 // 自己：显示正面，可点击/触摸选择
                 handContainer.classList.toggle('selection-disabled', this.gameState?.phase !== PHASE.PLAYING);
                 const sorted = this._sortHand(player.hand);
+                const fragment = document.createDocumentFragment();
                 for (let j = 0; j < sorted.length; j++) {
                     const card = sorted[j];
                     const el = this._createCardElement(card);
@@ -1295,7 +1409,7 @@ class Renderer {
                         this._updateHandHint(this._getSelectedCards());
                     };
                     el.addEventListener('click', toggle);
-                    handContainer.appendChild(el);
+                    fragment.appendChild(el);
 
                     requestAnimationFrame(() => {
                         requestAnimationFrame(() => {
@@ -1304,6 +1418,7 @@ class Renderer {
                         });
                     });
                 }
+                handContainer.appendChild(fragment);
 
                 // 绑定拖拽选择（滑动选牌）
                 this._bindDragSelection(handContainer);
@@ -1326,8 +1441,8 @@ class Renderer {
             }
         }
 
-        // 初始化记牌器
-        this._initCardTracker();
+        // 初始化记牌器（条件：避免游戏中重置已跟踪数据）
+        if (!this._trackerData) this._initCardTracker();
 
         // 观战模式：显示所有玩家手牌
         if ((this.mode?.humanIndex ?? 0) < 0) {
@@ -1413,7 +1528,7 @@ class Renderer {
         const settings = Storage.getSettings();
         if (settings.oneClickPlay === true && this._isHumanPlayTurn()) {
             const selection = this._getPlayableSelection(this._getSelectedCards());
-            if (selection.valid && selection.cards.length > 0) {
+            if (selection.pattern?.isValid?.() && selection.cards.length > 0) {
                 // 短暂延迟让用户看到选中效果
                 setTimeout(() => this._doPlay(), 180);
             }
@@ -1429,7 +1544,10 @@ class Renderer {
                 el.classList.remove('selection-pop');
                 void el.offsetWidth;
                 el.classList.add('selection-pop');
-                setTimeout(() => el.classList.remove('selection-pop'), 240);
+                setTimeout(() => {
+                    if (this._destroyed) return;
+                    el.classList.remove('selection-pop');
+                }, 240);
             }
         } else {
             this.selectedCards.delete(card);
@@ -1658,7 +1776,17 @@ class Renderer {
     }
 
     hideCallControls() {
-        this.container.querySelector('#call-controls')?.classList.add('hidden');
+        const panel = this.container.querySelector('#call-controls');
+        if (!panel || panel.classList.contains('hidden')) return;
+        panel.style.transition = 'transform 0.2s ease-in, opacity 0.2s ease-in';
+        panel.style.transform = 'translateY(20px)';
+        panel.style.opacity = '0';
+        setTimeout(() => {
+            panel.classList.add('hidden');
+            panel.style.transform = '';
+            panel.style.opacity = '';
+            panel.style.transition = '';
+        }, 200);
     }
 
     showPlayControls(playerIndex, lastPattern) {
@@ -1700,7 +1828,17 @@ class Renderer {
     }
 
     hidePlayControls() {
-        this.container.querySelector('#play-controls')?.classList.add('hidden');
+        const panel = this.container.querySelector('#play-controls');
+        if (!panel || panel.classList.contains('hidden')) return;
+        panel.style.transition = 'transform 0.2s ease-in, opacity 0.2s ease-in';
+        panel.style.transform = 'translateY(20px)';
+        panel.style.opacity = '0';
+        setTimeout(() => {
+            panel.classList.add('hidden');
+            panel.style.transform = '';
+            panel.style.opacity = '';
+            panel.style.transition = '';
+        }, 200);
     }
 
     // ---- 事件动画 ----
@@ -1810,6 +1948,16 @@ class Renderer {
         const playedArea = area?.querySelector('.played-area');
         if (!playedArea) return;
 
+        // 快速出牌检测：若距离上次出牌 < 500ms，进入轻量模式
+        const now = performance.now();
+        const isFastPlay = this._lastPlayTimestamp && (now - this._lastPlayTimestamp < 500);
+        this._lastPlayTimestamp = now;
+
+        // 判断是否是 AI 出牌（非人类且非观战模式下的思考）
+        const isAI = data.playerIndex !== this.mode?.humanIndex && this.mode?.humanIndex >= 0;
+        // 轻量模式：AI 出牌 或 快速连续出牌
+        const isLite = isFastPlay || isAI;
+
         // 连击计数
         if (!this._comboData) this._comboData = { playerIndex: -1, count: 0 };
         if (this._comboData.playerIndex === data.playerIndex) {
@@ -1818,7 +1966,19 @@ class Renderer {
             this._comboData = { playerIndex: data.playerIndex, count: 1 };
         }
 
-        playedArea.innerHTML = '';
+        // 旧牌退场动画（避免暴力清除导致闪断）
+        const oldCards = playedArea.querySelectorAll('.table-play-card');
+        oldCards.forEach(c => {
+            c.style.transition = 'all 0.15s ease-in';
+            c.style.opacity = '0';
+            c.style.transform = 'scale(0.9)';
+        });
+        if (oldCards.length > 0) {
+            setTimeout(() => { playedArea.innerHTML = ''; }, 150);
+        } else {
+            playedArea.innerHTML = '';
+        }
+
         playedArea.classList.remove('has-pass');
         playedArea.classList.add('has-cards');
         playedArea.dataset.cardCount = String(data.cards.length);
@@ -1829,49 +1989,65 @@ class Renderer {
         ) || 16;
         const compactOverlap = sorted.length >= 12 ? 34 : sorted.length >= 8 ? 26 : sorted.length >= 5 ? 18 : 10;
         playedArea.style.setProperty('--table-play-overlap', `${Math.max(configuredOverlap, compactOverlap)}px`);
-        for (let i = 0; i < sorted.length; i++) {
-            const el = this._createCardElement(sorted[i]);
-            el.classList.add('table-play-card');
-            el.style.setProperty('--play-index', i);
-            el.style.setProperty('--play-scale', playScale);
-            el.style.transform = 'translateY(10px) scale(0.96)';
-            el.style.opacity = '0';
-            el.style.animation = `cardPlayFlyIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${i * 40}ms forwards`;
-            playedArea.appendChild(el);
-        }
+
+        // 延迟插入新牌，等待旧牌退场
+        const insertDelay = oldCards.length > 0 ? 160 : 0;
+        const insertCards = () => {
+            for (let i = 0; i < sorted.length; i++) {
+                const el = this._createCardElement(sorted[i]);
+                el.classList.add('table-play-card');
+                el.style.setProperty('--play-index', i);
+                el.style.setProperty('--play-scale', playScale);
+                el.style.transform = 'translateY(10px) scale(0.96)';
+                el.style.opacity = '0';
+                const stagger = isLite ? 20 : 40;
+                const duration = isLite ? 0.25 : 0.35;
+                el.style.animation = `cardPlayFlyIn ${duration}s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${i * stagger}ms forwards`;
+                playedArea.appendChild(el);
+            }
+        };
+        if (insertDelay > 0) setTimeout(insertCards, insertDelay);
+        else insertCards();
 
         const count = area.querySelector('.card-count');
         if (count) count.textContent = data.remaining;
 
-        // 音效 + 特效
+        // 音效 + 特效（权重分级）
         const pattern = data.pattern;
         const playRect = playedArea.getBoundingClientRect();
         const centerX = playRect.left + playRect.width / 2;
         const centerY = playRect.top + playRect.height / 2;
 
+        // 牌型权重：BOMB=3, ROCKET=3, STRAIGHT/PLANE=2, 其他=1
+        const weight = (pattern.type === 'BOMB' || pattern.type === 'ROCKET') ? 3 :
+                       (pattern.type === 'STRAIGHT' || pattern.type?.includes('TRIPLE_STRAIGHT')) ? 2 : 1;
+
         if (pattern.type === 'BOMB') {
             this.audio.playBomb();
             this.anim.explode(centerX, centerY, true);
             this.anim.screenShake(6, 500);
-            this.anim.bounceText(centerX, centerY - 40, '💥 炸弹！', '#ff4444');
+            if (!isLite) this.anim.bounceText(centerX, centerY - 40, '💥 炸弹！', '#ff4444');
         } else if (pattern.type === 'ROCKET') {
             this.audio.playRocket();
             this.anim.rocketFly(playRect.left, playRect.top + playRect.height, playRect.left + 200, playRect.top - 100);
             this.anim.screenShake(4, 400);
-            this.anim.flashScreen('rgba(255,255,255,0.15)', 300);
-            this.anim.bounceText(centerX, centerY - 40, '🚀 火箭！', '#ff8c00');
+            if (!isLite) {
+                this.anim.flashScreen('rgba(255,255,255,0.15)', 300);
+                this.anim.bounceText(centerX, centerY - 40, '🚀 火箭！', '#ff8c00');
+            }
         } else if (pattern.type === 'STRAIGHT') {
             this.audio.playStraight();
-            this.anim.glowBurst(centerX, centerY, 'rgba(100,200,255,0.4)');
+            if (!isLite) this.anim.glowBurst(centerX, centerY, 'rgba(100,200,255,0.4)');
         } else if (pattern.type?.includes('TRIPLE_STRAIGHT')) {
             this.audio.playPlane();
-            this.anim.glowBurst(centerX, centerY, 'rgba(255,100,200,0.4)');
-            this.anim.sparkleBurst(centerX, centerY, 10);
+            if (!isLite) this.anim.glowBurst(centerX, centerY, 'rgba(255,100,200,0.4)');
+            // 轻量模式下 sparkleBurst 粒子数减半
+            if (!isLite) this.anim.sparkleBurst(centerX, centerY, isAI ? 5 : 10);
         } else if (pattern.type === 'PAIR') {
             this.audio.playPair();
         } else if (pattern.type === 'TRIPLE' || pattern.type?.includes('TRIPLE_WITH')) {
             this.audio.playTriple();
-            this.anim.pulseRing(centerX, centerY, '#f0c040', 60);
+            if (!isLite) this.anim.pulseRing(centerX, centerY, '#f0c040', 60);
         } else if (pattern.type === 'FOUR_WITH_TWO' || pattern.type === 'FOUR_WITH_TWO_PAIRS') {
             this.audio.playFourWithTwo();
         } else if (pattern.type === 'SINGLE') {
@@ -1880,8 +2056,8 @@ class Renderer {
             this.audio.playPlay();
         }
 
-        // 连击特效（连续出牌2次以上）
-        if (this._comboData.count >= 2) {
+        // 连击特效：炸弹/火箭时跳过，轻量模式跳过
+        if (this._comboData.count >= 2 && weight < 3 && !isLite) {
             this.anim.comboEffect(centerX, centerY - 60, this._comboData.count);
         }
 
@@ -1890,9 +2066,9 @@ class Renderer {
         // 更新历史
         this._addHistory(data);
 
-        // 如果出牌者是人类玩家，重新渲染手牌
+        // 如果出牌者是人类玩家，增量更新手牌（避免全量重绘导致跳动）
         if (data.playerIndex === this.mode?.humanIndex) {
-            this.renderHands();
+            this._updateHumanHand(data.cards);
             this.clearSelection();
         }
     }
@@ -1905,14 +2081,14 @@ class Renderer {
         bubble.textContent = '不出';
         area?.appendChild(bubble);
         setTimeout(() => {
-            bubble.style.transition = 'all 0.3s ease-in';
-            bubble.style.transform = 'translate(-50%, -50%) scale(0) rotate(180deg)';
+            bubble.style.transition = 'opacity 0.2s ease-in';
             bubble.style.opacity = '0';
-            setTimeout(() => bubble.remove(), 300);
-        }, 900);
+            setTimeout(() => bubble.remove(), 200);
+        }, 600);
 
         const playedArea = area?.querySelector('.played-area');
         if (playedArea) {
+            // 简化 pass 清空动画：直接清理，不做旋转缩放
             playedArea.innerHTML = '';
             playedArea.classList.remove('has-cards');
             playedArea.classList.add('has-pass');
@@ -2022,6 +2198,23 @@ class Renderer {
         if (cnt) cnt.textContent = cnt.classList.contains('opponent-count-badge') ? `${count}张` : count;
     }
 
+    _closeModal(overlay, content) {
+        if (!overlay || overlay.classList.contains('modal-exit')) return;
+        if (overlay._modalCloseTimeout) clearTimeout(overlay._modalCloseTimeout);
+        if (this._modalOverlayClick) {
+            overlay.removeEventListener('click', this._modalOverlayClick);
+            this._modalOverlayClick = null;
+        }
+        content?.classList.add('modal-exit');
+        overlay.classList.add('modal-exit');
+        overlay._modalCloseTimeout = setTimeout(() => {
+            overlay.classList.add('hidden');
+            overlay.classList.remove('modal-exit');
+            content?.classList.remove('modal-exit');
+            overlay._modalCloseTimeout = null;
+        }, 250);
+    }
+
     showRoundResult(data, matchStatus = null) {
         const overlay = this.container.querySelector('#modal-overlay');
         const content = this.container.querySelector('#modal-content');
@@ -2081,7 +2274,7 @@ class Renderer {
             }
         }
 
-        const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
+        // esc 复用上方已声明的函数
         content.innerHTML = `
             <h2>${resultText}</h2>
             ${matchText}
@@ -2116,7 +2309,15 @@ class Renderer {
             <button id="btn-back-menu">返回菜单</button>
         `;
 
+        if (overlay._modalCloseTimeout) clearTimeout(overlay._modalCloseTimeout);
         overlay.classList.remove('hidden');
+        overlay.classList.remove('modal-exit');
+        content.classList.remove('modal-exit');
+        // 点击背景关闭模态框
+        this._modalOverlayClick = (e) => {
+            if (e.target === overlay) this._closeModal(overlay, content);
+        };
+        overlay.addEventListener('click', this._modalOverlayClick);
         // 重置动画：先移除类，下一帧再添加，确保动画每次都播放
         content.classList.remove('modal-scale-in');
         requestAnimationFrame(() => {
@@ -2171,7 +2372,7 @@ class Renderer {
 
         content.querySelector('#btn-next-round')?.addEventListener('click', () => {
             this.audio.playButtonClick();
-            overlay.classList.add('hidden');
+            this._closeModal(overlay, content);
             if (isMatchEnd && matchStatus) {
                 // 比赛结束，重置
                 this.mode?.setMatchRounds(matchStatus.totalRounds);
@@ -2182,7 +2383,7 @@ class Renderer {
         if (!isMatchEnd) {
             content.querySelector('#btn-replay')?.addEventListener('click', () => {
                 this.audio.playButtonClick();
-                overlay.classList.add('hidden');
+                this._closeModal(overlay, content);
                 if (window.gameApp?.startReplay) {
                     window.gameApp.startReplay();
                 }
@@ -2196,7 +2397,7 @@ class Renderer {
 
         content.querySelector('#btn-back-menu')?.addEventListener('click', () => {
             this.audio.playButtonClick();
-            overlay.classList.add('hidden');
+            this._closeModal(overlay, content);
             window.gameApp?.showMenu();
         });
     }
@@ -2269,6 +2470,7 @@ class Renderer {
         }
 
         setTimeout(() => {
+            if (this._destroyed) return;
             toast.style.transition = 'all 0.3s ease-in';
             toast.style.opacity = '0';
             toast.style.transform = 'translateX(-50%) translateY(-20px) scale(0.9)';
@@ -2376,38 +2578,58 @@ class Renderer {
         }
     }
 
+    /**
+     * 从记牌器中减去一张牌的计数（内部工具方法）
+     */
+    _deductFromTracker(card) {
+        const isJoker = typeof card?.isJoker === 'function'
+            ? card.isJoker()
+            : /JOKER/.test(card?.rankKey);
+        const rankKey = isJoker
+            ? (card?.rankKey || card?.rank?.name)
+            : (card?.rank?.name || card?.rankKey);
+        if (!rankKey || !this._trackerData || !(rankKey in this._trackerData)) return;
+
+        const oldVal = this._trackerData[rankKey];
+        this._trackerData[rankKey] = Math.max(0, oldVal - 1);
+        const remaining = this._trackerData[rankKey];
+
+        const cell = this.container?.querySelector(`.tracker-rank[data-rank="${rankKey}"]`);
+        if (cell) {
+            const countEl = cell.querySelector('.tracker-rank-count');
+            if (countEl) {
+                countEl.textContent = remaining;
+                if (remaining === 0 && oldVal > 0) {
+                    countEl.classList.add('count-jump');
+                    setTimeout(() => countEl.classList.remove('count-jump'), 300);
+                }
+            }
+            cell.classList.remove('full', 'low', 'empty');
+            if (remaining === 0) {
+                cell.classList.add('empty');
+            } else if (remaining <= 1) {
+                cell.classList.add('low');
+            } else {
+                cell.classList.add('full');
+            }
+        }
+    }
+
+    /**
+     * 初始化或重置记牌器为满牌 54 张。
+     * 记牌器只追踪"已打出的牌"，开局时所有牌都显示为剩余。
+     */
+    _resetCardTracker() {
+        this._initCardTracker();
+    }
+
     _updateCardTracker(playedCards) {
         if (!playedCards) return;
         if (!this._trackerData) {
             this._initCardTracker();
         }
         for (const card of playedCards) {
-            const rankKey = card.isJoker() ? card.rankKey : card.rank.name;
-            const oldVal = this._trackerData?.[rankKey] ?? 0;
-            if (this._trackerData && rankKey in this._trackerData) {
-                this._trackerData[rankKey] = Math.max(0, this._trackerData[rankKey] - 1);
-            }
-
-            const cell = this.container?.querySelector(`.tracker-rank[data-rank="${rankKey}"]`);
-            if (cell) {
-                const countEl = cell.querySelector('.tracker-rank-count');
-                const remaining = this._trackerData?.[rankKey] ?? 0;
-                if (countEl) {
-                    // 数字跳动动画
-                    countEl.classList.add('count-jump');
-                    countEl.textContent = remaining;
-                    setTimeout(() => countEl.classList.remove('count-jump'), 300);
-                }
-
-                cell.classList.remove('full', 'low', 'empty');
-                if (remaining === 0) {
-                    cell.classList.add('empty');
-                } else if (remaining <= 1) {
-                    cell.classList.add('low');
-                } else {
-                    cell.classList.add('full');
-                }
-            }
+            this._deductFromTracker(card);
         }
     }
 
@@ -2416,6 +2638,10 @@ class Renderer {
     _addHistory(data) {
         const content = this.container.querySelector('#history-content');
         if (!content) return;
+
+        // 移除空状态提示
+        const emptyEl = content.querySelector('.empty-state');
+        if (emptyEl) emptyEl.remove();
 
         const player = this.gameState?.players[data.playerIndex];
         const name = player?.name || '?';

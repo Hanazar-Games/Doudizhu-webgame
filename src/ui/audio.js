@@ -4,6 +4,8 @@
  * 包含：BGM循环系统 + 20+ 种游戏音效
  */
 
+import { Storage } from '../utils/storage.js';
+
 class AudioManager {
     constructor() {
         this.ctx = null;
@@ -19,7 +21,31 @@ class AudioManager {
         this._bgmLoopStart = 0;
         this._currentBGM = null;
         this._bgmGeneration = 0;
+        this._masterCompressor = null;
+        this._lastSfxTime = {}; // 音效防抖
+        // 读取细粒度音效开关
+        this._loadSfxSettings();
         this._init();
+    }
+
+    _loadSfxSettings() {
+        try {
+            const s = Storage.getSettings();
+            this._sfxSettings = {
+                deal: s.enableDealSound !== false,
+                play: s.enablePlaySound !== false,
+                bomb: s.enableBombSound !== false,
+                win: s.enableWinSound !== false,
+                tick: s.enableTickSound !== false,
+                chat: s.enableChatSound !== false,
+            };
+        } catch (e) {
+            this._sfxSettings = { deal: true, play: true, bomb: true, win: true, tick: true, chat: true };
+        }
+    }
+
+    _isSfxEnabled(type) {
+        return this._sfxSettings?.[type] !== false;
     }
 
     _init() {
@@ -48,7 +74,20 @@ class AudioManager {
 
     // ==================== 通用底层 ====================
 
-    async _tone(freq, duration, type = 'sine', volume = 0.15, when = null) {
+    _getMasterCompressor() {
+        if (!this._masterCompressor) {
+            this._masterCompressor = this.ctx.createDynamicsCompressor();
+            this._masterCompressor.threshold.setValueAtTime(-12, this.ctx.currentTime);
+            this._masterCompressor.knee.setValueAtTime(6, this.ctx.currentTime);
+            this._masterCompressor.ratio.setValueAtTime(8, this.ctx.currentTime);
+            this._masterCompressor.attack.setValueAtTime(0.005, this.ctx.currentTime);
+            this._masterCompressor.release.setValueAtTime(0.1, this.ctx.currentTime);
+            this._masterCompressor.connect(this.ctx.destination);
+        }
+        return this._masterCompressor;
+    }
+
+    async _tone(freq, duration, type = 'sine', volume = 0.10, when = null) {
         if (duration <= 0) return;
         if (!this.sfxEnabled) return;
         if (!(await this._ensureContext())) return;
@@ -60,11 +99,14 @@ class AudioManager {
         osc.type = type;
         osc.frequency.setValueAtTime(freq, t);
 
-        gain.gain.setValueAtTime(volume * this.sfxVolume, t);
+        // Attack 包络：5ms 线性上升，消除 click noise
+        const finalVol = volume * this.sfxVolume;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(finalVol, t + 0.005);
         gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this._getMasterCompressor());
 
         osc.start(t);
         osc.stop(t + duration);
@@ -78,7 +120,7 @@ class AudioManager {
         const gain = this.ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(880, t);
-        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.setValueAtTime(0.12, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
@@ -87,6 +129,7 @@ class AudioManager {
     }
 
     playTick() {
+        if (!this._isSfxEnabled('tick')) return;
         this._playTick().catch(() => {});
     }
 
@@ -94,13 +137,11 @@ class AudioManager {
         if (!this.sfxEnabled) return;
         if (!(await this._ensureContext())) return;
         const baseTime = this.ctx.currentTime + offset;
-        notes.forEach((n, i) => {
+        for (let i = 0; i < notes.length; i++) {
+            const n = notes[i];
             const when = baseTime + i * interval;
-            const delayMs = (offset + i * interval) * 1000;
-            setTimeout(() => {
-                this._tone(n.freq, n.dur || 0.15, n.type || 'sine', n.vol || 0.12, when).catch(() => {});
-            }, Math.max(0, delayMs));
-        });
+            this._tone(n.freq, n.dur || 0.15, n.type || 'sine', n.vol || 0.12, when).catch(() => {});
+        }
     }
 
     // ==================== BGM 系统 ====================
@@ -133,7 +174,7 @@ class AudioManager {
         if (!this._bgmGain) {
             this._bgmGain = this.ctx.createGain();
             this._bgmGain.gain.value = 0.08 * this.bgmVolume;
-            this._bgmGain.connect(this.ctx.destination);
+            this._bgmGain.connect(this._getMasterCompressor());
         }
         return this._bgmGain;
     }
@@ -194,16 +235,20 @@ class AudioManager {
             const start = (n.beat || 0) * beat;
             const dur = (n.dur || 0.5) * beat;
             totalDuration = Math.max(totalDuration, start + dur);
-            this._scheduleBGMNote(n.freq, start, dur, waveform, n.vol || 1);
+            // triangle 波形能量比 sine 高约 3dB，适当降低音量
+            const vol = waveform === 'triangle' ? (n.vol || 1) * 0.8 : (n.vol || 1);
+            this._scheduleBGMNote(n.freq, start, dur, waveform, vol);
         });
 
         if (loop && totalDuration > 0) {
             const gen = this._bgmGeneration;
+            // 使用精确的 AudioContext 时间调度 loop，消除 200ms 间隙
+            const loopDelay = Math.max(0, totalDuration - 0.05);
             this._bgmTimer = setTimeout(() => {
                 if (this._currentBGM && gen === this._bgmGeneration) {
                     this._playBGMSequence(notes, tempoBPM, waveform, true);
                 }
-            }, totalDuration * 1000 + 200);
+            }, loopDelay * 1000);
         }
     }
 
@@ -246,12 +291,12 @@ class AudioManager {
         this.stopBGM();
         this._currentBGM = 'win';
         const notes = [
-            { freq: 523, beat: 0, dur: 0.3, vol: 1.0 },
-            { freq: 659, beat: 0.5, dur: 0.3, vol: 0.9 },
-            { freq: 784, beat: 1.0, dur: 0.3, vol: 1.0 },
-            { freq: 1047, beat: 1.5, dur: 0.6, vol: 1.1 },
-            { freq: 784, beat: 2.25, dur: 0.2, vol: 0.8 },
-            { freq: 1047, beat: 2.5, dur: 0.8, vol: 1.2 },
+            { freq: 523, beat: 0, dur: 0.3, vol: 0.9 },
+            { freq: 659, beat: 0.5, dur: 0.3, vol: 0.85 },
+            { freq: 784, beat: 1.0, dur: 0.3, vol: 0.9 },
+            { freq: 1047, beat: 1.5, dur: 0.6, vol: 0.95 },
+            { freq: 784, beat: 2.25, dur: 0.2, vol: 0.75 },
+            { freq: 1047, beat: 2.5, dur: 0.8, vol: 1.0 },
         ];
         this._playBGMSequence(notes, 100, 'sine', false);
     }
@@ -273,6 +318,7 @@ class AudioManager {
     // ==================== 原有音效（保留并增强）====================
 
     playDeal() {
+        if (!this._isSfxEnabled('deal')) return;
         // 发牌：更丰富的快速连音
         this._sequence([
             { freq: 700, dur: 0.04 },
@@ -289,12 +335,14 @@ class AudioManager {
     }
 
     playPass() {
-        // 不出：低沉闷音
-        this._tone(180, 0.18, 'triangle', 0.1);
-        setTimeout(() => this._tone(150, 0.15, 'triangle', 0.08), 80);
+        if (!this._isSfxEnabled('play')) return;
+        // 不出：低沉闷音（频率提升到手机扬声器可听范围）
+        this._tone(280, 0.15, 'triangle', 0.09);
+        setTimeout(() => this._tone(250, 0.12, 'triangle', 0.07), 70);
     }
 
     playPlay() {
+        if (!this._isSfxEnabled('play')) return;
         // 出牌：轻快的滑动音
         this._tone(560, 0.07, 'sine', 0.1);
         setTimeout(() => this._tone(720, 0.09, 'sine', 0.1), 40);
@@ -341,8 +389,9 @@ class AudioManager {
     }
 
     playFourWithTwo() {
-        this._tone(380, 0.13, 'triangle', 0.11);
-        setTimeout(() => this._tone(640, 0.07, 'sine', 0.08), 110);
+        // 纯五度和声（G4 + D5）
+        this._tone(392, 0.13, 'triangle', 0.10);
+        setTimeout(() => this._tone(587, 0.08, 'sine', 0.07), 100);
     }
 
     async playBomb() {
@@ -361,7 +410,7 @@ class AudioManager {
         filter.frequency.setValueAtTime(1000, this.ctx.currentTime);
         filter.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + duration);
         const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime(0.45, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.20, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
         noise.connect(filter);
         filter.connect(gain);
@@ -373,7 +422,7 @@ class AudioManager {
         osc.frequency.setValueAtTime(100, this.ctx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(15, this.ctx.currentTime + duration);
         const oscGain = this.ctx.createGain();
-        oscGain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        oscGain.gain.setValueAtTime(0.15, this.ctx.currentTime);
         oscGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
         osc.connect(oscGain);
         oscGain.connect(this.ctx.destination);
@@ -389,7 +438,7 @@ class AudioManager {
         osc.frequency.exponentialRampToValueAtTime(1400, this.ctx.currentTime + 0.35);
         osc.frequency.exponentialRampToValueAtTime(180, this.ctx.currentTime + 0.9);
         const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime(0.22, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.9);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
@@ -398,6 +447,7 @@ class AudioManager {
     }
 
     playWin() {
+        if (!this._isSfxEnabled('win')) return;
         // 胜利：更丰富的上行和弦
         this._sequence([
             { freq: 523, dur: 0.12 },
@@ -414,6 +464,7 @@ class AudioManager {
     }
 
     playLose() {
+        if (!this._isSfxEnabled('win')) return;
         this._sequence([
             { freq: 392, dur: 0.18, type: 'triangle' },
             { freq: 349, dur: 0.18, type: 'triangle' },
@@ -423,6 +474,7 @@ class AudioManager {
     }
 
     playSpring() {
+        if (!this._isSfxEnabled('win')) return;
         // 春天：更清脆的铃铛声
         this._sequence([
             { freq: 880, dur: 0.08 },
@@ -434,12 +486,22 @@ class AudioManager {
 
     // ==================== 全新音效 ====================
 
+    _shouldPlaySfx(name, minInterval = 50) {
+        const now = Date.now();
+        const last = this._lastSfxTime[name] || 0;
+        if (now - last < minInterval) return false;
+        this._lastSfxTime[name] = now;
+        return true;
+    }
+
     playCardSelect() {
+        if (!this._shouldPlaySfx('cardSelect', 40)) return;
         // 选牌：清脆短高音
         this._tone(880, 0.04, 'sine', 0.08);
     }
 
     playCardDeselect() {
+        if (!this._shouldPlaySfx('cardDeselect', 40)) return;
         // 取消选牌：略低的短音
         this._tone(660, 0.04, 'sine', 0.06);
     }
@@ -462,6 +524,7 @@ class AudioManager {
     }
 
     playButtonClick() {
+        if (!this._shouldPlaySfx('buttonClick', 60)) return;
         // 按钮点击：短促木头感
         this._tone(1200, 0.03, 'sine', 0.07);
         setTimeout(() => this._tone(800, 0.04, 'sine', 0.05), 20);
@@ -496,6 +559,7 @@ class AudioManager {
     }
 
     playChat() {
+        if (!this._isSfxEnabled('chat')) return;
         // 聊天消息：短促消息音
         this._tone(900, 0.05, 'sine', 0.06);
     }
@@ -544,6 +608,7 @@ class AudioManager {
     }
 
     playPassTurn() {
+        if (!this._isSfxEnabled('play')) return;
         // 过牌（轮到下一家）：轻柔滑音
         this._tone(400, 0.08, 'sine', 0.06);
         setTimeout(() => this._tone(350, 0.1, 'sine', 0.05), 60);

@@ -113,10 +113,22 @@ class CustomMode extends BaseMode {
             }
             if (bottom) allFixed.push(...bottom);
             
+            // 验证固定手牌无重复且总数不超过 51
+            const fixedKey = (c) => c.value + '-' + (c.suit?.name || c.rankKey || '');
+            const fixedKeys = allFixed.map(fixedKey);
+            const uniqueFixed = new Set(fixedKeys);
+            if (uniqueFixed.size !== fixedKeys.length) {
+                console.warn('自定义模式：固定手牌中存在重复牌，已自动去重');
+            }
+            if (allFixed.length > 51) {
+                console.error('自定义模式：固定手牌超过 51 张，无法发牌');
+                allFixed.length = 51;
+            }
+
             // 剩余牌随机补充
             const fullDeck = Card.shuffle(Card.createDeck());
-            const used = new Set(allFixed.map(c => c.value + (c.suit?.name || c.rankKey || '')));
-            const remaining = fullDeck.filter(c => !used.has(c.value + (c.suit?.name || c.rankKey || '')));
+            const used = new Set(fixedKeys);
+            const remaining = fullDeck.filter(c => !used.has(fixedKey(c)));
             
             // 从 remaining 补充缺失的手牌
             let remIdx = 0;

@@ -100,8 +100,7 @@ body[data-theme="purple"] {
     grid-template-areas:
         "title title"
         "subtitle subtitle"
-        "modes stats"
-        "modes settings";
+        "modes stats";
     align-items: start;
     gap: 14px 22px;
     text-align: left;
@@ -456,7 +455,7 @@ body[data-theme="purple"] {
     position: fixed;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scale(1);
     width: 90%;
     max-width: 420px;
     max-height: 80vh;
@@ -468,7 +467,13 @@ body[data-theme="purple"] {
     flex-direction: column;
     gap: 12px;
     z-index: 300;
-    animation: modalScaleIn 0.3s ease;
+    opacity: 1;
+    transition: opacity 0.2s ease-in, transform 0.2s ease-in;
+}
+.overlay-panel.panel-exit {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+    pointer-events: none;
 }
 
 .overlay-header {
@@ -553,7 +558,7 @@ body[data-theme="purple"] {
     align-items: center;
     justify-content: space-between;
     padding: 12px 20px;
-    background: rgba(0,0,0,0.15);
+    background: rgba(0,0,0,0.55); /* 回退：不支持 backdrop-filter 时仍保持可读 */
     backdrop-filter: blur(8px);
     z-index: 10;
 }
@@ -1009,28 +1014,28 @@ body[data-theme="purple"] {
 }
 
 .card-corner .rank {
-    font-size: 0.85rem;
-    font-weight: 700;
+    font-size: 1.15rem;
+    font-weight: 800;
 }
 
 .card-corner .suit {
-    font-size: 0.7rem;
+    font-size: 1rem;
 }
 
 .top-left {
-    top: 6px;
-    left: 6px;
+    top: 5px;
+    left: 5px;
 }
 
 .bottom-right {
-    bottom: 6px;
-    right: 6px;
+    bottom: 5px;
+    right: 5px;
     transform: rotate(180deg);
 }
 
 /* 中心花色 */
 .card-center {
-    font-size: 2rem;
+    font-size: 2.8rem;
 }
 
 /* 王 */
@@ -1039,10 +1044,10 @@ body[data-theme="purple"] {
 }
 
 .joker-text {
-    font-size: 1rem;
-    font-weight: 700;
+    font-size: 1.4rem;
+    font-weight: 800;
     writing-mode: vertical-rl;
-    letter-spacing: 4px;
+    letter-spacing: 3px;
 }
 
 .card.joker.joker_big .joker-text {
@@ -1201,6 +1206,13 @@ body[data-theme="purple"] {
     border-radius: 6px;
 }
 
+/* 触摸设备默认隐藏键盘快捷键提示 */
+@media (hover: none) and (pointer: coarse) {
+    #shortcut-hint {
+        display: none;
+    }
+}
+
 #shortcut-hint:hover {
     opacity: 0.9;
     background: rgba(255,255,255,0.08);
@@ -1330,10 +1342,16 @@ body[data-theme="purple"] {
     align-items: center;
     justify-content: center;
     z-index: 200;
+    opacity: 1;
+    transition: opacity 0.25s ease;
+}
+#modal-overlay.modal-exit {
+    opacity: 0;
+    pointer-events: none;
 }
 
 #modal-content {
-    background: linear-gradient(145deg, #2a5a35, #1a3a22);
+    background: linear-gradient(145deg, rgba(30,45,38,0.96), rgba(16,28,22,0.98));
     padding: 40px;
     border-radius: 20px;
     text-align: center;
@@ -1341,12 +1359,19 @@ body[data-theme="purple"] {
     width: 90%;
     box-shadow: 0 20px 60px rgba(0,0,0,0.4);
     border: 1px solid rgba(255,255,255,0.1);
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+#modal-content.modal-exit {
+    opacity: 0;
+    transform: scale(0.96);
 }
 
 #modal-content h2 {
     font-size: 1.8rem;
     margin-bottom: 16px;
-    color: #f0c040;
+    color: var(--accent-color);
 }
 
 #modal-content p {
@@ -1544,7 +1569,7 @@ body[data-theme="purple"] {
 }
 
 #room-id-input::placeholder {
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.65); /* 提升对比度 */
 }
 
 .lan-status {
@@ -1702,6 +1727,12 @@ body[data-theme="purple"] {
     padding: 16px;
     z-index: 25;
     animation: panelIn 0.2s ease;
+    transition: opacity 0.18s ease-in, transform 0.18s ease-in;
+}
+.side-panel.panel-exit {
+    opacity: 0;
+    transform: translateX(10px);
+    pointer-events: none;
 }
 
 @keyframes panelIn {
@@ -2491,11 +2522,19 @@ body[data-theme="purple"] {
     }
 
     .card-corner .rank {
-        font-size: 0.65rem;
+        font-size: 0.95rem;
     }
-    
+
+    .card-corner .suit {
+        font-size: 0.8rem;
+    }
+
     .card-center {
-        font-size: 1.2rem;
+        font-size: 1.8rem;
+    }
+
+    .joker-text {
+        font-size: 1.1rem;
     }
     
     .hand-front {
@@ -3201,6 +3240,10 @@ body[data-theme="purple"] {
     border-radius: 2px;
     outline: none;
 }
+.volume-control input[type="range"]:focus-visible {
+    outline: 2px solid rgba(240,192,64,0.5);
+    outline-offset: 4px;
+}
 
 .volume-control input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
@@ -3520,7 +3563,7 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
     min-height: 118px;
     width: min(100%, 900px);
     cursor: pointer;
-    touch-action: none;
+    touch-action: pan-y; /* 保留垂直滚动，避免完全阻断 */
     user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
@@ -3585,19 +3628,19 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 }
 
 .played-area .table-play-card .card-corner .rank {
-    font-size: 0.92rem;
+    font-size: 1.2rem;
 }
 
 .played-area .table-play-card .card-corner .suit {
-    font-size: 0.82rem;
+    font-size: 1.05rem;
 }
 
 .played-area .table-play-card .card-center {
-    font-size: 2rem;
+    font-size: 2.8rem;
 }
 
 .played-area .table-play-card.joker .joker-text {
-    font-size: 0.95rem;
+    font-size: 1.3rem;
 }
 
 .played-area.has-pass::after {
@@ -3759,11 +3802,16 @@ body[data-auto-hint="false"] #btn-hint {
     display: none !important;
 }
 
-body[data-dark-mode="true"] {
+/* 暗色模式：只应用到非 fixed 内容的容器，避免 overlay/modal/toast 被裁剪 */
+body[data-dark-mode="true"] #ddz-table,
+body[data-dark-mode="true"] .game-header,
+body[data-dark-mode="true"] #menu-screen {
     filter: brightness(0.85) contrast(1.1);
 }
 
-body[data-high-contrast="true"] {
+body[data-high-contrast="true"] #ddz-table,
+body[data-high-contrast="true"] .game-header,
+body[data-high-contrast="true"] #menu-screen {
     filter: contrast(1.4);
 }
 
@@ -3926,7 +3974,7 @@ body[data-motion="fancy"] .table-aura {
 #play-controls {
     padding: 8px;
     border-radius: 16px;
-    background: rgba(0,0,0,0.28);
+    background: rgba(0,0,0,0.5); /* 加深回退背景 */
     border: 1px solid rgba(255,255,255,0.08);
     backdrop-filter: blur(14px);
     box-shadow: 0 12px 32px rgba(0,0,0,0.28);
@@ -4013,8 +4061,7 @@ body[data-motion="fancy"] .table-aura {
             "title"
             "subtitle"
             "modes"
-            "stats"
-            "settings";
+            "stats";
         max-width: 560px;
         gap: 14px;
     }
@@ -4624,12 +4671,12 @@ body[data-motion="fancy"] .table-aura {
     transition: transform 0.3s ease;
 }
 
-/* 历史记录项hover */
-.history-item {
+/* 历史记录项hover（实际使用 .history-entry） */
+.history-entry {
     transition: background 0.2s ease, transform 0.2s ease;
 }
 
-.history-item:hover {
+.history-entry:hover {
     background: rgba(255,255,255,0.06);
     transform: translateX(4px);
 }
@@ -6972,7 +7019,7 @@ body[data-opponent-cards] .opponent-card-stack {
 #settings-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.55);
+    background: rgba(0,0,0,0.65); /* 加深回退背景 */
     backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
@@ -7092,7 +7139,7 @@ body[data-opponent-cards] .opponent-card-stack {
     transition: all 0.2s ease;
 }
 .settings-search input::placeholder {
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.6); /* 提升对比度，确保可读 */
 }
 .settings-search input:focus {
     border-color: rgba(240,192,64,0.4);
@@ -7239,6 +7286,11 @@ body[data-opponent-cards] .opponent-card-stack {
     transition: all 0.2s;
     width: min(140px, 50%);
     cursor: pointer;
+}
+.setting-row select:focus-visible,
+.setting-row input[type="text"]:focus-visible {
+    outline: 2px solid rgba(240,192,64,0.5);
+    outline-offset: 2px;
 }
 .setting-row select:hover,
 .setting-row input[type="text"]:hover {
@@ -7391,6 +7443,10 @@ input[type="range"].settings-slider-input {
     cursor: pointer;
     flex: 1;
     transition: background 0.2s;
+}
+input[type="range"].settings-slider-input:focus-visible {
+    outline: 2px solid rgba(240,192,64,0.5);
+    outline-offset: 4px;
 }
 input[type="range"].settings-slider-input::-webkit-slider-thumb {
     -webkit-appearance: none;
@@ -7729,4 +7785,259 @@ body[data-high-contrast="true"] .setting-row,
 body[data-high-contrast="true"] .setting-slider,
 body[data-high-contrast="true"] .advanced-settings {
     border-color: rgba(255,255,255,0.2);
+}
+
+
+/* ===== v1.2.1 UI修复新增样式 ===== */
+
+/* -- 内联样式替代类 -- */
+.settings-grid--spaced { margin-top: 8px; }
+.settings-grid--spaced-sm { margin-top: 6px; }
+.settings-toggles--spaced { margin-top: 8px; }
+
+.debug-counter {
+    display: none;
+    position: fixed;
+    left: 4px;
+    background: rgba(0,0,0,0.5);
+    font-family: monospace;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    z-index: 9999;
+}
+.debug-counter--fps {
+    top: 4px;
+    color: #0f0;
+}
+.debug-counter--mem {
+    top: 24px;
+    color: #0ff;
+}
+
+.btn-back {
+    margin-top: 12px;
+}
+.btn-back--fixed {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    left: max(12px, env(safe-area-inset-left));
+    z-index: 100;
+    margin-top: 0;
+}
+.btn-danger {
+    color: #f44336 !important;
+}
+
+/* -- 安全区适配 -- */
+body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    overscroll-behavior: none;
+}
+
+#controls-area {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
+}
+
+.settings-modal {
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* -- 竖屏警告（手机竖屏时提示横屏） -- */
+@media (orientation: portrait) and (max-width: 600px) {
+    #game-screen::before {
+        content: "📱 请横屏游玩以获得最佳体验";
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.92);
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        text-align: center;
+        padding: 20px;
+        color: #fff;
+        backdrop-filter: blur(8px);
+    }
+}
+
+/* -- 小屏手机适配（380px以下） -- */
+@media (max-width: 380px) {
+    .card {
+        width: 40px !important;
+        height: 56px !important;
+    }
+    .card-corner .rank {
+        font-size: 0.8rem;
+    }
+    .card-corner .suit {
+        font-size: 0.65rem;
+    }
+    .card-center {
+        font-size: 1.4rem;
+    }
+    .joker-text {
+        font-size: 0.9rem;
+    }
+    #player-right .hand-front .card {
+        margin-left: -28px !important;
+    }
+    #player-right .hand-front .card:first-child {
+        margin-left: 0 !important;
+    }
+    #call-controls button,
+    #play-controls button {
+        min-width: 60px;
+        min-height: 44px;
+        padding: 6px 8px;
+        font-size: 0.82rem;
+    }
+    .game-title {
+        font-size: 1.6rem !important;
+    }
+    .game-subtitle {
+        font-size: 0.85rem !important;
+    }
+    .menu-container {
+        grid-template-columns: 1fr !important;
+        padding: 16px 12px !important;
+    }
+}
+
+/* -- 文本截断工具类 -- */
+.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* -- 玩家名称截断 -- */
+.player-name {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* -- 游戏标题截断 -- */
+.game-header h2 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: min(200px, 40vw);
+}
+
+/* -- 空状态样式 -- */
+.empty-state {
+    text-align: center;
+    padding: 24px 16px;
+    color: rgba(255,255,255,0.5);
+    font-size: 0.9rem;
+}
+.empty-state-icon {
+    font-size: 2rem;
+    margin-bottom: 8px;
+    opacity: 0.4;
+}
+
+/* -- 按钮状态补充 -- */
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-small:focus-visible,
+.btn-panel-toggle:focus-visible,
+.btn-replay-watch:focus-visible,
+.tut-action-btn:focus-visible {
+    outline: 2px solid rgba(240,192,64,0.6);
+    outline-offset: 3px;
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-small:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(0.6);
+}
+
+/* -- 触摸目标最小尺寸（移动端） -- */
+@media (max-width: 900px) {
+    #call-controls button,
+    #play-controls button {
+        min-height: 44px;
+        min-width: 76px;
+    }
+    .btn-panel-toggle {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    .tracker-cell {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .settings-panel select,
+    .settings-panel input[type="text"] {
+        min-height: 36px;
+    }
+}
+
+/* -- 100dvh 替代 100vh（Safari动态工具栏兼容） -- */
+.screen {
+    height: 100dvh;
+}
+
+/* -- 虚拟键盘弹出时设置面板不被压扁 -- */
+@media (max-width: 640px) {
+    #settings-overlay:not(.hidden) {
+        align-items: flex-start;
+        padding-top: env(safe-area-inset-top);
+    }
+    .settings-modal {
+        max-height: calc(92vh - env(safe-area-inset-bottom));
+    }
+}
+
+/* -- 字体缩放保护 -- */
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+/* -- 平板断点优化 -- */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .card {
+        width: 60px;
+        height: 84px;
+    }
+    #ddz-table {
+        grid-template-columns: 120px 1fr 120px !important;
+    }
+    .player-avatar {
+        width: 44px;
+        height: 44px;
+    }
+}
+
+/* -- 竖屏时菜单不受影响 -- */
+@media (orientation: portrait) and (max-width: 600px) {
+    #menu-screen::before,
+    #settings-overlay::before,
+    #replay-screen::before {
+        display: none !important;
+    }
+}
+
+/* -- 历史面板操作按钮 -- */
+.history-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+.history-actions .btn-small {
+    flex: 1;
 }

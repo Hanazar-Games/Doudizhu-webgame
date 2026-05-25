@@ -62,7 +62,8 @@ class GameState {
         this.callRound = 0; // 当前轮次
 
         // 癞子模式
-        this.laiziEnabled = false;
+        // 癞子规则是全局配置，不应在单局重置时清除
+        // this.laiziEnabled = false;
         this.laiziValue = -1; // 癞子点数，-1表示无癞子
 
         // 全局倍数设置
@@ -134,7 +135,8 @@ class GameState {
         this.grabPhase = 'call';
         this.hasCalled = [false, false, false];
         this.callRound = 0;
-        this.laiziEnabled = false;
+        // 癞子规则是全局配置，不应在单局重置时清除
+        // this.laiziEnabled = false;
         this.laiziValue = -1;
         
         for (const p of this.players) {
@@ -409,9 +411,9 @@ class GameState {
         if (this.mustPlay) {
             const player = this.players[playerIndex];
             if (player && player.hand.length > 0) {
-                // 简单检查：是否有比上家大的牌（使用 Rules 分析）
-                // 由于 Rules 未在此文件导入，使用简化判断：手牌非空即有可出的可能
-                // 实际上应由调用方（BaseMode/renderer）判断并提示
+                // 使用 Rules 检查是否有可出的牌
+                const beats = Rules.findAllBeats(player.hand, this.lastPlay?.pattern);
+                if (beats.length > 0) return false;
             }
         }
         

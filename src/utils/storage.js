@@ -8,7 +8,11 @@ const PREFIX = 'ddz_';
 export const Storage = {
     // 保存总局数和总分
     saveStats(stats) {
-        try { localStorage.setItem(PREFIX + 'stats', JSON.stringify(stats)); } catch (e) {}
+        try {
+            localStorage.setItem(PREFIX + 'stats', JSON.stringify(stats));
+        } catch (e) {
+            console.warn('保存统计数据失败:', e);
+        }
     },
 
     getStats() {
@@ -32,7 +36,17 @@ export const Storage = {
             const max = Math.max(10, Math.min(200, this.getSettings().maxHistory ?? 50));
             while (records.length > max) records.pop();
             localStorage.setItem(PREFIX + 'records', JSON.stringify(records));
-        } catch (e) {}
+        } catch (e) {
+            if (this._isQuotaError(e)) {
+                // 存储已满：删除一半旧记录后重试
+                const records = this.getGameRecords();
+                records.splice(Math.floor(records.length * 0.5));
+                records.unshift(record);
+                try { localStorage.setItem(PREFIX + 'records', JSON.stringify(records)); } catch (e2) {}
+            } else {
+                console.warn('保存对局记录失败:', e);
+            }
+        }
     },
 
     getGameRecords() {
@@ -49,7 +63,11 @@ export const Storage = {
 
     // 保存用户设置
     saveSettings(settings) {
-        try { localStorage.setItem(PREFIX + 'settings', JSON.stringify(settings)); } catch (e) {}
+        try {
+            localStorage.setItem(PREFIX + 'settings', JSON.stringify(settings));
+        } catch (e) {
+            console.warn('保存设置失败:', e);
+        }
     },
 
     getSettings() {
@@ -266,7 +284,17 @@ export const Storage = {
             games.unshift(gameData);
             if (games.length > 20) games.pop(); // 保留最近20局
             localStorage.setItem(PREFIX + 'full_games', JSON.stringify(games));
-        } catch (e) {}
+        } catch (e) {
+            if (this._isQuotaError(e)) {
+                // 存储已满：只保留最近5局
+                const games = this.getFullGames();
+                games.splice(5);
+                games.unshift(gameData);
+                try { localStorage.setItem(PREFIX + 'full_games', JSON.stringify(games)); } catch (e2) {}
+            } else {
+                console.warn('保存完整牌局失败:', e);
+            }
+        }
     },
 
     getFullGames() {
@@ -314,7 +342,16 @@ export const Storage = {
     },
 
     saveAchievements(achievements) {
-        try { localStorage.setItem(PREFIX + 'achievements', JSON.stringify(achievements)); } catch (e) {}
+        try {
+            localStorage.setItem(PREFIX + 'achievements', JSON.stringify(achievements));
+        } catch (e) {
+            console.warn('保存成就数据失败:', e);
+        }
+    },
+
+    // 检测是否是存储空间不足错误
+    _isQuotaError(e) {
+        return e && (e.name === 'QuotaExceededError' || e.code === 22 || e.number === -2147024882);
     },
 
     getAchievementProgress() {
@@ -355,8 +392,9 @@ export const Storage = {
             }
         }
 
-        if (roundData.bombsPlayed >= 3) {
-            progress.bombsPlayed = Math.max(progress.bombsPlayed, roundData.bombsPlayed);
+        const bombs = (roundData.bombsPlayed || 0);
+        if (bombs >= 3) {
+            progress.bombsPlayed = Math.max(progress.bombsPlayed || 0, bombs);
         }
 
         if (roundData.rocketPlayed) {

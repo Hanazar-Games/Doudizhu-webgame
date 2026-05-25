@@ -243,6 +243,8 @@ class Animations {
 
         if (card instanceof HTMLElement) {
             el = card;
+            // 保存原始transform以便恢复
+            el._originalTransform = el.style.transform;
         } else if (typeof card === 'string') {
             isTemp = true;
             el = this._createAnimElement('div');
@@ -276,15 +278,22 @@ class Animations {
             const y = (1 - t) * (1 - t) * fromY + 2 * (1 - t) * t * midY + t * t * toY;
             const rot = t < 0.5 ? t * 40 : (1 - t) * 40;
 
-            el.style.left = x + 'px';
-            el.style.top = y + 'px';
-            el.style.transform = `rotate(${rot}deg)`;
+            // 使用 transform 代替 left/top 避免 layout 触发
+            const dx = x - fromX;
+            const dy = y - fromY;
+            el.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
 
             if (t < 1) {
                 requestAnimationFrame(animate);
             } else {
                 if (onComplete) onComplete();
-                if (isTemp) setTimeout(() => el.remove(), 0);
+                if (isTemp) {
+                    setTimeout(() => el.remove(), 0);
+                } else {
+                    // 恢复原始transform
+                    el.style.transform = el._originalTransform || '';
+                    delete el._originalTransform;
+                }
             }
         };
 
@@ -426,12 +435,11 @@ class Animations {
                     piece.remove();
                     return;
                 }
-                const px = x + vx * t;
-                const py = y + vy * t + 300 * t * t; // 重力
+                const dx = vx * t;
+                const dy = vy * t + 300 * t * t; // 重力
                 const rot = t * 720;
-                piece.style.left = px + 'px';
-                piece.style.top = py + 'px';
-                piece.style.transform = `rotate(${rot}deg)`;
+                // 使用 translate3d 避免 layout 触发
+                piece.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
                 piece.style.opacity = String(1 - t);
                 requestAnimationFrame(animate);
             };
@@ -703,10 +711,10 @@ class Animations {
                 return;
             }
             const angle = t * Math.PI * 2;
-            const x = centerX + Math.cos(angle) * radius;
-            const y = centerY + Math.sin(angle) * radius;
-            el.style.left = x + 'px';
-            el.style.top = y + 'px';
+            const dx = Math.cos(angle) * radius;
+            const dy = Math.sin(angle) * radius;
+            // 使用 translate3d 避免 layout 触发，保留居中偏移
+            el.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
             requestAnimationFrame(animate);
         };
 
@@ -782,18 +790,18 @@ class Animations {
             const duration = 2000 + Math.random() * 2000;
             const sway = 30 + Math.random() * 50;
 
+            const startX = parseFloat(petal.style.left);
             const fall = (now) => {
                 const t = (now - startTime) / duration;
                 if (t >= 1) {
                     petal.remove();
                     return;
                 }
-                const px = parseFloat(petal.style.left) + Math.sin(t * Math.PI * 4) * sway * 0.02;
-                const py = t * (h + 60);
+                const dx = Math.sin(t * Math.PI * 4) * sway * 0.02;
+                const dy = t * (h + 60);
                 const rot = t * 360;
-                petal.style.left = px + 'px';
-                petal.style.top = (py - 30) + 'px';
-                petal.style.transform = `rotate(${rot}deg)`;
+                // 使用 translate3d 避免 layout 触发
+                petal.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
                 requestAnimationFrame(fall);
             };
 

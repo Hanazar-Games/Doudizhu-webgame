@@ -140,26 +140,141 @@ docker-compose up -d
 
 ## 版本公告
 
-### v1.1.9 (当前版本) — 设置系统稳定性修复 & 功能补全
+### v1.2.3 (当前版本) — 记牌器修复 & UI/UX深度打磨
 
 **🔴 严重 Bug 修复**
-- **heartbeatInterval 单位不一致**：`storage.js` 默认值为 `5000`（毫秒），但 UI 滑块范围是 `1–15`（秒），首次访问时浏览器将值 clamp 到 15，导致用户看到"15秒"但实际内存为 5000 — 默认值已修正为 `5`
-- **voiceVolume 死设置**：HTML 中存在语音音量滑块且值持久化到 localStorage，但 `AudioManager` 完全没有 `voiceVolume` 属性和 `setVoiceVolume()` 方法，用户调节后无任何效果 — 已补全音频后端支持 + `_syncAudioSettings` 同步 + `bindVolume` 绑定
-- **gameSpeed 设置不生效**：`base-mode.js` 的 `startGame()` 读取了大量规则配置，但**遗漏了 `gameSpeed`**，`speedFactor` 始终为默认值 `1.0`，用户调节游戏速度完全无效 — 已添加 `this.speedFactor = parseFloat(settings.gameSpeed) || 1.0`
+- **记牌器开局全0**：`_resetCardTracker` 错误地减去了所有玩家手牌+底牌（共54张），导致记牌器每局开局就全空 — 改为只初始化满牌54张，出牌后正常递减
+- **癞子模式跨局失效**：`resetRound()` 仍重置 `laiziEnabled = false`，每局结束后癞子规则被清除 — 已从 `resetRound` 中移除
+- **`const esc` 重复声明**：`showRoundResult()` 中同一作用域内声明两次 `const esc`，严格模式下抛出 SyntaxError 导致结算面板完全崩溃 — 合并为单次声明
+- **Replay 按钮无响应**：JS 绑定 `btn-replay-mode`，HTML 实际 ID 为 `btn-replay` — 统一为 `btn-replay`
+- **LAN 模式 UI ID 不匹配**：`btn-create-room`/`btn-join-room`/`lan-status` 等 8 个 ID 在 HTML 中不存在或名称不一致，导致局域网联机界面功能失效 — 补全缺失 DOM 并统一 ID 引用
+
+**🟡 UI/UX 动画 & 过渡增强**
+- **Modal 关闭无过渡**：结算弹窗点击按钮后直接消失 — 新增 `_closeModal()` 方法，content 缩小淡出 + overlay 背景淡出 250ms
+- **侧边面板关闭生硬**：记牌器/历史/聊天面板直接 `display:none` — 添加 `panel-exit` 滑出过渡（opacity + translateX）
+- **成就面板关闭生硬**：同上，添加 `panel-exit` 淡出过渡
+- **暗色模式裁剪 fixed 元素**：`filter` 在 `#game-screen` 上创建 containing block，导致 toast/modal/controls 等 fixed 元素被裁剪 — 将 filter 移至 `#ddz-table` + `.game-header` + `#menu-screen`
+- **控制区 safe-area 被覆盖**：`padding-bottom` 的 `!important` 虽能确保 safe-area，但会强制覆盖 density 设置 — 保留 `!important` 但统一为 `calc(24px + env(safe-area-inset-bottom))`
+- **历史记录 hover 死代码**：`.history-item:hover` 从未生效，实际使用 `.history-entry` — 重命名并合并样式
+- **菜单布局空区域**：grid-template-areas 包含不存在的 `"settings"` 区域 — 移除，避免 stats 面板溢出
+
+**🟢 代码质量 & 防御性增强**
+- **Modal timeout 泄漏**：`_closeModal` 的 `setTimeout` 未存储 ID，快速重开modal时旧timeout会隐藏新modal — 存储并清除 timeout ID
+- **Modal listener 泄漏**：overlay click 监听器仅在点击背景时移除，按钮关闭时残留 — 在 `_closeModal` 中统一移除
+- **Side panel null 崩溃**：`_toggleSidePanel` 中 `other?.classList.contains('hidden')` 在 `other` 为 null 时抛出 TypeError — 改为 `other && !other.classList.contains('hidden')`
+- **Achievement timeout 泄漏**：关闭成就面板的 setTimeout 未清除，快速切换时面板闪现后消失 — 存储 `_achCloseTimer` 并在打开/关闭时清除
+- **手牌淡出仍可点击**：`_updateHumanHand` 移除卡片时未设置 `pointer-events:none`，150ms 内仍可误触 — 添加
+- **手牌 fallback 条件过窄**：仅当 `removedCount === 0` 时才 fallback 到 `renderHands()`，部分匹配时留下幽灵卡片 — 改为 `removedCount !== playedCards.length`
+- **自定义模式重复牌崩溃**：`fixedHands` 含重复牌时 `remaining` 牌数不足，slice 后产生 `undefined` — 添加重复检测和截断保护
+- **`_updateCardTracker` 防御性**：`card.isJoker()` 在输入为普通对象时可能抛出 TypeError — 添加类型检查 fallback
+
+---
+
+### v1.2.2 — 全局UI深度修复 & 性能优化
+
+**🔴 严重问题修复**
+- **25处 HTML 非法嵌套**：`<label>` 内包含 `<div class="slider-label-row">`，违反 HTML 规范（label 的 content model 为 Phrasing content），在某些浏览器中可能导致 DOM 解析异常 — 全部改为 `<span>`
+- **9处内联 style**：`margin-top:8px`、`position:fixed` 等直接写在 HTML 中，可维护性差 — 提取为 CSS 类（`.settings-grid--spaced`、`.btn-back--fixed`、`.debug-counter`、`.btn-danger` 等）
+- **安全区完全缺失**：iPhone 刘海屏/ Home Indicator 遮挡底部控制按钮和设置面板 — 添加 `env(safe-area-inset-*)` 到 body、controls-area、settings-modal
+- **竖屏无适配**：手机竖屏时牌桌布局完全崩溃，manifest 强制 `landscape` 但 iOS Safari 不支持 — 添加竖屏警告遮罩（`orientation: portrait` 时显示"请横屏游玩"）
+- **虚拟键盘遮挡输入框**：移动端聊天和设置搜索框聚焦后被键盘遮挡 — 添加 `scrollIntoView` 自动滚动到可视区域
+- **小屏手机手牌溢出**：320px-375px 手机下手牌总宽度超出视口 — 新增 `@media (max-width: 380px)` 断点，卡牌缩至 40×56px、margin-left 缩至 -28px、按钮最小尺寸缩减
+- **动画性能严重下降**：`animations.js` 中 `cardFly()`、`confetti()`、`springCelebrate()` 花瓣、`orbitEffect()` 每帧直接修改 `left/top`，强制触发 layout 计算 — 全部改为 `transform: translate3d()`
+- **渲染性能差**：`renderHands()` 中自己手牌和明牌模式逐张 `appendChild` 到 DOM，频繁触发重排 — 改为 `DocumentFragment` 批量插入
+
+**🟡 UI一致性修复**
+- **文本截断大面积缺失**：超长玩家名、游戏标题、模式标签等无 overflow 保护 — 添加 `.truncate` 工具类，为 `.player-name` 设置 `max-width: 120px` + `ellipsis`
+- **空状态缺失**：聊天面板和历史记录面板为空时完全空白 — 添加空状态提示（"暂无出牌记录"、"暂无消息"）
+- **按钮 disabled 状态不统一**：部分按钮禁用后仅靠 `opacity: 0.4` 内联样式，无统一 CSS — 添加全局 `:disabled` 样式（opacity 0.4 + grayscale + not-allowed 光标）
+- **触摸目标不足**：移动端控制按钮 `min-height: 38px` 低于 Apple HIG 推荐的 44px — 在 `@media (max-width: 900px)` 下统一提升至 44px
+- **100vh 在 Safari 不准确**：动态工具栏导致高度坍缩 — 全局 `.screen` 改为 `100dvh`
+- **手势冲突**：iOS 橡皮筋效果、双指缩放干扰游戏体验 — 添加 `overscroll-behavior: none`
+- **模态框背景不可关闭**：回合结果模态框只能点按钮关闭，不符合用户直觉 — 添加背景点击关闭
+- **暂停遮罩无过渡**：直接显示/隐藏，体验生硬 — 添加 opacity 淡入过渡
+- **面板切换无状态反馈**：侧边栏按钮无 `aria-expanded` — 添加并同步展开状态
+- **聊天面板打开不聚焦**：点击聊天按钮后输入框未自动获得焦点 — 添加 `setTimeout(() => chatInput?.focus(), 100)`
+
+**🟢 CSS/可访问性增强**
+- **平板断点优化**：iPad 竖屏（768px）被错误归入移动端，卡牌缩得过小 — 新增 `@media (min-width: 769px) and (max-width: 1024px)` 专属优化
+- **字体缩放保护**：缺少 `text-size-adjust: 100%`，系统字体放大时布局错乱 — 全局添加
+- **PWA meta 更新**：`apple-mobile-web-app-capable` 已废弃 — 追加 `mobile-web-app-capable`
+- **历史面板操作按钮布局**：内联 flex 样式 — 提取为 `.history-actions` 类
+
+---
+
+### v1.2.1 — 全面稳定性修复 & 可访问性提升
+
+**🔴 严重 Bug 修复**
+- **癞子模式完全失效**：`game-state.js` 的 `resetRound()` 错误地将 `laiziEnabled` 设为 `false`，而 `startRound()` 首先调用 `resetRound()`，导致癞子规则每局都被清除 — 已从 `resetRound` 中移除 `laiziEnabled` 重置
+- **一键出牌(oneClickPlay) 失效**：`_toggleCardSelection` 中检查 `selection.valid`，但 `_getPlayableSelection` 返回的对象根本没有 `valid` 属性，条件永远为假 — 改为检查 `selection.pattern?.isValid?.()`
+- **底牌跨局不渲染**：`renderHands()` 使用 `container.dataset.rendered = 'true'` 作为渲染标志，但该标志在新一局开始时从不重置，导致第二局起底牌消失 — 在渲染前主动 `delete container.dataset.rendered`
+- **赛制计分重复累加**：`onRoundEnd` 中使用 `matchScores[i] += data.scores[i]`，但 `GameState.scores` 本身就是跨局累加值，导致赛制总分被错误翻倍 — 改为直接赋值 `matchScores[i] = data.scores[i]`
+- **成就进度 NaN 污染**：`checkAchievements` 中 `Math.max(progress.bombsPlayed, roundData.bombsPlayed)` 在 `bombsPlayed` 为 `undefined` 时返回 `NaN`，永久损坏成就系统 — 添加防御式赋值 `roundData.bombsPlayed || 0`
+- **有牌必出(mustPlay) 规则未生效**：`pass()` 方法中仅有注释占位，没有任何实际逻辑 — 已实现：使用 `Rules.findAllBeats` 检查手牌是否能压过上家，能压则拒绝 pass
+
+**🟡 体验与交互修复**
+- **Escape 键全局冲突**：设置面板/帮助面板打开时按 ESC 会触发游戏暂停而非关闭面板 — 优先检查并关闭模态框
+- **viewport 禁止缩放**：`maximum-scale=1.0, user-scalable=no` 违反 WCAG 且剥夺用户缩放权利 — 改为 `viewport-fit=cover`
+- **DOMContentLoaded 在 defer 模块中可能错过**：模块脚本默认 defer，`DOMContentLoaded` 可能已触发 — 增加 `readyState` 检查
+- **设置面板关闭后焦点未返回**：键盘用户关闭面板后需按多次 Tab 才能回到设置按钮 — 关闭后自动 `focus()` 到 `#btn-settings`
+- **人类胜负音效判断错误**：使用跨局累加 `data.scores[this.humanIndex]` 判断本局胜负，导致累计分为负时赢局也播放输分音效 — 改用 `isHumanWin`
+- **观战模式抢地主提示文字错误**：显示 "1分" / "2分" 而非 "叫地主" / "抢地主" — 根据 `callMode` 和 `grabPhase` 生成正确文本
+- **AI delay 后未检查回合**：AI 思考延迟期间人类可能已超时自动行动，AI 醒来后用旧回合索引尝试出牌 — delay 后增加 `currentTurn !== idx` 检查
+- **倒计时 timeout 未检查人类回合**：人类倒计时超时时未先校验是否仍为人类回合 — 增加前置检查
+- **gameSpeed 无边界校验**：可接受负数或极大值 — 增加 `Math.max(0.3, Math.min(5.0, ...))` 限制
+- **Touch/Mouse ghost click**：`_bindRipple` 同时绑定 `mousedown` 和 `touchstart`，移动端触发两次涟漪 — 统一使用 `pointerdown`
+- **游戏模式初始化无 try-catch**：AI/局域网/自定义模式初始化失败时 UI 卡死 — 统一包裹 try-catch，失败时返回菜单并提示
+
+**♿ 可访问性 & CSS 修复**
+- **placeholder 对比度不足**：搜索框和房间号输入框 placeholder 透明度仅 0.35-0.4 — 提升至 0.6-0.65
+- **focus 状态缺失**：range slider、搜索框、select/text input 设置 `outline: none` 后无替代 focus 样式 — 添加 `:focus-visible` 金色轮廓
+- **backdrop-filter 无回退**：`.game-header`、`#settings-overlay`、`#call-controls` 等背景太透明，不支持 backdrop-filter 的浏览器可读性极差 — 统一加深回退背景色
+- **touch-action: none 阻断所有触摸**：手牌区域完全禁止默认触摸行为，小屏无法滚动 — 改为 `touch-action: pan-y`
+- **设置面板 landmark 缺失**：无 `role="dialog"` / `aria-modal="true"` — 已补充
+- **按钮 aria-label 缺失**：关闭设置、暂停、音效、全屏、关闭教程等按钮仅有符号 — 已补充 `aria-label`
+- **Meta 标签完善**：新增 `description`、`apple-touch-icon`、`apple-mobile-web-app-capable` / `status-bar-style`
+
+**🔧 代码质量**
+- `_doHint` 添加 try-catch：AI 异常时不再卡死，改为显示温和提示
+- `_turnTimer` 死代码移除：声明但从未使用
+- `localStorage` 写满处理：`records` / `full_games` 在 `QuotaExceededError` 时主动裁切旧记录后重试
+- `destroy()` 增加 `_destroyed` 检查和 `_comboData` 清理，减少快速切换模式时的残留副作用
+
+---
+
+### v1.2.0 — UI修复：按钮样式 & 手牌堆叠 & 出牌截断
+
+**🎨 UI 修复**
+- **菜单按钮变白条**：`.btn-secondary` 在 CSS 中完全不存在，按钮继承浏览器默认白色背景 + body 白色文字 = 看不见 — 已添加完整 `.btn-secondary` 样式（半透明背景 + 白色文字 + hover 效果）
+- **手牌严重堆叠看不见**：JS 硬编码 `marginLeft: '-44px'`，但 flex 容器压缩卡片后，每张牌只露出几像素，17张牌几乎完全重叠 — margin-left 改由 CSS 控制（桌面端 `-44px` / 移动端 `-32px`），配合 `flex-shrink: 0` 防止过度压缩
+- **出牌被截断**：`#player-top .played-area` 和 `#player-left .played-area` 的 `min-height: 44px` 优先级（ID 选择器）高于 `.played-area.has-cards` 的 `min-height: 110px`，导致顶部/左侧玩家出牌区仅 44px 高，牌被截断 — 已移除 ID 选择器中的 `min-height` 覆盖
+
+**🔧 代码修复**
+- **移除 BGM 降低复杂逻辑**：用户反馈不需要设置面板打开时降低 BGM 的功能 — 已简化 `openSettings`/`closeSettings`，移除 `_savedBGMVolume` 和试听系数逻辑
+- **gameSpeed 生效**：`base-mode.js` 中 `speedFactor` 始终为默认值 — 已读取 `settings.gameSpeed`
+- **heartbeatInterval 单位**：默认值 `5000`（毫秒）与 UI `1-15`（秒）矛盾 — 已改为 `5`
+- **voiceVolume 死设置**：有滑块但无音频后端 — 已补全 `AudioManager.voiceVolume`
+
+---
+
+### v1.1.9 — 设置系统稳定性修复 & 功能补全
+
+**🔴 严重 Bug 修复**
+- **heartbeatInterval 单位不一致**：默认值 `5000`（毫秒）→ `5`（秒）
+- **voiceVolume 死设置**：补全音频后端 + 绑定
+- **gameSpeed 设置不生效**：`base-mode.js` 读取应用
 
 **🟡 交互体验修复**
-- **openSettings/closeSettings 重复调用**：快速双击设置按钮或关闭按钮时，音效会重叠播放，BGM 恢复逻辑可能执行多次 — 添加 guard（检查 `hidden` 类状态），重复调用直接返回
-- **BGM 降低试听失效**：打开设置面板时 BGM 降至 25%，但用户一旦拖动 BGM 滑块，`bindVolume` 直接设置绝对音量，试听效果立即消失 — `bindVolume` 现在感知 `_settingsOpen` 状态，面板内 BGM 滑块实时预览保持降低系数
-- **sliderSfxTimer 全局共享**：`_bindUXSettings` 中所有 range 控件共享同一个 timer，快速切换拖动不同滑块时前一个音效被后一个清除 — 改为每个 control 独立的 `control._sfxTimer`
-- **setting-changed 高频强制 reflow**：每次 slider `input` 事件都执行 `void parent.offsetWidth` 强制同步 reflow，60fps 输入下每秒数十次重排 — 改用 `requestAnimationFrame` 节流，消除连续操作性能风险
-- **关闭面板强制折叠所有 details**：`_filterSettings('')` 和 `closeSettings()` 将用户手动展开的分类全部折叠，重新打开需反复展开 — 空 query 分支不再修改 `details.open`，保留用户展开状态
+- openSettings/closeSettings 重复调用 guard
+- BGM 降低试听在滑块拖动时保持（v1.2.0 已移除此功能）
+- sliderSfxTimer 全局共享 → 每个 control 独立
+- setting-changed 高频 reflow → requestAnimationFrame 节流
+- 关闭面板不强制折叠 details
 
 **🟡 兼容性 & 可访问性**
-- **`:has()` 无旧浏览器 fallback**：搜索框清除按钮和 focus 高亮完全依赖 CSS `:has()`，Firefox 121 之前 / 旧版 Safari 中清除按钮永远不显示 — JS 在 `input` 事件中为 `.settings-search` 动态添加/移除 `.has-value` class，CSS 同步匹配
-- **tooltip 长文本溢出**：`.setting-tooltip::after` 使用 `white-space: nowrap` 且无 `max-width`，长提示在窄屏或靠边元素上可能超出视口 — 改为 `white-space: normal; max-width: min(280px, 80vw)`
-- **高对比度 knob 无边界**：`body[data-high-contrast="true"]` 下 toggle switch 的 track 有 border，但白色 knob（`::after`）无描边，边界辨识度不足 — 补充 `border: 1px solid rgba(0,0,0,0.5)`
-
-**历史公告**
+- `:has()` fallback（JS 动态 has-value class）
+- tooltip 溢出（max-width + white-space normal）
+- 高对比度 toggle knob border
 
 ---
 

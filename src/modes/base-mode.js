@@ -19,7 +19,6 @@ class BaseMode {
         this._isProcessingCalling = false;
         this._isProcessingPlay = false;
         this._isAutoPlaying = false;
-        this._turnTimer = null;
         this._turnCountdown = 30;
         this._countdownInterval = null;
         
@@ -80,7 +79,7 @@ class BaseMode {
 
         // 从设置读取游戏规则并配置 GameState
         const settings = Storage.getSettings();
-        this.speedFactor = parseFloat(settings.gameSpeed) || 1.0;
+        this.speedFactor = Math.max(0.3, Math.min(5.0, parseFloat(settings.gameSpeed) || 1.0));
         this.gameState.callMode = ['score', 'grab'].includes(settings.callMode) ? settings.callMode : 'score';
         this.gameState.laiziEnabled = settings.laiziEnabled === true;
         this.gameState.scoreMultiplier = Math.max(1, Math.min(10, settings.scoreMultiplier ?? 1));
@@ -153,7 +152,16 @@ class BaseMode {
                         call = await ai.decideCall(this.gameState);
                     }
                     // 观战模式：显示叫分建议
-                    const hintText = this.humanIndex < 0 ? (call === 0 ? '不叫' : call + '分') : null;
+                    let hintText = null;
+                    if (this.humanIndex < 0) {
+                        if (call === 0) {
+                            hintText = '不叫';
+                        } else if (this.gameState.callMode === 'grab') {
+                            hintText = this.gameState.grabPhase === 'call' ? '叫地主' : '抢地主';
+                        } else {
+                            hintText = call + '分';
+                        }
+                    }
                     this.renderer?.showThinking(idx, hintText);
                     const thinkMs = Math.max(200, Math.min(5000, Storage.getSettings().aiThinkTime ?? 800));
                     await this._delay(thinkMs);
@@ -163,6 +171,8 @@ class BaseMode {
                         if (spectatorDelay > 0) await this._delay(spectatorDelay);
                     }
                     this.renderer?.hideThinking(idx);
+                    // delay 后重新检查回合，防止人类在此期间已行动
+                    if (this.gameState.currentTurn !== idx) continue;
                     let success = this.gameState.callLandlord(idx, call);
                     if (!success) {
                         console.warn('叫分失败，强制pass:', player.name);
@@ -248,6 +258,9 @@ class BaseMode {
                     }
                     this.renderer?.hideThinking(idx);
                     this.renderer?.hideAIHint?.(idx);
+                    
+                    // delay 后重新检查回合，防止人类在此期间已行动
+                    if (this.gameState.currentTurn !== idx) continue;
                     
                     if (cards.length === 0) {
                         const passSuccess = this.gameState.pass(idx);
@@ -404,6 +417,8 @@ class BaseMode {
 
     _onCountdownTimeout(type) {
         if (!this.isRunning) return;
+        // 确保超时处理只针对当前人类玩家的回合
+        if (type === 'play' && this.gameState.currentTurn !== this.humanIndex) return;
         if (type === 'call') {
             this.humanCall(0);
         } else if (type === 'play') {
@@ -481,6 +496,8 @@ class BaseMode {
     
     onDealComplete(data) {
         if (this.renderer) {
+            // 发牌完成后初始化记牌器（满牌 54 张，等待出牌后递减）
+            this.renderer._resetCardTracker();
             this.renderer.renderHands();
             this.renderer.highlightTurn(this.gameState.currentTurn);
         }
@@ -530,8 +547,9 @@ class BaseMode {
         // 累计比赛分数
         if (this.matchConfig.isMatchMode) {
             this.matchConfig.currentRound++;
+            // GameState.scores 已经是跨局累加值，直接赋值而非累加
             for (let i = 0; i < 3; i++) {
-                this.matchConfig.matchScores[i] += data.scores[i];
+                this.matchConfig.matchScores[i] = data.scores[i];
             }
         }
         // BGM切换为胜利/失败（观战模式下humanIndex=-1，按旁观处理）
@@ -541,9 +559,9 @@ class BaseMode {
                 (data.winnerIndex !== this.gameState.landlordIndex && this.humanIndex !== this.gameState.landlordIndex);
         }
         // 得分变化音效
+        // 使用本局胜负判断音效，而非跨局累加分数
         if (this.humanIndex >= 0) {
-            const humanScore = data.scores[this.humanIndex];
-            this.renderer?.audio?.playScoreChange(humanScore > 0);
+            this.renderer?.audio?.playScoreChange(isHumanWin);
         }
         
         this.renderer?.audio?.stopBGM();

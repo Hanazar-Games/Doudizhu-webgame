@@ -2,11 +2,15 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#1a5f2a">
     <title>斗地主 - 经典棋牌游戏</title>
+    <meta name="description" content="经典三人棋牌斗地主 — 支持人机对战、局域网联机、自定义规则和牌局回放。">
     <link rel="stylesheet" href="./src/styles/main.css">
     <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body data-theme="green">
     <!-- 菜单界面 -->
@@ -25,16 +29,16 @@
                 <button id="btn-settings" class="btn-small">设置</button>
             </div>
             
-            <div class="version-info">v1.2.0</div>
+            <div class="version-info">v1.2.3</div>
         </div>
     </div>
 
     <!-- 设置面板（覆盖层） -->
-    <div id="settings-overlay" class="hidden">
+    <div id="settings-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <div class="settings-modal">
             <div class="settings-header">
-                <h2>游戏设置</h2>
-                <button id="btn-close-settings" class="btn-close">✕</button>
+                <h2 id="settings-title">游戏设置</h2>
+                <button id="btn-close-settings" class="btn-close" aria-label="关闭设置">✕</button>
             </div>
             <div class="settings-search-wrap">
                 <div class="settings-search">
@@ -111,7 +115,7 @@
                     <input type="range" class="settings-slider-input" id="cfg-voice-volume" data-setting="voiceVolume" min="0" max="1" step="0.1" value="0.7">
                     <span class="volume-value" id="cfg-voice-volume-value" data-setting-output="voiceVolume">70%</span>
                 </div>
-                <div class="settings-grid" style="margin-top:8px">
+                <div class="settings-grid settings-grid--spaced">
                     <label class="setting-row">背景音乐
                         <select data-setting="bgmTrack">
                             <option value="default">默认</option>
@@ -129,7 +133,7 @@
                         </select>
                     </label>
                 </div>
-                <div class="settings-toggles" style="margin-top:8px">
+                <div class="settings-toggles settings-toggles--spaced">
                     <label class="toggle-switch-wrap">
                         <input type="checkbox"  data-setting="bgmEnabled" checked>
                         <span class="toggle-switch-track"></span>
@@ -394,19 +398,19 @@
                     </div>
                     <div class="settings-slider-list">
                         <label class="setting-slider">
-                        <div class="slider-label-row">虚张声势概率<span class="setting-value-output" data-setting-output="aiBluffRate"></span></div>
+                        <span class="slider-label-row">虚张声势概率<span class="setting-value-output" data-setting-output="aiBluffRate"></span></span>
                             <input type="range" class="settings-slider-input" min="0" max="50" step="5" data-setting="aiBluffRate" value="10">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">风险容忍度<span class="setting-value-output" data-setting-output="aiRiskTolerance"></span></div>
+                        <span class="slider-label-row">风险容忍度<span class="setting-value-output" data-setting-output="aiRiskTolerance"></span></span>
                             <input type="range" class="settings-slider-input" min="0" max="100" step="10" data-setting="aiRiskTolerance" value="50">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">AI难度缩放<span class="setting-value-output" data-setting-output="aiDifficultyScale"></span></div>
+                        <span class="slider-label-row">AI难度缩放<span class="setting-value-output" data-setting-output="aiDifficultyScale"></span></span>
                             <input type="range" class="settings-slider-input" min="0.5" max="2.0" step="0.1" data-setting="aiDifficultyScale" value="1.0">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">AI表情频率<span class="setting-value-output" data-setting-output="aiEmoteRate"></span></div>
+                        <span class="slider-label-row">AI表情频率<span class="setting-value-output" data-setting-output="aiEmoteRate"></span></span>
                             <input type="range" class="settings-slider-input" min="0" max="100" step="10" data-setting="aiEmoteRate" value="30">
                         </label>
                     </div>
@@ -476,11 +480,11 @@
                     </div>
                     <div class="settings-slider-list">
                         <label class="setting-slider">
-                        <div class="slider-label-row">卡牌圆角<span class="setting-value-output" data-setting-output="cardCornerRadius"></span></div>
+                        <span class="slider-label-row">卡牌圆角<span class="setting-value-output" data-setting-output="cardCornerRadius"></span></span>
                             <input type="range" class="settings-slider-input" min="0" max="16" step="1" data-setting="cardCornerRadius" value="8">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">卡牌边框<span class="setting-value-output" data-setting-output="cardBorderWidth"></span></div>
+                        <span class="slider-label-row">卡牌边框<span class="setting-value-output" data-setting-output="cardBorderWidth"></span></span>
                             <input type="range" class="settings-slider-input" min="0" max="3" step="0.5" data-setting="cardBorderWidth" value="1">
                         </label>
                     </div>
@@ -506,7 +510,7 @@
                         <span class="toggle-switch-label">色盲友好</span>
                     </label>
                     </div>
-                    <div class="settings-grid" style="margin-top:6px">
+                    <div class="settings-grid settings-grid--spaced-sm">
                         <label class="setting-row">色盲类型
                             <select data-setting="colorblindType">
                                 <option value="none" selected>无</option>
@@ -523,35 +527,35 @@
                     <summary>布局</summary>
                     <div class="settings-slider-list">
                         <label class="setting-slider">
-                        <div class="slider-label-row">牌桌缩放<span class="setting-value-output" data-setting-output="tableScale"></span></div>
+                        <span class="slider-label-row">牌桌缩放<span class="setting-value-output" data-setting-output="tableScale"></span></span>
                             <input type="range" class="settings-slider-input" min="0.85" max="1.15" step="0.05" data-setting="tableScale" value="1">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">手牌大小<span class="setting-value-output" data-setting-output="cardScale"></span></div>
+                        <span class="slider-label-row">手牌大小<span class="setting-value-output" data-setting-output="cardScale"></span></span>
                             <input type="range" class="settings-slider-input" min="0.85" max="1.2" step="0.05" data-setting="cardScale" value="1">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">出牌大小<span class="setting-value-output" data-setting-output="playedCardScale"></span></div>
+                        <span class="slider-label-row">出牌大小<span class="setting-value-output" data-setting-output="playedCardScale"></span></span>
                             <input type="range" class="settings-slider-input" min="0.8" max="1.15" step="0.05" data-setting="playedCardScale" value="1">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">回放牌大小<span class="setting-value-output" data-setting-output="replayCardScale"></span></div>
+                        <span class="slider-label-row">回放牌大小<span class="setting-value-output" data-setting-output="replayCardScale"></span></span>
                             <input type="range" class="settings-slider-input" min="0.85" max="1.35" step="0.05" data-setting="replayCardScale" value="1">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">出牌重叠<span class="setting-value-output" data-setting-output="playedOverlap"></span></div>
+                        <span class="slider-label-row">出牌重叠<span class="setting-value-output" data-setting-output="playedOverlap"></span></span>
                             <input type="range" class="settings-slider-input" min="6" max="28" step="1" data-setting="playedOverlap" value="16">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">选牌上浮<span class="setting-value-output" data-setting-output="selectedLift"></span></div>
+                        <span class="slider-label-row">选牌上浮<span class="setting-value-output" data-setting-output="selectedLift"></span></span>
                             <input type="range" class="settings-slider-input" min="4" max="24" step="1" data-setting="selectedLift" value="12">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">悬停上浮<span class="setting-value-output" data-setting-output="hoverLift"></span></div>
+                        <span class="slider-label-row">悬停上浮<span class="setting-value-output" data-setting-output="hoverLift"></span></span>
                             <input type="range" class="settings-slider-input" min="0" max="16" step="1" data-setting="hoverLift" value="7">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">面板透明度<span class="setting-value-output" data-setting-output="panelOpacity"></span></div>
+                        <span class="slider-label-row">面板透明度<span class="setting-value-output" data-setting-output="panelOpacity"></span></span>
                             <input type="range" class="settings-slider-input" min="45" max="95" step="5" data-setting="panelOpacity" value="80">
                         </label>
                     </div>
@@ -627,23 +631,23 @@
                     </div>
                     <div class="settings-slider-list">
                         <label class="setting-slider">
-                        <div class="slider-label-row">动画速度<span class="setting-value-output" data-setting-output="animSpeed"></span></div>
+                        <span class="slider-label-row">动画速度<span class="setting-value-output" data-setting-output="animSpeed"></span></span>
                             <input type="range" class="settings-slider-input" min="0.5" max="2.0" step="0.1" data-setting="animSpeed" value="1.0">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">过渡速度<span class="setting-value-output" data-setting-output="transitionSpeed"></span></div>
+                        <span class="slider-label-row">过渡速度<span class="setting-value-output" data-setting-output="transitionSpeed"></span></span>
                             <input type="range" class="settings-slider-input" min="0.3" max="2.0" step="0.1" data-setting="transitionSpeed" value="1.0">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">发牌节奏<span class="setting-value-output" data-setting-output="cardEnterStagger"></span></div>
+                        <span class="slider-label-row">发牌节奏<span class="setting-value-output" data-setting-output="cardEnterStagger"></span></span>
                             <input type="range" class="settings-slider-input" min="0" max="60" step="5" data-setting="cardEnterStagger" value="30">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">粒子数量<span class="setting-value-output" data-setting-output="particleCount"></span></div>
+                        <span class="slider-label-row">粒子数量<span class="setting-value-output" data-setting-output="particleCount"></span></span>
                             <input type="range" class="settings-slider-input" min="0" max="200" step="10" data-setting="particleCount" value="50">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">连击播报阈值<span class="setting-value-output" data-setting-output="comboAnnounce"></span></div>
+                        <span class="slider-label-row">连击播报阈值<span class="setting-value-output" data-setting-output="comboAnnounce"></span></span>
                             <input type="range" class="settings-slider-input" min="2" max="10" step="1" data-setting="comboAnnounce" value="2">
                         </label>
                     </div>
@@ -761,7 +765,7 @@
                     </div>
                     <div class="settings-slider-list">
                         <label class="setting-slider">
-                        <div class="slider-label-row">拖选灵敏度<span class="setting-value-output" data-setting-output="dragThreshold"></span></div>
+                        <span class="slider-label-row">拖选灵敏度<span class="setting-value-output" data-setting-output="dragThreshold"></span></span>
                             <input type="range" class="settings-slider-input" min="2" max="18" step="1" data-setting="dragThreshold" value="7">
                         </label>
                     </div>
@@ -934,11 +938,11 @@
                     </div>
                     <div class="settings-slider-list">
                         <label class="setting-slider">
-                        <div class="slider-label-row">重连次数<span class="setting-value-output" data-setting-output="reconnectAttempts"></span></div>
+                        <span class="slider-label-row">重连次数<span class="setting-value-output" data-setting-output="reconnectAttempts"></span></span>
                             <input type="range" class="settings-slider-input" min="0" max="10" step="1" data-setting="reconnectAttempts" value="3">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">心跳间隔(秒)<span class="setting-value-output" data-setting-output="heartbeatInterval"></span></div>
+                        <span class="slider-label-row">心跳间隔(秒)<span class="setting-value-output" data-setting-output="heartbeatInterval"></span></span>
                             <input type="range" class="settings-slider-input" min="1" max="15" step="1" data-setting="heartbeatInterval" value="5">
                         </label>
                     </div>
@@ -998,15 +1002,15 @@
                     <summary>高级 ⚙️</summary>
                     <div class="settings-slider-list">
                         <label class="setting-slider">
-                        <div class="slider-label-row">观战延迟(秒)<span class="setting-value-output" data-setting-output="spectatorDelay"></span></div>
+                        <span class="slider-label-row">观战延迟(秒)<span class="setting-value-output" data-setting-output="spectatorDelay"></span></span>
                             <input type="range" class="settings-slider-input" min="0" max="5" step="0.5" data-setting="spectatorDelay" value="0">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">自动保存(秒)<span class="setting-value-output" data-setting-output="autoSaveInterval"></span></div>
+                        <span class="slider-label-row">自动保存(秒)<span class="setting-value-output" data-setting-output="autoSaveInterval"></span></span>
                             <input type="range" class="settings-slider-input" min="10" max="120" step="10" data-setting="autoSaveInterval" value="30">
                         </label>
                         <label class="setting-slider">
-                        <div class="slider-label-row">历史上限<span class="setting-value-output" data-setting-output="maxHistory"></span></div>
+                        <span class="slider-label-row">历史上限<span class="setting-value-output" data-setting-output="maxHistory"></span></span>
                             <input type="range" class="settings-slider-input" min="10" max="200" step="10" data-setting="maxHistory" value="50">
                         </label>
                     </div>
@@ -1050,9 +1054,9 @@
             <button id="btn-back-menu" class="btn-small">← 返回</button>
             <span id="mode-display">人机对战</span>
             <div class="header-controls">
-                <button id="btn-pause" class="btn-small" title="暂停">⏸</button>
-                <button id="btn-sound-toggle" class="btn-small" title="音效开关">🔊</button>
-                <button id="btn-fullscreen" class="btn-small" title="全屏">⛶</button>
+                <button id="btn-pause" class="btn-small" title="暂停" aria-label="暂停游戏">⏸</button>
+                <button id="btn-sound-toggle" class="btn-small" title="音效开关" aria-label="音效开关" aria-pressed="true">🔊</button>
+                <button id="btn-fullscreen" class="btn-small" title="全屏" aria-label="切换全屏">⛶</button>
             </div>
         </div>
         
@@ -1112,8 +1116,8 @@
             </div>
         </div>
         
-        <div id="fps-counter" style="display:none;position:fixed;top:4px;left:4px;background:rgba(0,0,0,0.5);color:#0f0;font-family:monospace;font-size:11px;padding:2px 6px;border-radius:4px;z-index:9999">FPS: --</div>
-        <div id="memory-counter" style="display:none;position:fixed;top:24px;left:4px;background:rgba(0,0,0,0.5);color:#0ff;font-family:monospace;font-size:11px;padding:2px 6px;border-radius:4px;z-index:9999">MEM: --</div>
+        <div id="fps-counter" class="debug-counter debug-counter--fps">FPS: --</div>
+        <div id="memory-counter" class="debug-counter debug-counter--mem">MEM: --</div>
     </div>
 
     <!-- LAN 联机界面 -->
@@ -1130,14 +1134,20 @@
                 <button id="btn-lan-join" class="btn-primary">加入</button>
             </div>
             <div id="lan-host-panel" class="hidden">
-                <p id="lan-host-status" class="lan-host-status">正在检测本机托管服务...</p>
+                <p id="lan-status" class="lan-host-status">正在检测本机托管服务...</p>
+                <div id="room-info" class="hidden">
+                    <span>房间号: <strong id="room-id-display">-</strong></span>
+                </div>
                 <div id="lan-host-url-row" class="hidden">
                     <label>局域网地址</label>
                     <input type="text" id="lan-host-url" readonly>
+                    <button id="btn-copy-lan-url" class="btn-small">📋 复制</button>
                 </div>
                 <button id="btn-lan-host" class="btn-primary">创建房间</button>
+                <button id="btn-lan-start" class="btn-primary hidden">开始游戏</button>
+                <div id="player-list"></div>
             </div>
-            <button id="btn-back-lan" class="btn-small" style="margin-top:20px">← 返回</button>
+            <button id="btn-back-lan" class="btn-small btn-back">← 返回</button>
         </div>
     </div>
 
@@ -1166,14 +1176,14 @@
                     </label>
             </div>
             <button id="btn-custom-start" class="btn-primary">开始游戏</button>
-            <button id="btn-back-custom" class="btn-small" style="margin-top:12px">← 返回</button>
+            <button id="btn-back-custom" class="btn-small btn-back">← 返回</button>
         </div>
     </div>
 
     <!-- 回放界面 -->
     <div id="replay-screen" class="screen hidden">
         <div class="replay-container" id="replay-container"></div>
-        <button id="btn-back-replay" class="btn-small" style="position:fixed;top:12px;left:12px;z-index:100">← 返回</button>
+        <button id="btn-back-replay" class="btn-small btn-back btn-back--fixed">← 返回</button>
     </div>
 
     <!-- 成就面板 -->
@@ -1191,7 +1201,7 @@
             <h2>游戏暂停</h2>
             <button id="btn-resume" class="btn-primary">继续</button>
             <button id="btn-pause-settings" class="btn-secondary">设置</button>
-            <button id="btn-pause-exit" class="btn-secondary" style="color:#f44336">退出</button>
+            <button id="btn-pause-exit" class="btn-secondary btn-danger">退出</button>
         </div>
     </div>
 
@@ -1226,7 +1236,7 @@
                         <h2 class="tutorial-title">欢迎来到斗地主</h2>
                         <p class="tutorial-subtitle">中国最受欢迎的扑克游戏</p>
                     </div>
-                    <button class="tutorial-close" title="关闭教程">✕</button>
+                    <button class="tutorial-close" title="关闭教程" aria-label="关闭教程">✕</button>
                 </div>
                 <div class="tutorial-body"></div>
                 <div class="tutorial-footer">
