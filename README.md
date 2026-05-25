@@ -140,7 +140,42 @@ docker-compose up -d
 
 ## 版本公告
 
-### v1.2.3 (当前版本) — 记牌器修复 & UI/UX深度打磨
+### v1.2.4 (当前版本) — 规则引擎 & 音频/渲染深度修复
+
+**🔴 严重 Bug 修复（软锁/崩溃/数据丢失类）**
+- **规则设置不生效**：`resetSettings()` 未真正清除 localStorage，旧设置残留；`allowPassOnFirst`、`noShuffle`、`baseScore`、`jokerRule='disabled'`、`bombRule='strict'` 等设置未在 `GameState.playCards()` 中强制执行 — `resetSettings()` 现在 `removeItem` 后返回纯默认对象；所有规则在 `playCards()` / `pass()` 中通过 `_isPatternAllowed()` 统一拦截
+- **`mustPlay` 软锁**：`mustPlay` 开启时玩家可能无合法牌可出但被强制要求出牌，陷入无限等待 — `pass()` 现在通过 `hasValidPlays()`（已按规则过滤）判断，有合法牌时才能阻断 pass
+- **首出者规则跨局失效**：`firstPlayer='winner'`/`'landlord'` 每局都回到默认 — `BaseMode` 现在追踪 `_lastWinnerIndex` / `_lastLandlordIndex` 并在新局应用
+- **自定义模式规则不完整**：`CustomMode.startGame()` 未应用 `jokerRule`、`bombRule`、`baseScore`、`noShuffle` 等标准设置 — 现已完整应用
+- **`_isPatternAllowed()` 与 `playCards()` 不一致**：自定义模式 `Rules.validate` 通过了但 `playCards()` 拒绝，导致手牌打出后显示「不符合规则」软锁 — `_isPatternAllowed()` 现已完全镜像 `playCards()` 的检查逻辑
+- **规则设置被过早锁定**：`_lockGameRuleSettings()` 在进入 lobby 时就锁定，导致玩家无法在开局前修改规则 — 现在只在 `startGame()` 之后才锁定
+- **音效开关无效**：`playBomb()`/`playRocket()`/`playStraight()` 未检查 `sfxEnabled` 和独立开关；`playLose()` 检查了错误的开关；`_playTick()` 音量未使用 `sfxVolume` — 全部修复
+- **BGM 泄漏**：切换 BGM 开关时旧 BGM 继续播放 — `_playBGMSequence()` 现在每次先 `stopBGM()`
+- **AudioContext `closed` 崩溃**：用户手动暂停/恢复页面后 AudioContext 进入 `closed` 状态，后续所有音频调用抛出 `InvalidStateError` — `_ensureContext()` 现在检测 `'closed'` 并重建
+- **首回合 Pass 按钮状态错误**：`allowPassOnFirst=true` 时首回合 Pass 按钮仍被禁用 — `showPlayControls()` 已修复条件判断
+- **Modal 返回按钮全局冲突**：`showRoundResult()` 使用 `btn-back-menu`，与全局菜单按钮 ID 冲突，点击结算面板的返回会同时触发菜单返回 — 改为 `btn-modal-back-menu`
+- **Modal overlay 监听器泄漏**：`_closeModal` 未移除旧的 overlay click 监听器，快速开关 modal 时残留多个监听器 — 现在统一移除后再添加
+- **统计一键清空误伤设置**：`btn-clear-stats` 调用 `Storage.clearAll()` 同时清除了所有游戏设置 — 改为仅调用 `clearStats()` + `location.reload()`
+- **人机托管越权**：`_autoPlayForHuman()` 1200ms 延迟后未检查当前回合是否仍属于自己，可能越权替他人出牌 — 现在验证 `currentTurn === playerIndex`
+- **倒计时与托管竞态**：`triggerAutoIfNeeded()` 触发托管时未停止倒计时，导致托管出牌后倒计时继续到0再次触发 — 现在先 `_stopCountdown()`
+- **LAN 房间关闭无广播**：`leaveRoom()` 未广播 `player_list_update`，其他玩家看到离线玩家仍在房间列表中 — 现在离开后广播更新列表
+- **LAN 游戏非法启动**：非 host 可以发送 `game_start`，服务器未验证 — 服务器现在验证 host 身份 + ≥3 玩家 + 未已开始
+- **LAN socket 重连泄漏**：旧 WebSocket 未清理就创建新连接，导致消息重复接收 — `_connectWebSocket()` 现在先关闭旧 socket 再新建
+- **LAN 重连定时器未清理**：`destroy()` 未清除 `reconnectTimer`；`_scheduleReconnect()` 在 `isRunning=false` 后仍执行 — 已加防护
+- **LAN 状态文本查询错误**：`_refreshLANHostInfo()` 查询 `#lan-host-status`（class 名），实际应为 `#lan-status`（ID）— 已修复
+- **ReplayManager 未停止旧实例**：切换回放时旧实例仍在运行 — `showReplayList()` 现在先停止旧实例
+- **DOM 死引用**：`btn-back`、`loading-screen` 等元素已不存在但仍被查询 — 已移除相关引用
+- **LAN 进入游戏后未锁定规则**：`_enterLANGameFromNetwork` 未调用 `_lockGameRuleSettings` — 现在在游戏开始后锁定
+
+**🟢 工程与基础设施**
+- **版本号单源管理**：`package.json` 为唯一数据源，`vite.config.js` 注入 `__APP_VERSION__`，`main.js` 启动时写入 DOM；消除手动同步风险
+- **package-lock.json 缺失**：CI/Docker 中 `npm install` 可能安装不兼容版本 — 已生成并锁定
+- **Vite/esbuild 安全漏洞**：`vite` 5.x 依赖的 `esbuild` 存在 CVE — 升级至 `vite@6.4.2`
+- **服务器端口冲突**：`EADDRINUSE` 时原进程静默退出，Vite 前端成为僵尸 — 现在捕获错误并 `process.exit(1)`
+- **`concurrently` 容错**：一个进程崩溃时另一个继续运行 — 添加 `--kill-others-on-fail`
+- **测试覆盖扩展**：新增 10 个核心规则测试（`allowPassOnFirst`、`jokerRule disabled`、`hasValidPlays` 过滤、`baseScore` 影响结算等），全部 43/43 通过
+
+### v1.2.3 — 记牌器修复 & UI/UX深度打磨
 
 **🔴 严重 Bug 修复**
 - **记牌器开局全0**：`_resetCardTracker` 错误地减去了所有玩家手牌+底牌（共54张），导致记牌器每局开局就全空 — 改为只初始化满牌54张，出牌后正常递减

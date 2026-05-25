@@ -34,7 +34,8 @@ class LANMode extends BaseMode {
             this.reconnectTimer = null;
         }
         if (this.ws) {
-            // 移除监听器防止 onclose 触发重连
+            // 移除所有监听器防止回调触发重连或状态更新
+            this.ws.onopen = null;
             this.ws.onclose = null;
             this.ws.onerror = null;
             this.ws.onmessage = null;
@@ -88,17 +89,35 @@ class LANMode extends BaseMode {
     async _connectWebSocket() {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) return;
         
+        // 清理旧 socket 防止僵尸连接和重复回调
+        if (this.ws) {
+            this.ws.onopen = null;
+            this.ws.onclose = null;
+            this.ws.onerror = null;
+            this.ws.onmessage = null;
+            if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+                this.ws.close();
+            }
+            this.ws = null;
+        }
+        
         return new Promise((resolve, reject) => {
             try {
-                this.ws = new WebSocket(WS_URL);
+                const ws = new WebSocket(WS_URL);
+                this.ws = ws;
                 
-                this.ws.onopen = () => {
+                let settled = false;
+                let opened = false;
+                const settle = (fn) => (...args) => { if (!settled) { settled = true; fn(...args); } };
+                
+                ws.onopen = settle(() => {
                     console.log('[LANMode] WebSocket连接成功');
+                    opened = true;
                     this.networkReady = true;
                     resolve();
-                };
+                });
                 
-                this.ws.onmessage = (e) => {
+                ws.onmessage = (e) => {
                     try {
                         this._onWsMessage(JSON.parse(e.data));
                     } catch (err) {
@@ -107,16 +126,20 @@ class LANMode extends BaseMode {
                     }
                 };
                 
-                this.ws.onclose = () => {
+                ws.onclose = settle(() => {
                     console.warn('[LANMode] WebSocket断开');
                     this.networkReady = false;
+                    // 如果连接从未成功打开过，reject Promise 防止永久阻塞
+                    if (!opened) {
+                        reject(new Error('WebSocket connection failed'));
+                    }
                     this._scheduleReconnect();
-                };
+                });
                 
-                this.ws.onerror = (err) => {
+                ws.onerror = settle((err) => {
                     console.error('[LANMode] WebSocket错误:', err);
                     reject(err);
-                };
+                });
             } catch (err) {
                 reject(err);
             }
@@ -125,6 +148,7 @@ class LANMode extends BaseMode {
 
     _scheduleReconnect() {
         if (this.reconnectTimer) return;
+        if (!this.myPeerId) return; // 从未加入/创建过房间，不重连
         if (this._reconnectAttempts >= CONFIG.ws.maxReconnectAttempts) {
             console.warn('[LANMode] 重连次数已达上限，停止重连');
             this.showToast('连接已断开，请重新进入局域网联机');
@@ -133,7 +157,7 @@ class LANMode extends BaseMode {
         this._reconnectAttempts++;
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;
-            if (this.myPeerId) {
+            if (this.myPeerId && this.isRunning) {
                 console.log('[LANMode] 尝试重连... (第' + this._reconnectAttempts + '次)');
                 this._connectWebSocket().then(() => {
                     this._reconnectAttempts = 0;

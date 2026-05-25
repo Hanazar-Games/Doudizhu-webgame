@@ -8,6 +8,7 @@ import { GameState, PHASE } from '../core/game-state.js';
 import { Player } from '../players/player.js';
 import { AIPlayer } from '../players/ai-player.js';
 import { BaseMode } from './base-mode.js';
+import { Storage } from '../utils/storage.js';
 
 class CustomMode extends BaseMode {
     constructor() {
@@ -86,6 +87,26 @@ class CustomMode extends BaseMode {
     async startGame() {
         this.isRunning = true;
         
+        // 从设置读取标准游戏规则并配置 GameState（CustomMode 也受全局设置约束）
+        const settings = Storage.getSettings();
+        this.speedFactor = Math.max(0.3, Math.min(5.0, parseFloat(settings.gameSpeed) || 1.0));
+        this.gameState.scoreMultiplier = Math.max(1, Math.min(10, settings.scoreMultiplier ?? 1));
+        this.gameState.baseScore = Math.max(1, Math.min(10, settings.baseScore ?? 1));
+        this.gameState.showCards = settings.showCards === true;
+        this.gameState.noShuffle = settings.noShuffle === true;
+        this.gameState.bottomVisible = settings.bottomVisible === true;
+        this.gameState.mustPlay = settings.mustPlay === true;
+        this.gameState.allowPassOnFirst = settings.allowPassOnFirst !== false;
+        this.gameState.allowTripleWithSingle = settings.allowTripleWithSingle !== false;
+        this.gameState.allowTripleWithPair = settings.allowTripleWithPair !== false;
+        this.gameState.allowAirplaneWithWings = settings.allowAirplaneWithWings !== false;
+        this.gameState.bombAsRocket = settings.bombAsRocket === true;
+        this.gameState.strictRules = settings.strictRules !== false;
+        this.gameState.allowSpring = settings.allowSpring !== false;
+        this.gameState.allowAntiSpring = settings.allowAntiSpring !== false;
+        this.gameState.bombDoubles = settings.bombDoubles !== false;
+        this.gameState.rocketDoubles = settings.rocketDoubles !== false;
+        
         let deck, bottom;
         
         // 检查是否有预设
@@ -125,8 +146,11 @@ class CustomMode extends BaseMode {
                 allFixed.length = 51;
             }
 
-            // 剩余牌随机补充
-            const fullDeck = Card.shuffle(Card.createDeck());
+            // 剩余牌补充
+            let fullDeck = Card.createDeck();
+            if (!this.gameState.noShuffle) {
+                fullDeck = Card.shuffle(fullDeck);
+            }
             const used = new Set(fixedKeys);
             const remaining = fullDeck.filter(c => !used.has(fixedKey(c)));
             
@@ -157,7 +181,10 @@ class CustomMode extends BaseMode {
             // 设置叫牌模式和癞子
             this.gameState.callMode = this.customConfig.callMode;
             this.gameState.laiziEnabled = this.customConfig.laiziMode;
-            const fullDeck = Card.shuffle(Card.createDeck());
+            let fullDeck = Card.createDeck();
+            if (!this.gameState.noShuffle) {
+                fullDeck = Card.shuffle(fullDeck);
+            }
             bottom = fullDeck.slice(51, 54);
             deck = fullDeck.slice(0, 51);
             this.gameState.startRound(deck, bottom);

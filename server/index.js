@@ -208,8 +208,31 @@ function handleMessage(ws, msg) {
             break;
         }
 
+        case 'game_start': {
+            // 房主发送游戏开始同步时，标记房间为已开始，防止新玩家加入
+            const roomId2 = roomManager.playerToRoom.get(ws);
+            if (roomId2) {
+                const room2 = roomManager.rooms.get(roomId2);
+                if (room2) {
+                    const senderPeerId = roomManager._getPeerIdByWs(room2, ws);
+                    if (senderPeerId !== room2.hostId) {
+                        roomManager.sendToPeer(ws, { type: 'error', message: 'Only host can start game' });
+                        break;
+                    }
+                    if (room2.players.size < 3) {
+                        roomManager.sendToPeer(ws, { type: 'error', message: 'Need 3 players' });
+                        break;
+                    }
+                    if (!room2.gameStarted) {
+                        roomManager.startGame(roomId2);
+                    }
+                }
+            }
+            roomManager.relayMessage(ws, msg);
+            break;
+        }
+
         case 'player_action':
-        case 'game_start':
         case 'game_state_sync':
         case 'chat': {
             roomManager.relayMessage(ws, msg);
@@ -239,6 +262,19 @@ function getLanUrls() {
     }
     return [...new Set(urls)];
 }
+
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use. Another server instance may be running.`);
+        if (isDev) {
+            console.error('   Tip: Run `lsof -ti:${PORT} | xargs kill` to free the port, or set PORT env variable.');
+        }
+        process.exit(1);
+    } else {
+        console.error('❌ Server error:', err);
+        process.exit(1);
+    }
+});
 
 server.listen(PORT, HOST, () => {
     console.log(`🃏 Doudizhu Server running on port ${PORT}`);

@@ -21,7 +21,17 @@ class GameApp {
         this._hasUserInteracted = false;
         this.settings = Storage.getSettings();
         this.stats = { gamesPlayed: 0, wins: 0, losses: 0, totalScore: 0, streak: 0, ...Storage.getStats() };
+        this._syncVersionDisplay();
         this.init();
+    }
+
+    _syncVersionDisplay() {
+        const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '';
+        if (version) {
+            document.querySelectorAll('.version-info').forEach(el => {
+                el.textContent = 'v' + version;
+            });
+        }
     }
 
     init() {
@@ -37,7 +47,7 @@ class GameApp {
             { id: 'btn-achievements', action: () => this.showAchievements() },
             { id: 'btn-tutorial', action: () => this.openTutorial() },
             { id: 'btn-settings', action: () => this.openSettings() },
-            { id: 'btn-back', action: () => this.showMenu() },
+
         ];
         for (const { id, action } of menuBtns) {
             document.getElementById(id)?.addEventListener('click', () => {
@@ -156,6 +166,10 @@ class GameApp {
             this._playButtonClick();
             this.showMenu();
         });
+        document.getElementById('btn-back-replay')?.addEventListener('click', () => {
+            this._playButtonClick();
+            this.showMenu();
+        });
 
         // 游戏内音效开关（所有模式通用）
         document.getElementById('btn-sound-toggle')?.addEventListener('click', () => {
@@ -189,7 +203,7 @@ class GameApp {
 
         // 隐藏加载画面 + 菜单入场动画 + BGM
         setTimeout(() => {
-            document.getElementById('loading-screen')?.classList.add('hidden');
+            // loading-screen 元素不存在，跳过
             this._animateMenuEntrance();
             // 延迟播放菜单BGM（等待用户交互解锁AudioContext）
             setTimeout(() => {
@@ -291,9 +305,6 @@ class GameApp {
     _applySettings() {
         const diffSelect = document.getElementById('difficulty');
         if (diffSelect) diffSelect.value = this.settings.difficulty;
-
-        const soundCheckbox = document.getElementById('cfg-sound');
-        if (soundCheckbox) soundCheckbox.checked = this.settings.soundEnabled;
 
         const themeSelect = document.getElementById('theme');
         if (themeSelect) themeSelect.value = this.settings.theme || 'green';
@@ -430,8 +441,7 @@ class GameApp {
             this._playButtonClick();
             this._getActiveAudio()?.playSettingReset?.();
             if (confirm('确定要恢复所有设置到默认状态吗？这将重置包括游戏规则在内的所有参数。')) {
-                this.settings = Storage.getSettings(); // 重新获取默认值
-                Storage.saveSettings(this.settings);
+                this.settings = Storage.resetSettings(); // 清除 localStorage 并获取纯默认值
                 this._syncAllSettings();
                 this._applyUXSettings();
                 this._applyTheme(this.settings.theme || 'green');
@@ -597,9 +607,6 @@ class GameApp {
 
         const nameInput = document.getElementById('player-name');
         if (nameInput) nameInput.value = this.settings.playerName || '玩家';
-
-        const soundCheckbox = document.getElementById('cfg-sound');
-        if (soundCheckbox) soundCheckbox.checked = this.settings.soundEnabled;
 
         const bgmSlider = document.getElementById('cfg-bgm-volume');
         const bgmVal = document.getElementById('cfg-bgm-volume-value');
@@ -812,7 +819,7 @@ class GameApp {
 
             panel.querySelector('#btn-clear-stats')?.addEventListener('click', () => {
                 if (confirm('确定要清除所有游戏记录吗？')) {
-                    Storage.clearAll();
+                    Storage.clearStats();
                     location.reload();
                 }
             });
@@ -1050,6 +1057,7 @@ class GameApp {
             document.getElementById('lan-screen')?.classList.add('hidden');
             document.getElementById('game-screen')?.classList.remove('hidden');
             await this.currentMode.startGame();
+            this._lockGameRuleSettings(true);
         });
     }
 
@@ -1074,10 +1082,11 @@ class GameApp {
             game.style.transform = '';
             game.style.transition = '';
         }
+        this._lockGameRuleSettings(true);
     }
 
     async _refreshLANHostInfo() {
-        const status = document.getElementById('lan-host-status');
+        const status = document.getElementById('lan-status');
         const row = document.getElementById('lan-host-url-row');
         const input = document.getElementById('lan-host-url');
         if (!status || !row || !input) return;
@@ -1135,6 +1144,7 @@ class GameApp {
             document.getElementById('custom-screen')?.classList.add('hidden');
             document.getElementById('game-screen')?.classList.remove('hidden');
             await this.currentMode.startGame();
+            this._lockGameRuleSettings(true);
         });
     }
 
@@ -1229,8 +1239,12 @@ class GameApp {
         const container = document.getElementById('replay-container');
         if (!container) return;
 
-        const replayManager = new ReplayManager('replay-container');
-        replayManager.showGameList();
+        // 停止旧的 ReplayManager 防止定时器泄漏
+        if (this._replayManager) {
+            this._replayManager.stop();
+        }
+        this._replayManager = new ReplayManager('replay-container');
+        this._replayManager.showGameList();
     }
 
     startReplay() {

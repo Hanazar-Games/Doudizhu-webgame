@@ -225,9 +225,9 @@ class AudioManager {
     }
 
     async _playBGMSequence(notes, tempoBPM = 100, waveform = 'sine', loop = true) {
+        this.stopBGM();
         if (!this.bgmEnabled) return;
         if (!(await this._ensureContext())) return;
-        this.stopBGM();
 
         const beat = 60 / tempoBPM;
         let totalDuration = 0;
@@ -366,6 +366,8 @@ class AudioManager {
     }
 
     async playStraight() {
+        if (!this.sfxEnabled) return;
+        if (!this._isSfxEnabled('play')) return;
         if (!(await this._ensureContext())) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -395,6 +397,8 @@ class AudioManager {
     }
 
     async playBomb() {
+        if (!this.sfxEnabled) return;
+        if (!this._isSfxEnabled('bomb')) return;
         if (!(await this._ensureContext())) return;
         const duration = 0.7;
         const bufferSize = this.ctx.sampleRate * duration;
@@ -431,6 +435,8 @@ class AudioManager {
     }
 
     async playRocket() {
+        if (!this.sfxEnabled) return;
+        if (!this._isSfxEnabled('play')) return;
         if (!(await this._ensureContext())) return;
         const osc = this.ctx.createOscillator();
         osc.type = 'sine';
@@ -464,6 +470,7 @@ class AudioManager {
     }
 
     playLose() {
+        if (!this.sfxEnabled) return;
         if (!this._isSfxEnabled('win')) return;
         this._sequence([
             { freq: 392, dur: 0.18, type: 'triangle' },
@@ -474,6 +481,7 @@ class AudioManager {
     }
 
     playSpring() {
+        if (!this.sfxEnabled) return;
         if (!this._isSfxEnabled('win')) return;
         // 春天：更清脆的铃铛声
         this._sequence([

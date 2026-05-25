@@ -34,8 +34,8 @@ class RoomManager {
     joinRoom(ws, roomId, peerId) {
         const room = this.rooms.get(roomId);
         if (!room) return { success: false, error: '房间不存在' };
-        if (room.players.size >= 3) return { success: false, error: '房间已满' };
         if (room.gameStarted) return { success: false, error: '游戏已开始' };
+        if (room.players.size >= 3) return { success: false, error: '房间已满' };
 
         // 分配座位
         const usedSeats = new Set([...room.players.values()].map(p => p.seatIndex));
@@ -64,11 +64,18 @@ class RoomManager {
             playerCount: room.players.size,
         });
 
-        // 广播玩家列表更新
+        // 广播玩家列表更新给所有已有玩家
+        const playerList = [...room.players.values()].map(p => ({ peerId: p.peerId, name: p.name, seatIndex: p.seatIndex }));
         this.broadcastToRoom(room, {
             type: 'player_list_update',
-            players: [...room.players.values()].map(p => ({ peerId: p.peerId, name: p.name, seatIndex: p.seatIndex })),
+            players: playerList,
         }, peerId);
+
+        // 单独给新玩家发送完整玩家列表（包含自己）
+        this.sendToPeer(ws, {
+            type: 'player_list_update',
+            players: playerList,
+        });
 
         return { success: true, room, seatIndex };
     }
@@ -105,6 +112,13 @@ class RoomManager {
                     name: leavingPlayer?.name,
                     playerCount: room.players.size,
                 });
+                // 广播更新后的玩家列表
+                if (room.players.size > 0) {
+                    this.broadcastToRoom(room, {
+                        type: 'player_list_update',
+                        players: [...room.players.values()].map(p => ({ peerId: p.peerId, name: p.name, seatIndex: p.seatIndex })),
+                    });
+                }
                 if (room.players.size === 0) {
                     this._destroyRoom(roomId);
                 }

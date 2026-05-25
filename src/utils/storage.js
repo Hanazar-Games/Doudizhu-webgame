@@ -70,9 +70,9 @@ export const Storage = {
         }
     },
 
-    getSettings() {
-        const raw = localStorage.getItem(PREFIX + 'settings');
-        const defaults = {
+    // 返回纯默认设置（不读取 localStorage）
+    getDefaultSettings() {
+        return {
             // ====== 游戏核心 (15项) ======
             difficulty: 'normal',
             callMode: 'score',
@@ -253,8 +253,13 @@ export const Storage = {
             autoSaveInterval: 30,
             experimentalFeatures: false,
         };
+    },
 
-        if (!raw) return defaults;
+    getSettings() {
+        const raw = localStorage.getItem(PREFIX + 'settings');
+        const defaults = this.getDefaultSettings();
+
+        if (!raw) return { ...defaults };
         try {
             const parsed = JSON.parse(raw);
             // 合并：保留旧设置 + 填充新默认值
@@ -273,8 +278,14 @@ export const Storage = {
 
             return merged;
         } catch {
-            return defaults;
+            return { ...defaults };
         }
+    },
+
+    // 重置设置：清除 localStorage 并返回默认设置
+    resetSettings() {
+        localStorage.removeItem(PREFIX + 'settings');
+        return this.getDefaultSettings();
     },
 
     // 保存完整牌局（用于回放）
@@ -307,6 +318,14 @@ export const Storage = {
         } catch {
             return [];
         }
+    },
+
+    // 清除统计数据（仅游戏记录和统计，保留设置和成就）
+    clearStats() {
+        localStorage.removeItem(PREFIX + 'stats');
+        localStorage.removeItem(PREFIX + 'records');
+        localStorage.removeItem(PREFIX + 'full_games');
+        localStorage.removeItem(PREFIX + 'achievement_progress');
     },
 
     // 清除所有数据

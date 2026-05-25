@@ -7,8 +7,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # 安装依赖
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 
 # 复制源码并构建
 COPY . .
@@ -20,8 +20,8 @@ FROM node:20-alpine
 WORKDIR /app
 
 # 只复制生产所需文件
-COPY package.json ./
-RUN npm install --production
+COPY package.json package-lock.json ./
+RUN npm ci --production
 
 COPY server/ ./server/
 COPY --from=builder /app/dist ./dist

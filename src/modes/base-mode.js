@@ -32,6 +32,10 @@ class BaseMode {
         
         this.speedFactor = 1.0; // 游戏速度倍率 (0.5~2.0)
         
+        // 跨局先手状态
+        this._lastWinnerIndex = -1;
+        this._lastLandlordIndex = -1;
+        
         this._bindGameEvents();
     }
     
@@ -83,19 +87,17 @@ class BaseMode {
         this.gameState.callMode = ['score', 'grab'].includes(settings.callMode) ? settings.callMode : 'score';
         this.gameState.laiziEnabled = settings.laiziEnabled === true;
         this.gameState.scoreMultiplier = Math.max(1, Math.min(10, settings.scoreMultiplier ?? 1));
-        // 癞子模式：随机指定一张癞子牌
-        if (this.gameState.laiziEnabled) {
-            const laiziCandidates = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-            this.gameState.laiziValue = laiziCandidates[Math.floor(Math.random() * laiziCandidates.length)];
-        } else {
-            this.gameState.laiziValue = -1;
-        }
+        this.gameState.baseScore = Math.max(1, Math.min(10, settings.baseScore ?? 1));
+        // 癞子值由 startRound() 根据底牌第一张确定，此处不预赋值
+        this.gameState.laiziValue = -1;
         // 先手规则
         const firstPlayerSetting = settings.firstPlayer || 'random';
-        if (firstPlayerSetting === 'winner') {
-            // 上局赢家先手：dealerIndex 轮换已实现
-        } else if (firstPlayerSetting === 'landlord') {
-            // 固定地主先手
+        if (firstPlayerSetting === 'winner' && this._lastWinnerIndex >= 0) {
+            this.gameState.dealerIndex = this._lastWinnerIndex;
+        } else if (firstPlayerSetting === 'landlord' && this._lastLandlordIndex >= 0) {
+            this.gameState.dealerIndex = this._lastLandlordIndex;
+        } else {
+            // random 或状态未就绪时保持默认 dealerIndex（每局轮换）
         }
         // 游戏变体规则
         this.gameState.showCards = settings.showCards === true;
@@ -109,13 +111,18 @@ class BaseMode {
         this.gameState.allowAirplaneWithWings = settings.allowAirplaneWithWings !== false;
         this.gameState.bombAsRocket = settings.bombAsRocket === true;
         this.gameState.strictRules = settings.strictRules !== false;
+        this.gameState.jokerRule = settings.jokerRule || 'standard';
+        this.gameState.bombRule = settings.bombRule || 'standard';
         // 春天/炸弹规则
         this.gameState.allowSpring = settings.allowSpring !== false;
         this.gameState.allowAntiSpring = settings.allowAntiSpring !== false;
         this.gameState.bombDoubles = settings.bombDoubles !== false;
         this.gameState.rocketDoubles = settings.rocketDoubles !== false;
 
-        const deck = Card.shuffle(Card.createDeck());
+        let deck = Card.createDeck();
+        if (!this.gameState.noShuffle) {
+            deck = Card.shuffle(deck);
+        }
         const bottom = deck.slice(51, 54);
         this.gameState.startRound(deck.slice(0, 51), bottom);
         
@@ -308,6 +315,7 @@ class BaseMode {
         const idx = this.gameState.currentTurn;
         const player = this.gameState.players[idx];
         if (!player?.isAuto) return;
+        this._stopCountdown(); // 停止倒计时避免与托管竞态
         if (this.gameState.phase === PHASE.PLAYING) {
             this._autoPlayForHuman(idx);
         } else if (this.gameState.phase === PHASE.CALLING) {
@@ -333,8 +341,9 @@ class BaseMode {
             const cards = await ai.decidePlay(this.gameState, lastPattern);
             this.renderer?.hideThinking(playerIndex);
             
-            // 再次检查游戏状态，防止 delay 期间游戏结束
+            // 再次检查游戏状态，防止 delay 期间游戏结束或轮次已切换
             if (!this.isRunning || this.gameState.phase !== PHASE.PLAYING) return;
+            if (this.gameState.currentTurn !== playerIndex) return;
             
             if (cards.length === 0) {
                 const success = this.gameState.pass(playerIndex);
@@ -344,7 +353,13 @@ class BaseMode {
             } else {
                 const pattern = Rules.analyze(cards);
                 const result = this.gameState.playCards(playerIndex, cards, pattern);
-                if (result.success && !result.win && this.gameState.phase === PHASE.PLAYING) {
+                if (!result.success) {
+                    console.warn('托管出牌失败:', result.error, '强制pass');
+                    const passSuccess = this.gameState.pass(playerIndex);
+                    if (passSuccess && this.gameState.phase === PHASE.PLAYING) {
+                        this._processPlay();
+                    }
+                } else if (!result.win && this.gameState.phase === PHASE.PLAYING) {
                     this._processPlay();
                 }
             }
@@ -505,6 +520,7 @@ class BaseMode {
 
     onLandlordConfirmed(data) {
         console.log('[Landlord]', data.landlordIndex);
+        this._lastLandlordIndex = data.landlordIndex;
         if (this.renderer) this.renderer.showLandlord(data);
     }
 
@@ -544,6 +560,7 @@ class BaseMode {
 
     onRoundEnd(data) {
         console.log('[RoundEnd]', data);
+        this._lastWinnerIndex = data.winnerIndex;
         // 累计比赛分数
         if (this.matchConfig.isMatchMode) {
             this.matchConfig.currentRound++;

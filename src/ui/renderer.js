@@ -268,6 +268,20 @@ class Renderer {
                 document.documentElement.style.setProperty('--ddz-card-scale', String(next));
             }, { passive: false });
         }
+
+        // 游戏头部按钮（返回菜单、暂停）——不在 this.container 内，用 document 查询
+        const btnBackMenu = document.getElementById('btn-back-menu');
+        const btnPause = document.getElementById('btn-pause');
+        btnBackMenu?.addEventListener('click', () => {
+            this.audio?.playButtonClick();
+            window.gameApp?.showMenu();
+        });
+        btnPause?.addEventListener('click', () => {
+            this.audio?.playButtonClick();
+            if (this._isPaused) this._resumeGame();
+            else this._pauseGame();
+        });
+        [btnBackMenu, btnPause].forEach(b => this._bindRipple(b));
     }
 
     _bindPanelToggles() {
@@ -766,10 +780,10 @@ class Renderer {
             return;
         }
         const settings = Storage.getSettings();
-        // 有牌必出规则提示
+        // 有牌必出规则检查：如果有可出的牌则不能pass
         if (this.gameState?.mustPlay) {
-            const player = this.gameState?.players[this.mode?.humanIndex];
-            if (player && player.hand.length > 0) {
+            const humanIdx = this.mode?.humanIndex ?? 0;
+            if (this.gameState.hasValidPlays(humanIdx)) {
                 this.showToast('规则：有牌必出，不可跳过', 'warning');
                 return;
             }
@@ -1801,7 +1815,7 @@ class Renderer {
                            (this.gameState?.passCount >= 2) ||
                            (this.gameState?.lastPlay.playerIndex === playerIndex);
         const btnPass = panel.querySelector('#btn-pass');
-        if (btnPass) btnPass.disabled = isNewRound;
+        if (btnPass) btnPass.disabled = isNewRound && this.gameState?.allowPassOnFirst !== true;
 
         // 显示上家牌型
         const lastTypeEl = this.container.querySelector('#last-play-type');
@@ -2306,10 +2320,14 @@ class Renderer {
             <button id="btn-next-round">${nextButtonText}</button>
             ${!isMatchEnd ? '<button id="btn-replay">📹 查看回放</button>' : ''}
             <button id="btn-share-round">📋 分享本局</button>
-            <button id="btn-back-menu">返回菜单</button>
+            <button id="btn-round-back-menu">返回菜单</button>
         `;
 
         if (overlay._modalCloseTimeout) clearTimeout(overlay._modalCloseTimeout);
+        // 清理上一个 modal 的 overlay click listener，防止快速重入时累积
+        if (this._modalOverlayClick) {
+            overlay.removeEventListener('click', this._modalOverlayClick);
+        }
         overlay.classList.remove('hidden');
         overlay.classList.remove('modal-exit');
         content.classList.remove('modal-exit');
@@ -2395,7 +2413,7 @@ class Renderer {
             this._shareRoundResult(data, matchStatus);
         });
 
-        content.querySelector('#btn-back-menu')?.addEventListener('click', () => {
+        content.querySelector('#btn-round-back-menu')?.addEventListener('click', () => {
             this.audio.playButtonClick();
             this._closeModal(overlay, content);
             window.gameApp?.showMenu();

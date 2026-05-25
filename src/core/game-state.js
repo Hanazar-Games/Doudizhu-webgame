@@ -3,7 +3,7 @@
  * 负责：游戏阶段流转、玩家轮转、得分判定、胜负结算
  */
 
-import { Rules } from './rules.js';
+import { Rules, HAND_TYPE } from './rules.js';
 
 const PHASE = {
     IDLE: 'IDLE',               // 空闲/准备中
@@ -81,6 +81,8 @@ class GameState {
         this.allowAirplaneWithWings = true;
         this.bombAsRocket = false;
         this.strictRules = true;
+        this.jokerRule = 'standard';
+        this.bombRule = 'standard';
 
         // 春天/炸弹规则
         this.allowSpring = true;
@@ -187,21 +189,24 @@ class GameState {
                 // 如果翻出大王，无癞子
                 if (laiziCard.value !== 17) {
                     this.laiziValue = laiziCard.value;
-                // 标记所有该点数的牌为癞子
-                for (let i = 0; i < 3; i++) {
-                    if (this.players[i]) {
-                        for (const card of this.players[i].hand) {
-                            if (card.value === this.laiziValue) {
-                                card.isLaizi = true;
+                    // 标记所有该点数的牌为癞子
+                    for (let i = 0; i < 3; i++) {
+                        if (this.players[i]) {
+                            for (const card of this.players[i].hand) {
+                                if (card.value === this.laiziValue) {
+                                    card.isLaizi = true;
+                                }
                             }
                         }
                     }
-                }
-                for (const card of bottomCards) {
-                    if (card.value === this.laiziValue) {
-                        card.isLaizi = true;
+                    for (const card of bottomCards) {
+                        if (card.value === this.laiziValue) {
+                            card.isLaizi = true;
+                        }
                     }
-                }
+                } else {
+                    // 大王翻开时不设癞子，明确重置
+                    this.laiziValue = -1;
                 }
             }
         }
@@ -368,10 +373,51 @@ class GameState {
         
         if (!isNewRound) {
             // 需要能打过上一手
-            const canBeat = Rules.canBeat(this.lastPlay.pattern, pattern);
+            let canBeat = Rules.canBeat(this.lastPlay.pattern, pattern);
+            // bombAsRocket: 炸弹可打火箭
+            if (!canBeat && this.bombAsRocket && pattern.type === HAND_TYPE.BOMB && this.lastPlay.pattern?.type === HAND_TYPE.ROCKET) {
+                canBeat = true;
+            }
             if (!canBeat) {
                 return { success: false, error: '打不过上一手牌' };
             }
+        }
+        
+        // 规则开关检查
+        if (pattern.type === HAND_TYPE.TRIPLE_WITH_SINGLE && this.allowTripleWithSingle === false) {
+            return { success: false, error: '规则：禁止三带一' };
+        }
+        if (pattern.type === HAND_TYPE.TRIPLE_WITH_PAIR && this.allowTripleWithPair === false) {
+            return { success: false, error: '规则：禁止三带二' };
+        }
+        if ((pattern.type === HAND_TYPE.TRIPLE_STRAIGHT_WITH_SINGLES || pattern.type === HAND_TYPE.TRIPLE_STRAIGHT_WITH_PAIRS) && this.allowAirplaneWithWings === false) {
+            return { success: false, error: '规则：禁止飞机带翼' };
+        }
+        if (this.strictRules) {
+            // 严格模式下禁用四带二
+            if (pattern.type === HAND_TYPE.FOUR_WITH_TWO || pattern.type === HAND_TYPE.FOUR_WITH_TWO_PAIRS) {
+                return { success: false, error: '严格规则：禁止四带二' };
+            }
+        }
+        
+        // 大小王规则
+        if (this.jokerRule === 'disabled') {
+            if (pattern.type === HAND_TYPE.ROCKET) {
+                return { success: false, error: '规则：禁用大小王' };
+            }
+            if (cards.some(c => c.value === 16 || c.value === 17)) {
+                return { success: false, error: '规则：禁用大小王' };
+            }
+        }
+        
+        // 炸弹规则
+        if (this.bombRule === 'strict') {
+            if (pattern.type === HAND_TYPE.BOMB && cards.length !== 4) {
+                return { success: false, error: '规则：严格炸弹（仅限4张）' };
+            }
+        }
+        if (this.bombRule === 'soft') {
+            // 软炸弹模式下允许炸弹带牌，已在 analyze 中支持
         }
         
         // 执行出牌
@@ -396,25 +442,50 @@ class GameState {
         return { success: true };
     }
 
+    // 检查牌型是否被当前规则允许（必须与 playCards() 保持完全一致）
+    _isPatternAllowed(pattern, cards) {
+        if (!pattern || !pattern.isValid()) return false;
+        if (pattern.type === HAND_TYPE.TRIPLE_WITH_SINGLE && this.allowTripleWithSingle === false) return false;
+        if (pattern.type === HAND_TYPE.TRIPLE_WITH_PAIR && this.allowTripleWithPair === false) return false;
+        if ((pattern.type === HAND_TYPE.TRIPLE_STRAIGHT_WITH_SINGLES || pattern.type === HAND_TYPE.TRIPLE_STRAIGHT_WITH_PAIRS) && this.allowAirplaneWithWings === false) return false;
+        if (this.strictRules) {
+            if (pattern.type === HAND_TYPE.FOUR_WITH_TWO || pattern.type === HAND_TYPE.FOUR_WITH_TWO_PAIRS) return false;
+        }
+        if (this.jokerRule === 'disabled') {
+            if (pattern.type === HAND_TYPE.ROCKET) return false;
+            if (cards && cards.some(c => c.value === 16 || c.value === 17)) return false;
+        }
+        if (this.bombRule === 'strict') {
+            if (pattern.type === HAND_TYPE.BOMB && cards && cards.length !== 4) return false;
+        }
+        return true;
+    }
+
+    // 检查玩家是否有规则允许的出牌（用于 mustPlay 和 AI）
+    hasValidPlays(playerIndex) {
+        const player = this.players[playerIndex];
+        if (!player || player.hand.length === 0) return false;
+        const beats = Rules.findAllBeats(player.hand, this.lastPlay?.pattern);
+        for (const cards of beats) {
+            if (this._isPatternAllowed(Rules.analyze(cards), cards)) return true;
+        }
+        return false;
+    }
+
     // Pass/不出
     pass(playerIndex) {
         if (this.phase !== PHASE.PLAYING) return false;
         if (playerIndex !== this.currentTurn) return false;
 
-        // 如果是首家（新轮次）不能pass
+        // 如果是首家（新轮次）不能pass（除非设置允许）
         const isNewRound = (this.lastPlay.playerIndex === -1) ||
                            (this.lastPlay.playerIndex === playerIndex) ||
                            (this.passCount >= 2);
-        if (isNewRound) return false;
+        if (isNewRound && this.allowPassOnFirst !== true) return false;
 
         // 有牌必出规则：如果有可出的牌则不能pass
         if (this.mustPlay) {
-            const player = this.players[playerIndex];
-            if (player && player.hand.length > 0) {
-                // 使用 Rules 检查是否有可出的牌
-                const beats = Rules.findAllBeats(player.hand, this.lastPlay?.pattern);
-                if (beats.length > 0) return false;
-            }
+            if (this.hasValidPlays(playerIndex)) return false;
         }
         
         this.passCount++;
@@ -434,7 +505,7 @@ class GameState {
     _settleRound(winnerIndex) {
         this.phase = PHASE.SETTLING;
         const isLandlordWin = winnerIndex === this.landlordIndex;
-        const baseScore = this.currentCall || 1;
+        const baseScore = this.baseScore || this.currentCall || 1;
         
         let multiplier = 1;
         

@@ -1557,18 +1557,19 @@ body[data-theme="purple"] {
     font-size: 0.9rem;
 }
 
-#room-id-input {
+#lan-room-id, #lan-player-name {
     padding: 10px 16px;
     border-radius: 8px;
     border: 1px solid rgba(255,255,255,0.2);
     background: rgba(255,255,255,0.1);
     color: #fff;
     font-size: 1rem;
-    width: 200px;
-    margin-right: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 12px;
 }
 
-#room-id-input::placeholder {
+#lan-room-id::placeholder, #lan-player-name::placeholder {
     color: rgba(255,255,255,0.65); /* 提升对比度 */
 }
 
@@ -3699,14 +3700,17 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
     will-change: transform;
 }
 
-#player-right .hand-front .card {
-    width: calc(72px * var(--ddz-card-scale, 1));
-    height: calc(100px * var(--ddz-card-scale, 1));
-    margin-left: -44px;
-    flex-shrink: 0;
-}
-#player-right .hand-front .card:first-child {
-    margin-left: 0;
+/* 桌面端手牌尺寸 */
+@media (min-width: 901px) {
+    #player-right .hand-front .card {
+        width: calc(72px * var(--ddz-card-scale, 1));
+        height: calc(100px * var(--ddz-card-scale, 1));
+        margin-left: -44px;
+        flex-shrink: 0;
+    }
+    #player-right .hand-front .card:first-child {
+        margin-left: 0;
+    }
 }
 
 .card-inner {

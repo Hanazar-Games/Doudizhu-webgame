@@ -1,10 +1,10 @@
 {
   "name": "doudizhu-webgame",
-  "version": "1.1.7",
+  "version": "1.2.4",
   "description": "斗地主网页版 - 支持人机对战、局域网联机、自定义模式",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run server:dev\" \"vite\"",
+    "dev": "concurrently --kill-others-on-fail \"npm run server:dev\" \"vite\"",
     "server": "node server/index.js",
     "server:dev": "node server/index.js --dev",
     "lan:host": "npm run build && node server/index.js",
@@ -14,12 +14,17 @@
     "start": "npm run server",
     "test": "node test/core.test.mjs"
   },
-  "keywords": ["doudizhu", "poker", "webgame", "websocket"],
+  "keywords": [
+    "doudizhu",
+    "poker",
+    "webgame",
+    "websocket"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "vite": "^5.0.0",
-    "concurrently": "^8.2.0"
+    "concurrently": "^8.2.0",
+    "vite": "^6.4.2"
   },
   "dependencies": {
     "express": "^4.18.0",
