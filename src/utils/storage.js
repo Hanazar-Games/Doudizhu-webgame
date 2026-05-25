@@ -225,7 +225,7 @@ export const Storage = {
             // ====== 网络 (4项) ======
             networkQuality: 'auto',
             reconnectAttempts: 3,
-            heartbeatInterval: 5000,
+            heartbeatInterval: 5,
             lagCompensation: true,
 
             // ====== 高级 (4项) ======

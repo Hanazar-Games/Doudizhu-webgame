@@ -67,8 +67,11 @@ class GameApp {
                 this.settings[key] = v;
                 if (val) val.textContent = Math.round(v * 100) + '%';
                 Storage.saveSettings(this.settings);
-                this.menuAudio?.[setter]?.(v);
-                this.renderer?.audio?.[setter]?.(v);
+                // BGM 在设置面板打开期间保持降低试听
+                const isBGMInSettings = key === 'bgmVolume' && this._settingsOpen;
+                const actualV = isBGMInSettings ? v * 0.25 : v;
+                this.menuAudio?.[setter]?.(actualV);
+                this.renderer?.audio?.[setter]?.(actualV);
                 // SFX 音量调节时播放预览音效（节流 150ms）
                 if (isSFX) {
                     if (sfxPreviewTimer) clearTimeout(sfxPreviewTimer);
@@ -80,6 +83,7 @@ class GameApp {
         };
         bindVolume('cfg-bgm-volume', 'cfg-bgm-volume-value', 'bgmVolume', 'setBGMVolume');
         bindVolume('cfg-sfx-volume', 'cfg-sfx-volume-value', 'sfxVolume', 'setSFXVolume', true);
+        bindVolume('cfg-voice-volume', 'cfg-voice-volume-value', 'voiceVolume', 'setVoiceVolume');
         this._bindUXSettings();
 
         // 难度选择
@@ -201,6 +205,7 @@ class GameApp {
         audio.sfxEnabled = this.settings.sfxEnabled !== false;
         audio.setBGMVolume(this.settings.bgmVolume ?? 0.5);
         audio.setSFXVolume(this.settings.sfxVolume ?? 0.5);
+        audio.setVoiceVolume(this.settings.voiceVolume ?? 0.7);
     }
 
     _configureRendererAudio(renderer) {
@@ -315,9 +320,6 @@ class GameApp {
     }
 
     _bindUXSettings() {
-        // 滑块音效防抖计时器
-        let sliderSfxTimer = null;
-
         const controls = document.querySelectorAll('[data-setting]');
         controls.forEach(control => {
             const eventName = control.type === 'range' ? 'input' : 'change';
@@ -340,19 +342,24 @@ class GameApp {
                 if (control.type === 'checkbox') {
                     audio?.playSettingToggle?.(control.checked);
                 } else if (control.type === 'range') {
-                    clearTimeout(sliderSfxTimer);
-                    sliderSfxTimer = setTimeout(() => {
+                    clearTimeout(control._sfxTimer);
+                    control._sfxTimer = setTimeout(() => {
                         audio?.playSettingSlider?.();
                     }, 120);
                 }
 
-                // === 视觉反馈 ===
+                // === 视觉反馈（rAF 节流避免高频 reflow）===
                 const parent = control.closest('.setting-row, .toggle-switch-wrap, .setting-slider, .volume-control');
-                if (parent) {
-                    parent.classList.remove('setting-changed');
-                    void parent.offsetWidth; // force reflow
-                    parent.classList.add('setting-changed');
-                    setTimeout(() => parent.classList.remove('setting-changed'), 500);
+                if (parent && !control._rafPending) {
+                    control._rafPending = true;
+                    requestAnimationFrame(() => {
+                        control._rafPending = false;
+                        parent.classList.remove('setting-changed');
+                        void parent.offsetWidth;
+                        parent.classList.add('setting-changed');
+                        clearTimeout(parent._chgTimer);
+                        parent._chgTimer = setTimeout(() => parent.classList.remove('setting-changed'), 500);
+                    });
                 }
             });
         });
@@ -431,8 +438,9 @@ class GameApp {
     // ===== 设置面板打开/关闭 =====
     openSettings() {
         const overlay = document.getElementById('settings-overlay');
-        if (!overlay) return;
+        if (!overlay || !overlay.classList.contains('hidden')) return;
         overlay.classList.remove('hidden');
+        this._settingsOpen = true;
         // 降低 BGM
         const audio = this._getActiveAudio();
         if (audio && this._savedBGMVolume === undefined) {
@@ -449,6 +457,8 @@ class GameApp {
     }
 
     closeSettings() {
+        const overlay = document.getElementById('settings-overlay');
+        if (!overlay || overlay.classList.contains('hidden')) return;
         const audio = this._getActiveAudio();
         audio?.playSettingClose?.();
         // 恢复 BGM（优先使用用户在面板内调节后的最新值）
@@ -457,7 +467,8 @@ class GameApp {
             audio?.setBGMVolume?.(restoredVolume);
             this._savedBGMVolume = undefined;
         }
-        document.getElementById('settings-overlay')?.classList.add('hidden');
+        this._settingsOpen = false;
+        overlay.classList.add('hidden');
         // 清空搜索
         const searchInput = document.getElementById('settings-search-input');
         if (searchInput) {
@@ -474,8 +485,11 @@ class GameApp {
         const searchInput = document.getElementById('settings-search-input');
         const clearBtn = document.getElementById('settings-search-clear');
 
+        const searchWrap = searchInput?.closest('.settings-search');
         let debounceTimer = null;
         searchInput?.addEventListener('input', (e) => {
+            const hasValue = e.target.value.length > 0;
+            searchWrap?.classList.toggle('has-value', hasValue);
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
                 this._filterSettings(e.target.value.trim());
@@ -504,10 +518,9 @@ class GameApp {
         const countEl = document.getElementById('settings-search-count');
 
         if (!query) {
-            // 显示所有
+            // 显示所有（保留用户手动展开/折叠的状态）
             panel.querySelectorAll('.setting-hidden').forEach(el => el.classList.remove('setting-hidden'));
             panel.querySelectorAll('.setting-search-match').forEach(el => el.classList.remove('setting-search-match'));
-            panel.querySelectorAll('.advanced-settings').forEach(d => { d.open = false; });
             if (countEl) countEl.textContent = '';
             return;
         }

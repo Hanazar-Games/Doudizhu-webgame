@@ -80,6 +80,7 @@ class BaseMode {
 
         // 从设置读取游戏规则并配置 GameState
         const settings = Storage.getSettings();
+        this.speedFactor = parseFloat(settings.gameSpeed) || 1.0;
         this.gameState.callMode = ['score', 'grab'].includes(settings.callMode) ? settings.callMode : 'score';
         this.gameState.laiziEnabled = settings.laiziEnabled === true;
         this.gameState.scoreMultiplier = Math.max(1, Math.min(10, settings.scoreMultiplier ?? 1));

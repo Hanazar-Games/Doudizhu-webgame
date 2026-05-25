@@ -7090,7 +7090,8 @@ body[data-opponent-cards] .opponent-card-stack {
     justify-content: center;
     transition: all 0.15s;
 }
-.settings-search:has(input:not(:placeholder-shown)) .settings-search-clear {
+.settings-search:has(input:not(:placeholder-shown)) .settings-search-clear,
+.settings-search.has-value .settings-search-clear {
     display: flex;
 }
 .settings-search-clear:hover {
@@ -7580,7 +7581,8 @@ input[type="range"].settings-slider-input::-moz-range-track {
     padding: 6px 10px;
     border-radius: 8px;
     font-size: 0.72rem;
-    white-space: nowrap;
+    white-space: normal;
+    max-width: min(280px, 80vw);
     pointer-events: none;
     opacity: 0;
     transition: all 0.2s ease;
@@ -7691,6 +7693,9 @@ input[type="range"].settings-slider-input::-moz-range-track {
 /* 高对比度 */
 body[data-high-contrast="true"] .toggle-switch-track {
     border: 1px solid rgba(255,255,255,0.3);
+}
+body[data-high-contrast="true"] .toggle-switch-track::after {
+    border: 1px solid rgba(0,0,0,0.5);
 }
 body[data-high-contrast="true"] .setting-row,
 body[data-high-contrast="true"] .setting-slider,

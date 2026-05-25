@@ -12,6 +12,7 @@ class AudioManager {
         this.sfxEnabled = true;
         this.bgmVolume = 0.5;
         this.sfxVolume = 0.5;
+        this.voiceVolume = 0.7;
         this._bgmGain = null;
         this._bgmNodes = [];
         this._bgmTimer = null;
@@ -148,6 +149,10 @@ class AudioManager {
 
     setSFXVolume(v) {
         this.sfxVolume = Math.max(0, Math.min(1, v));
+    }
+
+    setVoiceVolume(v) {
+        this.voiceVolume = Math.max(0, Math.min(1, v));
     }
 
     async _scheduleBGMNote(freq, start, duration, type = 'sine', vol = 1.0) {

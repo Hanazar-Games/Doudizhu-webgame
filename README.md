@@ -140,7 +140,30 @@ docker-compose up -d
 
 ## 版本公告
 
-### v1.1.8 (当前版本) — 设置面板全面 UI/UX/SFX/BGM 升级 & 深度 Bug 修复
+### v1.1.9 (当前版本) — 设置系统稳定性修复 & 功能补全
+
+**🔴 严重 Bug 修复**
+- **heartbeatInterval 单位不一致**：`storage.js` 默认值为 `5000`（毫秒），但 UI 滑块范围是 `1–15`（秒），首次访问时浏览器将值 clamp 到 15，导致用户看到"15秒"但实际内存为 5000 — 默认值已修正为 `5`
+- **voiceVolume 死设置**：HTML 中存在语音音量滑块且值持久化到 localStorage，但 `AudioManager` 完全没有 `voiceVolume` 属性和 `setVoiceVolume()` 方法，用户调节后无任何效果 — 已补全音频后端支持 + `_syncAudioSettings` 同步 + `bindVolume` 绑定
+- **gameSpeed 设置不生效**：`base-mode.js` 的 `startGame()` 读取了大量规则配置，但**遗漏了 `gameSpeed`**，`speedFactor` 始终为默认值 `1.0`，用户调节游戏速度完全无效 — 已添加 `this.speedFactor = parseFloat(settings.gameSpeed) || 1.0`
+
+**🟡 交互体验修复**
+- **openSettings/closeSettings 重复调用**：快速双击设置按钮或关闭按钮时，音效会重叠播放，BGM 恢复逻辑可能执行多次 — 添加 guard（检查 `hidden` 类状态），重复调用直接返回
+- **BGM 降低试听失效**：打开设置面板时 BGM 降至 25%，但用户一旦拖动 BGM 滑块，`bindVolume` 直接设置绝对音量，试听效果立即消失 — `bindVolume` 现在感知 `_settingsOpen` 状态，面板内 BGM 滑块实时预览保持降低系数
+- **sliderSfxTimer 全局共享**：`_bindUXSettings` 中所有 range 控件共享同一个 timer，快速切换拖动不同滑块时前一个音效被后一个清除 — 改为每个 control 独立的 `control._sfxTimer`
+- **setting-changed 高频强制 reflow**：每次 slider `input` 事件都执行 `void parent.offsetWidth` 强制同步 reflow，60fps 输入下每秒数十次重排 — 改用 `requestAnimationFrame` 节流，消除连续操作性能风险
+- **关闭面板强制折叠所有 details**：`_filterSettings('')` 和 `closeSettings()` 将用户手动展开的分类全部折叠，重新打开需反复展开 — 空 query 分支不再修改 `details.open`，保留用户展开状态
+
+**🟡 兼容性 & 可访问性**
+- **`:has()` 无旧浏览器 fallback**：搜索框清除按钮和 focus 高亮完全依赖 CSS `:has()`，Firefox 121 之前 / 旧版 Safari 中清除按钮永远不显示 — JS 在 `input` 事件中为 `.settings-search` 动态添加/移除 `.has-value` class，CSS 同步匹配
+- **tooltip 长文本溢出**：`.setting-tooltip::after` 使用 `white-space: nowrap` 且无 `max-width`，长提示在窄屏或靠边元素上可能超出视口 — 改为 `white-space: normal; max-width: min(280px, 80vw)`
+- **高对比度 knob 无边界**：`body[data-high-contrast="true"]` 下 toggle switch 的 track 有 border，但白色 knob（`::after`）无描边，边界辨识度不足 — 补充 `border: 1px solid rgba(0,0,0,0.5)`
+
+**历史公告**
+
+---
+
+### v1.1.8 — 设置面板全面 UI/UX/SFX/BGM 升级 & 深度 Bug 修复
 
 **🎛️ 设置面板全面重构**
 - 🔄 **现代 Toggle Switch**：80 个设置项全部替换为带动画滑动开关，开启绿色/关闭灰色，带弹性按压效果
@@ -160,22 +183,22 @@ docker-compose up -d
 - 🎼 **BGM 动态调节**：打开设置面板时 BGM 平滑降至 25%，关闭时恢复，过渡自然
 
 **🐛 深度 Bug 修复（15 项）**
-- 🔴 **#settings-overlay.hidden 语义破坏**：CSS 中 `display: flex !important` 覆盖全局 `.hidden`，导致遮罩层无法真正隐藏，持续占用渲染层 — 已移除错误覆盖
-- 🔴 **timerEnabled 类型不一致**：HTML select 值为字符串 `"false"`，base-mode.js 使用严格相等 `=== false` 判断，导致倒计时关闭后仍继续运行 — 改为松散相等 `== false`
-- 🔴 **暂停按钮全部未绑定**：renderer.js 只在动态创建 overlay 时绑定事件，HTML 静态 overlay 中"继续/设置/退出"三个按钮全部无响应 — 重构为统一事件绑定（`_pauseListenersBound` 标志）
+- 🔴 **#settings-overlay.hidden 语义破坏**：CSS 中 `display: flex !important` 覆盖全局 `.hidden`，导致遮罩层无法真正隐藏 — 已移除错误覆盖
+- 🔴 **timerEnabled 类型不一致**：HTML select 值为字符串 `"false"`，base-mode.js 使用 `=== false` 判断，倒计时关闭后仍继续运行 — 改为 `== false`
+- 🔴 **暂停按钮全部未绑定**：renderer.js 只在动态创建 overlay 时绑定事件，HTML 静态 overlay 中三个按钮全部无响应 — 重构为统一事件绑定
 - 🔴 **locked 状态下 toggle switch 仍可点击**：游戏进行中锁定的规则设置，toggle switch 的 label 点击仍能切换值 — 添加 `pointer-events: none`
-- 🟡 **BGM 音量调节后被覆盖**：用户在面板内拖动 BGM 滑块调节音量，关闭面板后恢复为打开前的旧值 — 关闭时优先使用 `settings.bgmVolume` 最新值
+- 🟡 **BGM 音量调节后被覆盖**：用户在面板内拖动 BGM 滑块调节音量，关闭面板后恢复为旧值 — 关闭时优先使用 `settings.bgmVolume` 最新值
 - 🟡 **BGM 静音时打开面板强制出声**：BGM 设为 0 时，`Math.max(0.05, ...)` 强制提升到可闻音量 — 移除最低音量限制
 - 🟡 **打开设置面板按钮音效重复**：menuBtns 通用 handler 已播放按钮音效，`openSettings()` 内又播放一次 — 移除重复调用
 - 🟡 **setBGMVolume 瞬切突兀**：直接赋值 `gain.value` 导致音量跳变 — 改用 `setTargetAtTime` 0.15s 平滑过渡
 - 🟡 **playSettingSlider 几乎无声**：音量仅 0.03、时长 30ms，极易被掩盖 — 增大到 0.06/50ms
-- 🟡 **.settings-panel 高度限制**：旧 `max-height: min(48vh, 500px)` 限制模态框内面板无法填满 — 添加 `max-height: none !important`
-- 🟡 **搜索图标 focus 死代码**：`input:focus + .settings-search-icon` 相邻兄弟选择器永远不会命中（icon 在 input 之前）— 移除无效规则
+- 🟡 **.settings-panel 高度限制**：旧 `max-height` 限制模态框内面板无法填满 — 添加 `max-height: none !important`
+- 🟡 **搜索图标 focus 死代码**：`input:focus + .settings-search-icon` 相邻兄弟选择器永远不会命中 — 移除无效规则
 - 🟡 **.settings-toggles 布局松散**：grid 强制等宽拉伸，短文本项产生多余空白 — 改为 `repeat(auto-fill, minmax(140px, max-content))`
 - 🟢 **_showPauseOverlay 重复绑定**：每次暂停都 `addEventListener`，多次暂停后一个按钮触发多次 — 使用 `_pauseListenersBound` 标志只绑定一次
 - 🟢 **_removePauseOverlay 内存泄漏**：改为 `classList.add('hidden')` 而不移除 DOM，动态 overlay 累积 — 恢复 `overlay.remove()` 并同步重置绑定标志
 
-**历史公告**
+---
 
 ---
 
