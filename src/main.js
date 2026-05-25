@@ -67,11 +67,8 @@ class GameApp {
                 this.settings[key] = v;
                 if (val) val.textContent = Math.round(v * 100) + '%';
                 Storage.saveSettings(this.settings);
-                // BGM 在设置面板打开期间保持降低试听
-                const isBGMInSettings = key === 'bgmVolume' && this._settingsOpen;
-                const actualV = isBGMInSettings ? v * 0.25 : v;
-                this.menuAudio?.[setter]?.(actualV);
-                this.renderer?.audio?.[setter]?.(actualV);
+                this.menuAudio?.[setter]?.(v);
+                this.renderer?.audio?.[setter]?.(v);
                 // SFX 音量调节时播放预览音效（节流 150ms）
                 if (isSFX) {
                     if (sfxPreviewTimer) clearTimeout(sfxPreviewTimer);
@@ -441,13 +438,7 @@ class GameApp {
         if (!overlay || !overlay.classList.contains('hidden')) return;
         overlay.classList.remove('hidden');
         this._settingsOpen = true;
-        // 降低 BGM
-        const audio = this._getActiveAudio();
-        if (audio && this._savedBGMVolume === undefined) {
-            this._savedBGMVolume = this.settings.bgmVolume ?? 0.5;
-            audio.setBGMVolume(this._savedBGMVolume * 0.25);
-        }
-        audio?.playSettingOpen?.();
+        this._getActiveAudio()?.playSettingOpen?.();
         // 聚焦搜索框
         setTimeout(() => {
             document.getElementById('settings-search-input')?.focus();
@@ -459,14 +450,7 @@ class GameApp {
     closeSettings() {
         const overlay = document.getElementById('settings-overlay');
         if (!overlay || overlay.classList.contains('hidden')) return;
-        const audio = this._getActiveAudio();
-        audio?.playSettingClose?.();
-        // 恢复 BGM（优先使用用户在面板内调节后的最新值）
-        if (this._savedBGMVolume !== undefined) {
-            const restoredVolume = this.settings.bgmVolume ?? this._savedBGMVolume;
-            audio?.setBGMVolume?.(restoredVolume);
-            this._savedBGMVolume = undefined;
-        }
+        this._getActiveAudio()?.playSettingClose?.();
         this._settingsOpen = false;
         overlay.classList.add('hidden');
         // 清空搜索

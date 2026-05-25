@@ -182,6 +182,28 @@ body[data-theme="purple"] {
     font-weight: 400;
 }
 
+.btn-secondary {
+    padding: 14px 24px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+    background: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.3);
+    transform: translateY(-2px);
+}
+
+.btn-secondary:active {
+    transform: translateY(0);
+}
+
 .btn-small {
     padding: 8px 16px;
     border: 1px solid rgba(255,255,255,0.2);
@@ -2463,7 +2485,11 @@ body[data-theme="purple"] {
         width: 48px;
         height: 68px;
     }
-    
+
+    #player-right .hand-front .card {
+        margin-left: -32px;
+    }
+
     .card-corner .rank {
         font-size: 0.65rem;
     }
@@ -3472,7 +3498,6 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 #player-top .played-area,
 #player-left .played-area {
     margin-top: 12px;
-    min-height: 44px;
 }
 
 #player-right .player-info {
@@ -3634,6 +3659,11 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 #player-right .hand-front .card {
     width: calc(72px * var(--ddz-card-scale, 1));
     height: calc(100px * var(--ddz-card-scale, 1));
+    margin-left: -44px;
+    flex-shrink: 0;
+}
+#player-right .hand-front .card:first-child {
+    margin-left: 0;
 }
 
 .card-inner {
@@ -4045,7 +4075,6 @@ body[data-motion="fancy"] .table-aura {
     #player-top .played-area,
     #player-left .played-area {
         margin-top: 6px;
-        min-height: 40px;
     }
 
     #player-top .hand-back,
@@ -4109,7 +4138,6 @@ body[data-motion="fancy"] .table-aura {
     #player-top .played-area,
     #player-left .played-area {
         margin-top: 4px;
-        min-height: 36px;
     }
 
     #player-top .hand-back,

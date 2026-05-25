@@ -1275,7 +1275,7 @@ class Renderer {
                 for (let j = 0; j < sorted.length; j++) {
                     const card = sorted[j];
                     const el = this._createCardElement(card);
-                    if (j > 0) el.style.marginLeft = '-44px';
+                    // margin-left 由 CSS 控制，支持响应式调整
 
                     // 发牌入场动画
                     el.style.opacity = '0';
