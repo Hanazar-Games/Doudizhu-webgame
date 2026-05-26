@@ -188,6 +188,17 @@ function handleMessage(ws, msg) {
             break;
         }
 
+        // ---- 两阶段游戏启动协议 ----
+        //
+        // Phase 1: start_game — 房主请求开始，server 验证后广播 game_starting（预通知）。
+        //   当前客户端未使用此消息，保留供测试或未来扩展（如加载画面同步）。
+        //
+        // Phase 2: game_start — 房主生成牌局后发送，携带 deck/bottomCards/dealerIndex。
+        //   server 验证并 relay 给其他玩家（排除房主），其他玩家收到后进入 _syncGameStart。
+        //   房主本地直接调用 _syncGameStart，不依赖网络回传。
+        //
+        // 两阶段互不依赖；当前生产客户端只发送 Phase 2。
+
         case 'start_game': {
             const roomId = roomManager.playerToRoom.get(ws);
             if (!roomId) {
@@ -219,7 +230,7 @@ function handleMessage(ws, msg) {
         }
 
         case 'game_start': {
-            // 房主发送游戏开始同步时，标记房间为已开始，防止新玩家加入
+            // Phase 2: 房主发送牌局数据，server 验证后 relay 给其他玩家
             const roomId2 = roomManager.playerToRoom.get(ws);
             if (!roomId2) {
                 roomManager.sendToPeer(ws, { type: 'error', message: 'Not in a room' });

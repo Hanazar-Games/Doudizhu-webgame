@@ -12,7 +12,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "npm run server",
-    "test": "node test/core.test.mjs"
+    "test": "node test/core.test.mjs",
+    "test:lan": "node test/run-lan-test.mjs",
+    "test:all": "node test/core.test.mjs && node test/run-lan-test.mjs"
   },
   "keywords": [
     "doudizhu",
