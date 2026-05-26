@@ -156,15 +156,14 @@ class GameState {
 
     // 开始一局
     startRound(deck, bottomCards) {
+        if (!Array.isArray(bottomCards)) bottomCards = [];
         this.resetRound();
         // 清除所有牌的癞子标记（防止自定义模式重用 Card 对象时残留）
         for (const card of deck) {
             if (card) card.isLaizi = false;
         }
-        if (bottomCards) {
-            for (const card of bottomCards) {
-                if (card) card.isLaizi = false;
-            }
+        for (const card of bottomCards) {
+            if (card) card.isLaizi = false;
         }
         this.deck = deck;
         this.bottomCards = bottomCards;
@@ -319,31 +318,29 @@ class GameState {
     _finishCalling(forced = false) {
         if (this.currentCallPlayer >= 0) {
             this.landlordIndex = this.currentCallPlayer;
-            const landlord = this.players[this.landlordIndex];
-            landlord.isLandlord = true;
-            landlord.addCards(this.bottomCards);
-            
-            this.currentTurn = this.landlordIndex;
-            this.phase = PHASE.PLAYING;
-            this.emit('landlordConfirmed', { 
-                landlordIndex: this.landlordIndex, 
-                bottomCards: this.bottomCards,
-                multiplier: this.callMode === 'grab' ? this.grabMultiplier : null,
-            });
         } else {
             // 没人叫分：默认dealer为地主
             this.landlordIndex = this.dealerIndex;
-            const landlord = this.players[this.landlordIndex];
-            landlord.isLandlord = true;
-            landlord.addCards(this.bottomCards);
-            this.currentTurn = this.landlordIndex;
-            this.phase = PHASE.PLAYING;
-            this.emit('landlordConfirmed', { 
-                landlordIndex: this.landlordIndex, 
-                bottomCards: this.bottomCards,
-                forced: true
-            });
         }
+        const landlord = this.players[this.landlordIndex];
+        if (!landlord) {
+            console.error('[_finishCalling] 地主位置无玩家:', this.landlordIndex);
+            return;
+        }
+        landlord.isLandlord = true;
+        landlord.addCards(this.bottomCards);
+        this.currentTurn = this.landlordIndex;
+        this.phase = PHASE.PLAYING;
+        const eventData = {
+            landlordIndex: this.landlordIndex,
+            bottomCards: this.bottomCards,
+        };
+        if (this.currentCallPlayer >= 0) {
+            eventData.multiplier = this.callMode === 'grab' ? this.grabMultiplier : null;
+        } else {
+            eventData.forced = true;
+        }
+        this.emit('landlordConfirmed', eventData);
         this.emit('phaseChange', { phase: this.phase, currentTurn: this.currentTurn });
     }
 
@@ -353,6 +350,7 @@ class GameState {
         if (playerIndex !== this.currentTurn) return { success: false, error: '不是您的回合' };
         
         const player = this.players[playerIndex];
+        if (!player) return { success: false, error: '玩家不存在' };
         
         // 验证玩家手牌中包含这些牌
         if (!player.hasCards(cards)) {
@@ -420,12 +418,13 @@ class GameState {
             // 软炸弹模式下允许炸弹带牌，已在 analyze 中支持
         }
         
-        // 执行出牌
-        player.removeCards(cards);
-        this.lastPlay = { playerIndex, cards, pattern };
+        // 执行出牌（存储副本防止外部修改）
+        const cardsCopy = [...cards];
+        player.removeCards(cardsCopy);
+        this.lastPlay = { playerIndex, cards: cardsCopy, pattern };
         this.passCount = 0;
         this.playCounts[playerIndex]++;
-        this.history.push({ playerIndex, cards, pattern, timestamp: Date.now() });
+        this.history.push({ playerIndex, cards: cardsCopy, pattern, timestamp: Date.now() });
         
         this.emit('playerPlay', { playerIndex, cards, pattern, remaining: player.hand.length });
         
@@ -504,6 +503,12 @@ class GameState {
 
     _settleRound(winnerIndex) {
         this.phase = PHASE.SETTLING;
+        if (this.landlordIndex < 0 || this.landlordIndex > 2) {
+            console.error('[_settleRound] landlordIndex 无效:', this.landlordIndex);
+            this.phase = PHASE.ENDED;
+            this.emit('phaseChange', { phase: this.phase });
+            return;
+        }
         const isLandlordWin = winnerIndex === this.landlordIndex;
         const baseScore = this.baseScore || this.currentCall || 1;
         

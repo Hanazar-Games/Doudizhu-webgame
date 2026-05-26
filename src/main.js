@@ -34,6 +34,11 @@ class GameApp {
         }
     }
 
+    _showFallbackToast(msg, type = 'info') {
+        // 优先委托给 renderer，否则 fallback 到 alert
+        this.renderer?.showToast?.(msg, type) ?? alert(msg);
+    }
+
     init() {
         // 恢复设置
         this._applySettings();
@@ -185,9 +190,9 @@ class GameApp {
         document.getElementById('btn-fullscreen')?.addEventListener('click', () => {
             this._playButtonClick();
             if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(() => {});
+                document.documentElement.requestFullscreen?.().catch(() => {});
             } else {
-                document.exitFullscreen().catch(() => {});
+                document.exitFullscreen?.().catch(() => {});
             }
         });
 
@@ -630,7 +635,7 @@ class GameApp {
             'animSpeed', 'transitionSpeed', 'aiDifficultyScale'
         ]);
         if (percentKeys.has(key)) {
-            output.textContent = Math.round(Number(value || 1) * 100) + '%';
+            output.textContent = Math.round(Number(value ?? 1) * 100) + '%';
         } else if (key === 'selectedLift' || key === 'hoverLift' || key === 'playedOverlap' || key === 'dragThreshold' || key === 'cardCornerRadius') {
             output.textContent = `${value}px`;
         } else if (key === 'cardBorderWidth') {
@@ -998,7 +1003,7 @@ class GameApp {
                 await navigator.clipboard.writeText(url);
                 document.getElementById('lan-status').textContent = '已复制房主地址，发给同一 Wi-Fi 的玩家';
             } catch (err) {
-                input.select();
+                input?.select();
                 document.execCommand?.('copy');
                 document.getElementById('lan-status').textContent = '已选中房主地址，可以手动复制';
             }
@@ -1154,6 +1159,9 @@ class GameApp {
         const lan = document.getElementById('lan-screen');
         const custom = document.getElementById('custom-screen');
         const replay = document.getElementById('replay-screen');
+
+        // 停止回放管理器
+        this._replayManager?.stop?.();
 
         // 停止当前游戏循环并清理 renderer
         if (this.currentMode) {
@@ -1368,7 +1376,7 @@ class GameApp {
             await this.currentMode.startGame();
         } catch (err) {
             console.error('启动 AI 模式失败:', err);
-            this.showToast?.('游戏启动失败，请返回菜单重试');
+            this._showFallbackToast('游戏启动失败，请返回菜单重试');
             this.showMenu();
         }
     }
@@ -1430,13 +1438,13 @@ class GameApp {
             await this.currentMode.init();
             this.currentMode.speedFactor = Math.max(0.3, Math.min(5.0, this.settings.gameSpeed || 1.0));
             document.getElementById('mode-display').textContent = '局域网联机';
-            // 应用自定义玩家名称
-            const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
-            if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
+            // 应用自定义玩家名称（延迟到 seat_assigned 后再设置）
+            const desiredName = this.settings.playerName || '玩家';
+            this.currentMode._desiredPlayerName = desiredName;
             this._lockGameRuleSettings(true);
         } catch (err) {
             console.error('启动局域网模式失败:', err);
-            this.showToast?.('连接失败，请返回菜单重试');
+            this._showFallbackToast('连接失败，请返回菜单重试');
             this.showMenu();
         }
     }
@@ -1463,7 +1471,7 @@ class GameApp {
             this._lockGameRuleSettings(true);
         } catch (err) {
             console.error('启动自定义模式失败:', err);
-            this.showToast?.('游戏启动失败，请返回菜单重试');
+            this._showFallbackToast('游戏启动失败，请返回菜单重试');
             this.showMenu();
         }
     }

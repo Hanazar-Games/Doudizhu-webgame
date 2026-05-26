@@ -110,7 +110,7 @@ class CustomMode extends BaseMode {
         let deck, bottom;
         
         // 检查是否有预设
-        const hasFixed = this.customConfig.fixedHands.some(h => h !== null) || 
+        let hasFixed = this.customConfig.fixedHands.some(h => h !== null) || 
                          this.customConfig.bottomCards !== null;
         
         if (hasFixed) {
@@ -142,8 +142,9 @@ class CustomMode extends BaseMode {
                 console.warn('自定义模式：固定手牌中存在重复牌，已自动去重');
             }
             if (allFixed.length > 51) {
-                console.error('自定义模式：固定手牌超过 51 张，无法发牌');
-                allFixed.length = 51;
+                console.error('自定义模式：固定手牌超过 51 张，无法发牌，将使用标准发牌');
+                // 放弃预设，回退到标准发牌
+                hasFixed = false;
             }
 
             // 剩余牌补充

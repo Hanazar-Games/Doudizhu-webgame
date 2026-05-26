@@ -169,8 +169,11 @@ class Animations {
      * @param {number} duration - 持续时间（ms）
      */
     screenShake(intensity = 5, duration = 400) {
+        duration = Math.max(duration, 1);
         // 使用引用计数安全地修改 body transform
         if (!this._shakeCount) this._shakeCount = 0;
+        // 限制并发震动次数，防止过度叠加
+        if (this._shakeCount > 5) return;
         // 每次开始震动时都重新获取当前 transform，确保准确
         if (this._shakeCount === 0) {
             this._shakeOriginalTransform = document.body.style.transform || '';
@@ -238,6 +241,7 @@ class Animations {
      * @param {Function|null} onComplete
      */
     cardFly(fromX, fromY, toX, toY, card = null, duration = 500, onComplete = null) {
+        duration = Math.max(duration, 1);
         let el;
         let isTemp = false;
 
@@ -335,6 +339,7 @@ class Animations {
      * @param {number} duration
      */
     popIn(element, duration = 300) {
+        if (!element) return;
         element.style.display = '';
         element.style.opacity = '0';
         element.style.transform = 'scale(0)';
@@ -358,6 +363,7 @@ class Animations {
      * @param {number} duration
      */
     popOut(element, duration = 200) {
+        if (!element) return;
         element.style.transition = `transform ${duration}ms ease-in, opacity ${duration}ms ease-in`;
         element.style.transform = 'scale(0)';
         element.style.opacity = '0';
@@ -564,6 +570,8 @@ class Animations {
      * @param {number} duration
      */
     countUp(element, from, to, duration = 600) {
+        if (!element) return;
+        duration = Math.max(duration, 1);
         const startTime = performance.now();
         const diff = to - from;
 
@@ -587,6 +595,7 @@ class Animations {
      * @param {Function|null} onComplete
      */
     flipCard(element, onComplete = null) {
+        if (!element) return;
         element.style.transition = 'transform 400ms ease-in-out';
         element.style.transformStyle = 'preserve-3d';
 
@@ -675,6 +684,7 @@ class Animations {
      * @param {number} duration
      */
     rotateOut(element, duration = 300) {
+        if (!element) return;
         element.style.transition = `transform ${duration}ms ease-in, opacity ${duration}ms ease-in`;
         element.style.transform = 'rotate(180deg) scale(0.5)';
         element.style.opacity = '0';
@@ -692,6 +702,7 @@ class Animations {
      * @param {number} duration
      */
     orbitEffect(centerX, centerY, emoji = '⭐', radius = 60, duration = 2000) {
+        duration = Math.max(duration, 1);
         const el = this._createAnimElement('div');
         el.textContent = emoji;
         el.style.position = 'absolute';
@@ -866,6 +877,7 @@ class Animations {
      * @param {HTMLElement} cardEl
      */
     cardSelectSparkle(cardEl) {
+        if (!cardEl) return;
         const rect = cardEl.getBoundingClientRect();
         const cx = rect.left + rect.width / 2;
         const cy = rect.top + rect.height / 2;
@@ -974,6 +986,7 @@ class Animations {
      * @param {number} baseDelay
      */
     handCardsEnter(cardEls, baseDelay = 30) {
+        if (!cardEls) return;
         cardEls.forEach((el, i) => {
             el.style.opacity = '0';
             el.style.transform = 'translateY(30px) scale(0.8)';
@@ -1175,6 +1188,7 @@ class Animations {
      * @param {NodeList} cardEls
      */
     shuffleCards(cardEls) {
+        if (!cardEls) return;
         cardEls.forEach((el, i) => {
             el.style.transition = 'transform 0.3s ease';
             el.style.transform = `translateX(${(Math.random() - 0.5) * 20}px) rotate(${(Math.random() - 0.5) * 10}deg)`;

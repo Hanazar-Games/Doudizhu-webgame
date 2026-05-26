@@ -110,12 +110,12 @@ class LANMode extends BaseMode {
                 let opened = false;
                 const settle = (fn) => (...args) => { if (!settled) { settled = true; fn(...args); } };
                 
-                ws.onopen = settle(() => {
+                ws.onopen = () => {
                     console.log('[LANMode] WebSocket连接成功');
                     opened = true;
                     this.networkReady = true;
                     resolve();
-                });
+                };
                 
                 ws.onmessage = (e) => {
                     try {
@@ -126,15 +126,16 @@ class LANMode extends BaseMode {
                     }
                 };
                 
-                ws.onclose = settle(() => {
+                ws.onclose = () => {
                     console.warn('[LANMode] WebSocket断开');
                     this.networkReady = false;
                     // 如果连接从未成功打开过，reject Promise 防止永久阻塞
-                    if (!opened) {
+                    if (!opened && !settled) {
+                        settled = true;
                         reject(new Error('WebSocket connection failed'));
                     }
                     this._scheduleReconnect();
-                });
+                };
                 
                 ws.onerror = settle((err) => {
                     console.error('[LANMode] WebSocket错误:', err);
@@ -196,11 +197,15 @@ class LANMode extends BaseMode {
             case 'seat_assigned':
                 if (!this.isHost) {
                     this.humanIndex = msg.seatIndex;
-                    this.gameState.setPlayer(this.humanIndex, new Player('玩家', false));
+                    const p = new Player(this._desiredPlayerName || '玩家', false);
+                    this.gameState.setPlayer(this.humanIndex, p);
                 }
                 break;
             case 'game_start':
-                this._syncGameStart(msg.data);
+                // 房主已经在本地启动了游戏，忽略网络回传的广播
+                if (!this.isHost) {
+                    this._syncGameStart(msg.data);
+                }
                 break;
             case 'game_starting':
                 if (!this.isHost) {
@@ -382,7 +387,16 @@ class LANMode extends BaseMode {
     }
 
     _deserializeDeck(data) {
-        return data.map(d => new Card(d.s ? SUITS[d.s.toUpperCase()] : null, d.r));
+        if (!Array.isArray(data)) return [];
+        return data.map(d => {
+            if (!d || !d.r) return null;
+            return new Card(d.s ? SUITS[d.s.toUpperCase()] : null, d.r);
+        }).filter(Boolean);
+    }
+
+    _applySync(data) {
+        console.warn('[LANMode] 收到状态同步，尚未实现完整处理:', data);
+        // TODO: merge remote state into local gameState
     }
 
     showToast(message) {
