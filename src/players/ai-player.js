@@ -142,18 +142,16 @@ class AIPlayer extends Player {
             const beats = Rules.findAllBeats(handCards, lastPattern);
             if (beats.length === 0) return [];
             
-            // 优先不用炸弹
-            const nonBomb = beats.filter(c => {
-                const p = Rules.analyze(c);
-                return p.type !== 'BOMB' && p.type !== 'ROCKET';
-            });
+            // 优先不用炸弹（预计算模式避免重复 analyze）
+            const scored = beats.map(c => ({ cards: c, p: Rules.analyze(c) }));
+            const nonBomb = scored.filter(s => s.p.type !== 'BOMB' && s.p.type !== 'ROCKET');
             if (nonBomb.length > 0) {
-                nonBomb.sort((a, b) => a.length - b.length);
-                return nonBomb[0];
+                nonBomb.sort((a, b) => a.cards.length - b.cards.length || a.p.mainValue - b.p.mainValue);
+                return nonBomb[0].cards;
             }
             
-            beats.sort((a, b) => a.length - b.length);
-            return beats[0];
+            scored.sort((a, b) => a.cards.length - b.cards.length || a.p.mainValue - b.p.mainValue);
+            return scored[0]?.cards || [];
         }
     }
 
@@ -213,6 +211,26 @@ class AIPlayer extends Player {
         return hand.length > 0 ? [hand[0]] : [];
     }
 
+    // 辅助：从连续值数组中提取最大长度连续子序列，避免冗余子模式
+    _pushMaxConsecutivePatterns(sortedValues, minLen, groups, target, cardPicker) {
+        if (sortedValues.length < minLen) return;
+        let start = 0;
+        while (start <= sortedValues.length - minLen) {
+            let end = start + 1;
+            while (end < sortedValues.length && sortedValues[end] - sortedValues[end - 1] === 1) {
+                end++;
+            }
+            const runLen = end - start;
+            if (runLen >= minLen) {
+                const seq = sortedValues.slice(start, end);
+                const cards = seq.flatMap(cardPicker);
+                const p = Rules.analyze(cards);
+                if (p.isValid()) target.push({type: p.type, cards, value: p.mainValue, len: cards.length});
+            }
+            start = end;
+        }
+    }
+
     // 分析手牌结构，返回各种牌型
     _analyzeHandStructure(hand) {
         const groups = Rules.groupByValue(hand);
@@ -239,46 +257,17 @@ class AIPlayer extends Player {
             if (g.length === 1) result.singles.push(g[0]);
         }
         
-        // 顺子 (5+)
+        // 顺子 (5+) — 只保留最大长度，避免冗余子序列
         const normalValues = entries.filter(([v, g]) => v <= 14).map(([v]) => v).sort((a, b) => a - b);
-        for (let i = 0; i < normalValues.length; i++) {
-            for (let j = i + 4; j < normalValues.length; j++) {
-                const seq = normalValues.slice(i, j + 1);
-                if (Rules.isConsecutive(seq)) {
-                    const cards = seq.map(v => groups.get(v)[0]);
-                    const p = Rules.analyze(cards);
-                    if (p.isValid()) result.longPatterns.push({type: p.type, cards, value: p.mainValue, len: cards.length});
-                } else break;
-            }
-        }
+        this._pushMaxConsecutivePatterns(normalValues, 5, groups, result.longPatterns, v => [groups.get(v)[0]]);
         
         // 连对 (3+对)
         const pairValues = entries.filter(([v, g]) => g.length >= 2 && v <= 14).map(([v]) => v).sort((a, b) => a - b);
-        for (let i = 0; i < pairValues.length; i++) {
-            for (let j = i + 2; j < pairValues.length; j++) {
-                const seq = pairValues.slice(i, j + 1);
-                if (Rules.isConsecutive(seq)) {
-                    const cards = [];
-                    for (const v of seq) cards.push(groups.get(v)[0], groups.get(v)[1]);
-                    const p = Rules.analyze(cards);
-                    if (p.isValid()) result.longPatterns.push({type: p.type, cards, value: p.mainValue, len: cards.length});
-                } else break;
-            }
-        }
+        this._pushMaxConsecutivePatterns(pairValues, 3, groups, result.longPatterns, v => [groups.get(v)[0], groups.get(v)[1]]);
         
         // 飞机 (2+连续三张)
         const tripleValues = entries.filter(([v, g]) => g.length >= 3 && v <= 14).map(([v]) => v).sort((a, b) => a - b);
-        for (let i = 0; i < tripleValues.length; i++) {
-            for (let j = i + 1; j < tripleValues.length; j++) {
-                const seq = tripleValues.slice(i, j + 1);
-                if (Rules.isConsecutive(seq)) {
-                    const cards = [];
-                    for (const v of seq) cards.push(groups.get(v)[0], groups.get(v)[1], groups.get(v)[2]);
-                    const p = Rules.analyze(cards);
-                    if (p.isValid()) result.longPatterns.push({type: p.type, cards, value: p.mainValue, len: cards.length});
-                } else break;
-            }
-        }
+        this._pushMaxConsecutivePatterns(tripleValues, 2, groups, result.longPatterns, v => [groups.get(v)[0], groups.get(v)[1], groups.get(v)[2]]);
         
         // 排序长牌型：牌数多的优先，然后值小的优先
         result.longPatterns.sort((a, b) => {
@@ -357,20 +346,20 @@ class AIPlayer extends Player {
             }
         }
 
-        // normal/hard: 按代价最小化排序
-        candidates.sort((a, b) => {
-            const pa = Rules.analyze(a);
-            const pb = Rules.analyze(b);
-            // 优先不用炸弹/火箭
-            const aIsBomb = pa.type === 'BOMB' || pa.type === 'ROCKET';
-            const bIsBomb = pb.type === 'BOMB' || pb.type === 'ROCKET';
-            if (aIsBomb && !bIsBomb) return 1;
-            if (!aIsBomb && bIsBomb) return -1;
-            // 牌数少的优先（保留更多牌）
-            return a.length - b.length;
+        // normal/hard: 按代价最小化排序（预计算避免 O(n log n) 重复 analyze）
+        const scored = candidates.map(c => {
+            const p = Rules.analyze(c);
+            const isBomb = p.type === 'BOMB' || p.type === 'ROCKET';
+            return { cards: c, isBomb, len: c.length, mainValue: p.mainValue };
+        });
+        scored.sort((a, b) => {
+            if (a.isBomb && !b.isBomb) return 1;
+            if (!a.isBomb && b.isBomb) return -1;
+            if (a.len !== b.len) return a.len - b.len;
+            return a.mainValue - b.mainValue; // 稳定排序：主牌值小的优先
         });
 
-        return candidates[0];
+        return scored[0]?.cards || [];
     }
 }
 

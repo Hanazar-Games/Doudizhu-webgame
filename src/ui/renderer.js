@@ -532,7 +532,7 @@ class Renderer {
             if (this._isPaused) return;
 
             const phase = this.gameState?.phase;
-            const isMyTurn = this.gameState?.currentTurn === this.mode?.humanIndex;
+            const isMyTurn = this.gameState && this.mode && this.gameState.currentTurn === this.mode.humanIndex;
 
             if (phase === PHASE.CALLING && isMyTurn && this.mode) {
                 const isGrab = this.gameState?.callMode === 'grab';
@@ -676,12 +676,17 @@ class Renderer {
 
     _removePauseOverlay() {
         const overlay = document.getElementById('pause-overlay');
-        if (!overlay) return;
+        if (!overlay) {
+            this._pauseListenersBound = false;
+            return;
+        }
+        if (overlay._removeTimeout) clearTimeout(overlay._removeTimeout);
         overlay.style.transition = 'opacity 0.25s ease-in';
         overlay.style.opacity = '0';
-        setTimeout(() => {
+        this._pauseListenersBound = false;
+        overlay._removeTimeout = setTimeout(() => {
             overlay.remove();
-            this._pauseListenersBound = false;
+            overlay._removeTimeout = null;
         }, 250);
     }
 
@@ -1311,6 +1316,7 @@ class Renderer {
         handContainer.addEventListener('touchstart', onDown, { passive: false });
         handContainer.addEventListener('touchmove', onMove, { passive: false });
         document.addEventListener('touchend', onUp);
+        document.addEventListener('touchcancel', onUp);
 
         handContainer._dragCleanup = () => {
             handContainer.removeEventListener('mousedown', onDown);
@@ -1318,6 +1324,7 @@ class Renderer {
             document.removeEventListener('mouseup', onUp);
             handContainer.removeEventListener('touchstart', onDown);
             handContainer.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchcancel', onUp);
             document.removeEventListener('touchend', onUp);
         };
     }
@@ -1823,14 +1830,16 @@ class Renderer {
     hideCallControls() {
         const panel = this.container.querySelector('#call-controls');
         if (!panel || panel.classList.contains('hidden')) return;
+        if (panel._hideTimeout) clearTimeout(panel._hideTimeout);
         panel.style.transition = 'transform 0.2s ease-in, opacity 0.2s ease-in';
         panel.style.transform = 'translateY(20px)';
         panel.style.opacity = '0';
-        setTimeout(() => {
+        panel._hideTimeout = setTimeout(() => {
             panel.classList.add('hidden');
             panel.style.transform = '';
             panel.style.opacity = '';
             panel.style.transition = '';
+            panel._hideTimeout = null;
         }, 200);
     }
 
@@ -1931,9 +1940,13 @@ class Renderer {
     }
 
     showLandlord(data) {
+        if (this._destroyed) return;
         this.hideCallControls();
         this.hidePlayControls();
         this.clearSelection();
+        // 新局重置连击和选牌历史
+        this._comboData = null;
+        this._selectionHistory = [];
 
         const area = this._getPlayerArea(data.landlordIndex);
         area?.querySelector('.player-badge')?.classList.add('landlord');
@@ -2019,7 +2032,8 @@ class Renderer {
             c.style.transform = 'scale(0.9)';
         });
         if (oldCards.length > 0) {
-            setTimeout(() => { playedArea.innerHTML = ''; }, 150);
+            if (playedArea._clearTimeout) clearTimeout(playedArea._clearTimeout);
+            playedArea._clearTimeout = setTimeout(() => { playedArea.innerHTML = ''; playedArea._clearTimeout = null; }, 150);
         } else {
             playedArea.innerHTML = '';
         }
@@ -2140,7 +2154,6 @@ class Renderer {
             playedArea.classList.remove('has-cards');
             playedArea.classList.add('has-pass');
             delete playedArea.dataset.cardCount;
-            playedArea.style.removeProperty('--table-play-scale');
             playedArea.style.removeProperty('--table-play-overlap');
         }
 

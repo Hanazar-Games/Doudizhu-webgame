@@ -489,7 +489,9 @@ class AudioManager {
             { freq: 784, dur: 0.12 },
             { freq: 1047, dur: 0.35 },
         ], 0.12);
-        setTimeout(() => {
+        if (this._winSfxTimeout) clearTimeout(this._winSfxTimeout);
+        this._winSfxTimeout = setTimeout(() => {
+            this._winSfxTimeout = null;
             this._sequence([
                 { freq: 784, dur: 0.08 },
                 { freq: 1047, dur: 0.5, vol: 0.15 },
@@ -711,6 +713,10 @@ class AudioManager {
             this.playMenuBGM();
         } else if (this._currentBGM === 'game') {
             this.playGameBGM();
+        } else if (this._currentBGM === 'win') {
+            this.playWinBGM();
+        } else if (this._currentBGM === 'lose') {
+            this.playLoseBGM();
         }
         return this.bgmEnabled;
     }
