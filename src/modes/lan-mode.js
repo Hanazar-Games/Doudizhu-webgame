@@ -304,9 +304,9 @@ class LANMode extends BaseMode {
         
         // 音效 + BGM
         this.renderer?.audio?.playDeal();
-        setTimeout(() => this.renderer?.audio?.playNewRound(), 300);
+        this._setTimer(() => this.renderer?.audio?.playNewRound(), 300);
         this.renderer?.audio?.stopBGM();
-        setTimeout(() => this.renderer?.audio?.playGameBGM(), 1500);
+        this._setTimer(() => this.renderer?.audio?.playGameBGM(), 1500);
         
         this._processCalling();
     }
