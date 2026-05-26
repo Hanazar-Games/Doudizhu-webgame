@@ -661,6 +661,7 @@ class Renderer {
             overlay.querySelector('#btn-resume')?.addEventListener('click', () => this._resumeGame());
             overlay.querySelector('#btn-pause-settings')?.addEventListener('click', () => {
                 this.audio?.playButtonClick();
+                this._resumeGame();
                 window.gameApp?.openSettings();
             });
             overlay.querySelector('#btn-pause-exit')?.addEventListener('click', () => {
