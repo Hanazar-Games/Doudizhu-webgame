@@ -57,6 +57,10 @@ class Renderer {
         this.selectedCards.clear();
         this.hintCards = [];
         this._selectionHistory = [];
+        if (this._oneClickTimeout) {
+            clearTimeout(this._oneClickTimeout);
+            this._oneClickTimeout = null;
+        }
         this._trackerData = null;
         // 清理动画残留元素
         document.querySelectorAll('[data-anim-fx="true"]').forEach(el => {
@@ -1341,14 +1345,13 @@ class Renderer {
             if (bottomEl) {
                 bottomEl.classList.remove('hidden');
                 const container = bottomEl.querySelector('.cards');
-                if (container && !container.dataset.rendered) {
+                if (container) {
                     container.innerHTML = '';
                     for (const c of this.gameState.bottomCards) {
                         const el = this._createCardElement(c);
                         el.style.transform = 'scale(0.75)';
                         container.appendChild(el);
                     }
-                    container.dataset.rendered = 'true';
                 }
             }
         } else if (bottomEl) {
@@ -1572,7 +1575,11 @@ class Renderer {
                 const selection = this._getPlayableSelection(this._getSelectedCards());
                 if (selection.pattern?.isValid?.() && selection.cards.length > 0) {
                     // 短暂延迟让用户看到选中效果
-                    setTimeout(() => this._doPlay(), 180);
+                    if (this._oneClickTimeout) clearTimeout(this._oneClickTimeout);
+                    this._oneClickTimeout = setTimeout(() => {
+                        this._oneClickTimeout = null;
+                        this._doPlay();
+                    }, 180);
                 }
             }
         }
@@ -1630,6 +1637,7 @@ class Renderer {
         const sorted = this._sortHand(player.hand);
         cardEls.forEach((el, idx) => {
             const card = sorted[idx];
+            if (!card) return;
             const isSelected = Array.from(prev).some(c =>
                 c.value === card.value && (c.suit?.name || c.rankKey) === (card.suit?.name || card.rankKey)
             );

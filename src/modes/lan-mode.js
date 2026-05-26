@@ -3,7 +3,7 @@
  * 基于 WebSocket 的联机对战
  */
 
-import { Card, SUITS } from '../core/card.js';
+import { Card, SUITS, RANKS } from '../core/card.js';
 import { Rules } from '../core/rules.js';
 import { GameState, PHASE } from '../core/game-state.js';
 import { Player } from '../players/player.js';
@@ -389,8 +389,17 @@ class LANMode extends BaseMode {
     _deserializeDeck(data) {
         if (!Array.isArray(data)) return [];
         return data.map(d => {
-            if (!d || !d.r) return null;
-            return new Card(d.s ? SUITS[d.s.toUpperCase()] : null, d.r);
+            if (!d || typeof d !== 'object' || !d.r) return null;
+            // 验证 rankKey 有效性
+            if (!RANKS[d.r]) return null;
+            // 验证 suit：null/undefined 表示大小王，字符串则必须对应有效花色
+            let suit = null;
+            if (d.s != null) {
+                if (typeof d.s !== 'string') return null;
+                suit = SUITS[d.s.toUpperCase()];
+                if (!suit) return null;
+            }
+            return new Card(suit, d.r);
         }).filter(Boolean);
     }
 

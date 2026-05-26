@@ -161,6 +161,10 @@ class AudioManager {
             clearTimeout(this._bgmTimer);
             this._bgmTimer = null;
         }
+        if (this._winSfxTimeout) {
+            clearTimeout(this._winSfxTimeout);
+            this._winSfxTimeout = null;
+        }
         const now = this.ctx ? this.ctx.currentTime : 0;
         this._bgmNodes.forEach(n => {
             try {

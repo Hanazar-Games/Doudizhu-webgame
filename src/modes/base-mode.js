@@ -148,7 +148,7 @@ class BaseMode {
         
         // 播放发牌音效 + 新轮提示
         this.renderer?.audio?.playDeal();
-        setTimeout(() => this.renderer?.audio?.playNewRound(), 300);
+        this._setTimer(() => this.renderer?.audio?.playNewRound(), 300);
         
         // 进入叫分流程
         this._processCalling();
@@ -215,6 +215,8 @@ class BaseMode {
                     break;
                 }
             }
+        } catch (err) {
+            console.error('[_processCalling] 异常:', err);
         } finally {
             this._isProcessingCalling = false;
         }
@@ -313,6 +315,8 @@ class BaseMode {
                     break;
                 }
             }
+        } catch (err) {
+            console.error('[_processPlay] 异常:', err);
         } finally {
             this._isProcessingPlay = false;
         }
@@ -424,7 +428,7 @@ class BaseMode {
     _startCountdown(playerIndex, type) {
         this._stopCountdown();
         const settings = Storage.getSettings();
-        if (settings.timerEnabled == false) {
+        if (settings.timerEnabled === false) {
             return; // 倒计时关闭，不启动
         }
         this._turnCountdown = Math.max(10, Math.min(120, settings.timerSeconds ?? 30));

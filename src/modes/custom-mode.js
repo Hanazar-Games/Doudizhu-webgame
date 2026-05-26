@@ -106,6 +106,8 @@ class CustomMode extends BaseMode {
         this.gameState.allowAntiSpring = settings.allowAntiSpring !== false;
         this.gameState.bombDoubles = settings.bombDoubles !== false;
         this.gameState.rocketDoubles = settings.rocketDoubles !== false;
+        this.gameState.jokerRule = settings.jokerRule || 'standard';
+        this.gameState.bombRule = settings.bombRule || 'standard';
         
         let deck, bottom;
         
@@ -147,37 +149,39 @@ class CustomMode extends BaseMode {
                 hasFixed = false;
             }
 
-            // 剩余牌补充
-            let fullDeck = Card.createDeck();
-            if (!this.gameState.noShuffle) {
-                fullDeck = Card.shuffle(fullDeck);
-            }
-            const used = new Set(fixedKeys);
-            const remaining = fullDeck.filter(c => !used.has(fixedKey(c)));
-            
-            // 从 remaining 补充缺失的手牌
-            let remIdx = 0;
-            for (let i = 0; i < 3; i++) {
-                if (!playerHands[i]) {
-                    playerHands[i] = remaining.slice(remIdx, remIdx + 17);
-                    remIdx += 17;
+            if (hasFixed) {
+                // 剩余牌补充
+                let fullDeck = Card.createDeck();
+                if (!this.gameState.noShuffle) {
+                    fullDeck = Card.shuffle(fullDeck);
                 }
+                const used = new Set(fixedKeys);
+                const remaining = fullDeck.filter(c => !used.has(fixedKey(c)));
+                
+                // 从 remaining 补充缺失的手牌
+                let remIdx = 0;
+                for (let i = 0; i < 3; i++) {
+                    if (!playerHands[i]) {
+                        playerHands[i] = remaining.slice(remIdx, remIdx + 17);
+                        remIdx += 17;
+                    }
+                }
+                // 补充底牌
+                if (!bottom) {
+                    bottom = remaining.slice(remIdx, remIdx + 3);
+                    remIdx += 3;
+                }
+                
+                // 合并为 deck（51张）
+                deck = [...playerHands[0], ...playerHands[1], ...playerHands[2]];
+                
+                // 设置叫牌模式和癞子
+                this.gameState.callMode = this.customConfig.callMode;
+                this.gameState.laiziEnabled = this.customConfig.laiziMode;
+                this.gameState.startRound(deck, bottom);
+                // 手动触发渲染
+                if (this.renderer) this.renderer.renderHands();
             }
-            // 补充底牌
-            if (!bottom) {
-                bottom = remaining.slice(remIdx, remIdx + 3);
-                remIdx += 3;
-            }
-            
-            // 合并为 deck（51张）
-            deck = [...playerHands[0], ...playerHands[1], ...playerHands[2]];
-            
-            // 设置叫牌模式和癞子
-            this.gameState.callMode = this.customConfig.callMode;
-            this.gameState.laiziEnabled = this.customConfig.laiziMode;
-            this.gameState.startRound(deck, bottom);
-            // 手动触发渲染
-            if (this.renderer) this.renderer.renderHands();
         } else {
             // 设置叫牌模式和癞子
             this.gameState.callMode = this.customConfig.callMode;
@@ -210,9 +214,9 @@ class CustomMode extends BaseMode {
         
         // 音效 + BGM
         this.renderer?.audio?.playDeal();
-        setTimeout(() => this.renderer?.audio?.playNewRound(), 300);
+        this._setTimer(() => this.renderer?.audio?.playNewRound(), 300);
         this.renderer?.audio?.stopBGM();
-        setTimeout(() => this.renderer?.audio?.playGameBGM(), 1500);
+        this._setTimer(() => this.renderer?.audio?.playGameBGM(), 1500);
         
         this._processCalling();
     }
