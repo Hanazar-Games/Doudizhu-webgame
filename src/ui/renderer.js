@@ -1309,16 +1309,12 @@ class Renderer {
         this.clearSelection();
 
         // 底牌始终可见
+        const bottomEl = this.container.querySelector('#bottom-cards');
         if (this.gameState?.bottomVisible && this.gameState?.bottomCards?.length > 0) {
-            const bottomEl = this.container.querySelector('#bottom-cards');
             if (bottomEl) {
                 bottomEl.classList.remove('hidden');
                 const container = bottomEl.querySelector('.cards');
-                // 重置底牌渲染标志，确保每局都重新渲染
-        if (container) {
-            delete container.dataset.rendered;
-        }
-        if (container && !container.dataset.rendered) {
+                if (container && !container.dataset.rendered) {
                     container.innerHTML = '';
                     for (const c of this.gameState.bottomCards) {
                         const el = this._createCardElement(c);
@@ -1328,6 +1324,8 @@ class Renderer {
                     container.dataset.rendered = 'true';
                 }
             }
+        } else if (bottomEl) {
+            bottomEl.classList.add('hidden');
         }
 
         for (let i = 0; i < 3; i++) {
@@ -1413,6 +1411,8 @@ class Renderer {
 
                     // 支持鼠标点击和触摸（防止重复触发）
                     const toggle = (e) => {
+                        // 双击的第二次 click 不触发选牌切换
+                        if (e.detail > 1) return;
                         if (this.gameState?.phase !== PHASE.PLAYING) {
                             this.showToast('请先完成叫地主', 'info');
                             return;
@@ -1538,13 +1538,15 @@ class Renderer {
             this.anim.cardDeselect(el);
         }
 
-        // 一键出牌：选牌后若牌型合法，自动打出
-        const settings = Storage.getSettings();
-        if (settings.oneClickPlay === true && this._isHumanPlayTurn()) {
-            const selection = this._getPlayableSelection(this._getSelectedCards());
-            if (selection.pattern?.isValid?.() && selection.cards.length > 0) {
-                // 短暂延迟让用户看到选中效果
-                setTimeout(() => this._doPlay(), 180);
+        // 一键出牌：选牌后若牌型合法，自动打出（仅在选中时触发，取消选中不触发）
+        if (shouldSelect) {
+            const settings = Storage.getSettings();
+            if (settings.oneClickPlay === true && this._isHumanPlayTurn()) {
+                const selection = this._getPlayableSelection(this._getSelectedCards());
+                if (selection.pattern?.isValid?.() && selection.cards.length > 0) {
+                    // 短暂延迟让用户看到选中效果
+                    setTimeout(() => this._doPlay(), 180);
+                }
             }
         }
     }
@@ -1602,7 +1604,7 @@ class Renderer {
         cardEls.forEach((el, idx) => {
             const card = sorted[idx];
             const isSelected = Array.from(prev).some(c =>
-                c.value === card.value && (c.suit?.name || c.rankKey) === (card.suit?.name || c.rankKey)
+                c.value === card.value && (c.suit?.name || c.rankKey) === (card.suit?.name || card.rankKey)
             );
             el.classList.toggle('selected', isSelected);
         });
@@ -2662,14 +2664,15 @@ class Renderer {
         if (emptyEl) emptyEl.remove();
 
         const player = this.gameState?.players[data.playerIndex];
-        const name = player?.name || '?';
+        const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
+        const name = esc(player?.name || '?');
 
         let text;
         if (data.pass) {
             text = `${name}: 不出`;
         } else {
-            const cardNames = data.cards?.map(c => c.displayName).join(' ') || '';
-            const typeName = Rules.getTypeName(data.pattern?.type || 'INVALID');
+            const cardNames = data.cards?.map(c => esc(c.displayName)).join(' ') || '';
+            const typeName = esc(Rules.getTypeName(data.pattern?.type || 'INVALID'));
             text = `${name}: [${typeName}] ${cardNames}`;
         }
 

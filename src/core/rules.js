@@ -631,11 +631,14 @@ class Rules {
         if (type !== HAND_TYPE.ROCKET) {
             // 检查是否有更大的炸弹
             for (const [val, grp] of groupEntries) {
-                if (grp.length === 4 && val > mainVal && type !== HAND_TYPE.BOMB) {
-                    results.push(grp);
-                }
-                if (type === HAND_TYPE.BOMB && grp.length === 4 && val > mainVal) {
-                    results.push(grp);
+                if (grp.length === 4) {
+                    if (type === HAND_TYPE.BOMB) {
+                        // 炸弹对炸弹：需要更大
+                        if (val > mainVal) results.push(grp);
+                    } else {
+                        // 任何炸弹都能打败非炸弹
+                        results.push(grp);
+                    }
                 }
             }
             // 检查火箭

@@ -108,8 +108,8 @@ class AIPlayer extends Player {
     // 出牌决策
     async decidePlay(gameState, lastPattern) {
         const isNewRound = !lastPattern || 
-                           lastPattern.type === 'INVALID' ||
-                           (gameState.lastPlay.playerIndex === this.index) ||
+                           !lastPattern.isValid() ||
+                           (gameState.lastPlay?.playerIndex === this.index) ||
                            (gameState.passCount >= 2);
 
         if (isNewRound) {
@@ -164,10 +164,9 @@ class AIPlayer extends Player {
         const entries = [...groups.entries()];
 
         // 策略1：如果能一次出完，直接出完
-        if (hand.length <= 6) {
-            const pattern = Rules.analyze(hand);
-            if (pattern.isValid()) return hand;
-        }
+        // 策略1：如果能一次出完，直接出完
+        const fullPattern = Rules.analyze(hand);
+        if (fullPattern.isValid()) return hand;
 
         // 分析手牌结构
         const structure = this._analyzeHandStructure(hand);
@@ -195,8 +194,8 @@ class AIPlayer extends Player {
             return tp.slice(0, 3);
         }
 
-        // 策略4：出最小的对子
-        const pairs = entries.filter(([v, g]) => g.length >= 2 && v <= 14);
+        // 策略4：出最小的对子（只选真正的对子，不拆炸弹/三张）
+        const pairs = entries.filter(([v, g]) => g.length === 2 && v <= 14);
         if (pairs.length > 0) {
             return pairs[0][1].slice(0, 2);
         }
@@ -211,7 +210,7 @@ class AIPlayer extends Player {
         }
 
         // 策略6：只剩大牌了，出最小的
-        return [hand[0]];
+        return hand.length > 0 ? [hand[0]] : [];
     }
 
     // 分析手牌结构，返回各种牌型

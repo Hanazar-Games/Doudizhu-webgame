@@ -18,13 +18,13 @@ export const Storage = {
     getStats() {
         const raw = localStorage.getItem(PREFIX + 'stats');
         const defaults = { gamesPlayed: 0, wins: 0, losses: 0, totalScore: 0, streak: 0, maxStreak: 0, maxScore: 0, maxBombsInGame: 0, exp: 0, level: 1 };
-        if (!raw) return defaults;
+        if (!raw) return { ...defaults };
         try {
             const parsed = JSON.parse(raw);
-            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return defaults;
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ...defaults };
             return { ...defaults, ...parsed };
         } catch {
-            return defaults;
+            return { ...defaults };
         }
     },
 
@@ -33,7 +33,8 @@ export const Storage = {
         try {
             const records = this.getGameRecords();
             records.unshift(record);
-            const max = Math.max(10, Math.min(200, this.getSettings().maxHistory ?? 50));
+            let max = Number(this.getSettings().maxHistory) || 50;
+            max = Math.max(10, Math.min(200, max));
             while (records.length > max) records.pop();
             localStorage.setItem(PREFIX + 'records', JSON.stringify(records));
         } catch (e) {
@@ -262,6 +263,7 @@ export const Storage = {
         if (!raw) return { ...defaults };
         try {
             const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ...defaults };
             // 合并：保留旧设置 + 填充新默认值
             const merged = { ...defaults, ...parsed };
 
@@ -293,7 +295,7 @@ export const Storage = {
         try {
             const games = this.getFullGames();
             games.unshift(gameData);
-            if (games.length > 20) games.pop(); // 保留最近20局
+            if (games.length > 20) games.length = 20; // 保留最近20局
             localStorage.setItem(PREFIX + 'full_games', JSON.stringify(games));
         } catch (e) {
             if (this._isQuotaError(e)) {

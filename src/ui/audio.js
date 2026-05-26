@@ -54,7 +54,10 @@ class AudioManager {
 
     async _ensureContext() {
         if (!this.enabled) return false;
-        if (!this.ctx) {
+        if (!this.ctx || this.ctx.state === 'closed' || this.ctx.state === 'closing') {
+            this.ctx = null;
+            this._masterCompressor = null;
+            this._bgmGain = null;
             try {
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
             } catch (e) {
@@ -75,6 +78,7 @@ class AudioManager {
     // ==================== 通用底层 ====================
 
     _getMasterCompressor() {
+        if (!this.ctx) return null;
         if (!this._masterCompressor) {
             this._masterCompressor = this.ctx.createDynamicsCompressor();
             this._masterCompressor.threshold.setValueAtTime(-12, this.ctx.currentTime);
@@ -110,6 +114,9 @@ class AudioManager {
 
         osc.start(t);
         osc.stop(t + duration);
+        osc.onended = () => {
+            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
+        };
     }
 
     async _playTick() {
@@ -120,12 +127,15 @@ class AudioManager {
         const gain = this.ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(880, t);
-        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.setValueAtTime(0.12 * this.sfxVolume, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this._getMasterCompressor() || this.ctx.destination);
         osc.start(t);
         osc.stop(t + 0.1);
+        osc.onended = () => {
+            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
+        };
     }
 
     playTick() {
@@ -181,7 +191,7 @@ class AudioManager {
 
     setBGMVolume(v) {
         this.bgmVolume = Math.max(0, Math.min(1, v));
-        if (this._bgmGain) {
+        if (this._bgmGain && this.ctx) {
             const now = this.ctx.currentTime;
             const target = 0.08 * this.bgmVolume;
             this._bgmGain.gain.setTargetAtTime(target, now, 0.15);
@@ -221,6 +231,7 @@ class AudioManager {
         osc.onended = () => {
             const idx = this._bgmNodes.indexOf(nodeRef);
             if (idx >= 0) this._bgmNodes.splice(idx, 1);
+            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
         };
     }
 
@@ -349,15 +360,18 @@ class AudioManager {
     }
 
     playSingle() {
+        if (!this._isSfxEnabled('play')) return;
         this._tone(640, 0.07, 'sine', 0.1);
     }
 
     playPair() {
+        if (!this._isSfxEnabled('play')) return;
         this._tone(560, 0.07, 'sine', 0.1);
         setTimeout(() => this._tone(560, 0.07, 'sine', 0.1), 50);
     }
 
     playTriple() {
+        if (!this._isSfxEnabled('play')) return;
         this._sequence([
             { freq: 560, dur: 0.05 },
             { freq: 560, dur: 0.05 },
@@ -374,15 +388,19 @@ class AudioManager {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(480, this.ctx.currentTime);
         osc.frequency.linearRampToValueAtTime(960, this.ctx.currentTime + 0.25);
-        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.1 * this.sfxVolume, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this._getMasterCompressor() || this.ctx.destination);
         osc.start();
         osc.stop(this.ctx.currentTime + 0.3);
+        osc.onended = () => {
+            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
+        };
     }
 
     playPlane() {
+        if (!this._isSfxEnabled('play')) return;
         this._sequence([
             { freq: 540, dur: 0.07 },
             { freq: 700, dur: 0.07 },
@@ -391,6 +409,7 @@ class AudioManager {
     }
 
     playFourWithTwo() {
+        if (!this._isSfxEnabled('play')) return;
         // 纯五度和声（G4 + D5）
         this._tone(392, 0.13, 'triangle', 0.10);
         setTimeout(() => this._tone(587, 0.08, 'sine', 0.07), 100);
@@ -414,11 +433,11 @@ class AudioManager {
         filter.frequency.setValueAtTime(1000, this.ctx.currentTime);
         filter.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + duration);
         const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime(0.20, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.20 * this.sfxVolume, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
         noise.connect(filter);
         filter.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this._getMasterCompressor() || this.ctx.destination);
         noise.start();
 
         const osc = this.ctx.createOscillator();
@@ -426,12 +445,18 @@ class AudioManager {
         osc.frequency.setValueAtTime(100, this.ctx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(15, this.ctx.currentTime + duration);
         const oscGain = this.ctx.createGain();
-        oscGain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        oscGain.gain.setValueAtTime(0.15 * this.sfxVolume, this.ctx.currentTime);
         oscGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
         osc.connect(oscGain);
-        oscGain.connect(this.ctx.destination);
+        oscGain.connect(this._getMasterCompressor() || this.ctx.destination);
         osc.start();
         osc.stop(this.ctx.currentTime + duration);
+        noise.onended = () => {
+            try { noise.disconnect(); filter.disconnect(); gain.disconnect(); } catch (e) {}
+        };
+        osc.onended = () => {
+            try { osc.disconnect(); oscGain.disconnect(); } catch (e) {}
+        };
     }
 
     async playRocket() {
@@ -444,12 +469,15 @@ class AudioManager {
         osc.frequency.exponentialRampToValueAtTime(1400, this.ctx.currentTime + 0.35);
         osc.frequency.exponentialRampToValueAtTime(180, this.ctx.currentTime + 0.9);
         const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.15 * this.sfxVolume, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.9);
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this._getMasterCompressor() || this.ctx.destination);
         osc.start();
         osc.stop(this.ctx.currentTime + 0.9);
+        osc.onended = () => {
+            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
+        };
     }
 
     playWin() {

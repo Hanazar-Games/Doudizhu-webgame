@@ -32,10 +32,14 @@ class RoomManager {
     }
 
     joinRoom(ws, roomId, peerId) {
+        if (!ws || typeof ws.send !== 'function') return { success: false, error: 'Invalid connection' };
         const room = this.rooms.get(roomId);
         if (!room) return { success: false, error: '房间不存在' };
         if (room.gameStarted) return { success: false, error: '游戏已开始' };
         if (room.players.size >= 3) return { success: false, error: '房间已满' };
+        if (room.players.has(peerId)) return { success: false, error: 'Peer ID already in room' };
+        // 防止一个 ws 同时在多个房间
+        this.leaveRoom(ws);
 
         // 分配座位
         const usedSeats = new Set([...room.players.values()].map(p => p.seatIndex));
@@ -132,8 +136,13 @@ class RoomManager {
         const room = this.rooms.get(roomId);
         if (!room) return;
         
-        // 清理所有玩家的映射
+        // 关闭剩余玩家的 socket
         for (const [pid, p] of room.players) {
+            try {
+                if (p.ws && p.ws.readyState === WebSocket.OPEN) {
+                    p.ws.close();
+                }
+            } catch (e) {}
             this.playerToRoom.delete(p.ws);
         }
         this.rooms.delete(roomId);
@@ -176,7 +185,7 @@ class RoomManager {
         }
         for (const [pid, p] of room.players) {
             if (pid === excludePeerId) continue;
-            if (p.ws.readyState === WebSocket.OPEN) {
+            if (p.ws && p.ws.readyState === WebSocket.OPEN) {
                 try {
                     p.ws.send(data);
                 } catch (e) {
@@ -187,7 +196,7 @@ class RoomManager {
     }
 
     sendToPeer(ws, msg) {
-        if (ws.readyState !== WebSocket.OPEN) return;
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
         try {
             ws.send(JSON.stringify(msg));
         } catch (e) {

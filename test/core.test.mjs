@@ -486,7 +486,7 @@ test('GameState hasValidPlays filters disabled patterns', () => {
     gs.setPlayer(2, new Player('P2'));
     // P0 有 3334 + 小牌，上家出了 KKKQ（三带一）
     // P0 没有王炸/炸弹/大于K的单张，唯一可出的是 3334（三带一）但被禁用
-    p0.setHand(makeCards(['3', '3', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', '3', '4', '5', '6', '7', '8', '9', '10']));
+    p0.setHand(makeCards(['3', '3', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q']));
     gs.phase = PHASE.PLAYING;
     gs.currentTurn = 0;
     gs.allowTripleWithSingle = false;

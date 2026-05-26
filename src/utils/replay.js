@@ -72,11 +72,14 @@ class ReplayManager {
         html += `<button id="btn-replay-back" class="btn-small">← 返回菜单</button></div>`;
         this.container.innerHTML = html;
 
-        // 绑定回放按钮
-        this.container.querySelectorAll('.btn-replay-watch').forEach((btn, idx) => {
+        // 绑定回放按钮（使用 data-index 避免跳过无效记录后索引错位）
+        this.container.querySelectorAll('.btn-replay-watch').forEach((btn) => {
             btn.addEventListener('click', () => {
                 window.gameApp?.renderer?.audio?.playButtonClick();
-                this.startReplay(games[idx]);
+                const idx = Number(btn.closest('.replay-item')?.dataset.index);
+                if (Number.isFinite(idx) && games[idx]) {
+                    this.startReplay(games[idx]);
+                }
             });
         });
 
@@ -216,7 +219,7 @@ class ReplayManager {
             );
             const isRed = isJoker ? rankLabel === '大王' : (suitSymbol === '♥' || suitSymbol === '♦');
             return {
-                value: Number(card?.value || card?.rank?.value || 0),
+                value: Number(card?.value ?? card?.rank?.value ?? 0),
                 rank,
                 suit,
                 rankLabel,
@@ -234,7 +237,9 @@ class ReplayManager {
         };
 
         // 计算到当前步骤为止的状态
-        const hands = g.initialHands.map(h => h ? [...h] : []);
+        const hands = Array.isArray(g.initialHands)
+            ? g.initialHands.map(h => Array.isArray(h) ? [...h] : [])
+            : [[], [], []];
         const bottom = g.initialBottom ? [...g.initialBottom] : [];
         let landlordIdx = -1;
         let lastPlay = null;
@@ -250,6 +255,7 @@ class ReplayManager {
                 // 出牌：从手牌中移除
                 for (const playedCard of action.cards) {
                     const hand = hands[action.playerIndex];
+                    if (!hand) continue;
                     const idx = hand.findIndex(c => sameCard(c, playedCard));
                     if (idx >= 0) hand.splice(idx, 1);
                 }

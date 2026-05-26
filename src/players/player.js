@@ -25,6 +25,7 @@ class Player {
     }
 
     removeCards(cards) {
+        if (!cards || !Array.isArray(cards)) return;
         // 基于 value + suit 匹配，不依赖对象引用，也不修改传入数组
         const toRemove = [];
         for (const c of cards) {
@@ -41,6 +42,7 @@ class Player {
     }
 
     hasCards(cards) {
+        if (!cards || !Array.isArray(cards)) return false;
         const handCopy = [...this.hand];
         for (const c of cards) {
             const idx = handCopy.findIndex(hc => hc.value === c.value && (hc.suit?.name || hc.rankKey) === (c.suit?.name || c.rankKey));
@@ -53,6 +55,8 @@ class Player {
     resetHand() {
         this.hand = [];
         this.isLandlord = false;
+        this.isReady = false;
+        this.isAuto = false;
     }
 
     // 子类可覆盖：决定叫分策略

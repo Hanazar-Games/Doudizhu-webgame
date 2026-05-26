@@ -752,6 +752,10 @@ class Tutorial {
         this.totalChapters = CHAPTERS.length;
         this._isOpen = false;
         this._onComplete = null;
+        this._eventsBound = false;
+        this._dealInterval = null;
+        this._callInterval = null;
+        this._playTimeouts = [];
     }
 
     open(onComplete = null) {
@@ -769,13 +773,31 @@ class Tutorial {
 
     close() {
         if (!this.container) return;
+        this._clearTimers();
         this.container.classList.add('hidden');
         this._isOpen = false;
         this.audio?.stopBGM?.();
         document.body.style.overflow = '';
     }
 
+    _clearTimers() {
+        if (this._dealInterval) {
+            clearInterval(this._dealInterval);
+            this._dealInterval = null;
+        }
+        if (this._callInterval) {
+            clearInterval(this._callInterval);
+            this._callInterval = null;
+        }
+        for (const t of this._playTimeouts) {
+            clearTimeout(t);
+        }
+        this._playTimeouts = [];
+    }
+
     _bindEvents() {
+        if (this._eventsBound) return;
+        this._eventsBound = true;
         const closeBtn = this.container.querySelector('.tutorial-close');
         closeBtn?.addEventListener('click', () => this.close());
 
@@ -941,6 +963,7 @@ class Tutorial {
 
     _prevChapter() {
         if (this.currentChapter > 0) {
+            this._clearTimers();
             this.currentChapter--;
             this._renderChapter();
             this._playChapterBGM();
@@ -950,6 +973,7 @@ class Tutorial {
 
     _nextChapter() {
         if (this.currentChapter < this.totalChapters - 1) {
+            this._clearTimers();
             this.currentChapter++;
             this._renderChapter();
             this._playChapterBGM();
@@ -1026,17 +1050,20 @@ class Tutorial {
 
         // 发牌动画：每人一张一张发
         let step = 0;
-        const dealInterval = setInterval(() => {
+        this._clearTimers();
+        this._dealInterval = setInterval(() => {
             const playerIdx = step % 3;
             const cardNum = Math.floor(step / 3) + 1;
             if (cardNum > 17) {
-                clearInterval(dealInterval);
+                clearInterval(this._dealInterval);
+                this._dealInterval = null;
                 // 显示底牌
-                setTimeout(() => {
+                const t = setTimeout(() => {
                     bottomCards.forEach(c => c.classList.remove('hidden'));
                     this.audio?.playBottomReveal?.();
                     if (btn) btn.disabled = false;
                 }, 500);
+                this._playTimeouts.push(t);
                 return;
             }
             const stack = players[playerIdx]?.querySelector('.tut-deal-card-stack');
@@ -1061,8 +1088,9 @@ class Tutorial {
         actions.forEach(a => a.classList.remove('tut-call-highlight'));
         result?.classList.remove('tut-call-show');
 
+        this._clearTimers();
         let step = 0;
-        const interval = setInterval(() => {
+        this._callInterval = setInterval(() => {
             const action = this.container.querySelector(`.tut-call-action[data-step="${step}"]`);
             if (action) {
                 action.classList.add('tut-call-highlight');
@@ -1070,12 +1098,14 @@ class Tutorial {
             }
             step++;
             if (step >= 4) {
-                clearInterval(interval);
-                setTimeout(() => {
+                clearInterval(this._callInterval);
+                this._callInterval = null;
+                const t = setTimeout(() => {
                     result?.classList.add('tut-call-show');
                     this.audio?.playLandlordConfirm?.();
                     if (btn) btn.disabled = false;
                 }, 600);
+                this._playTimeouts.push(t);
             }
         }, 800);
     }
@@ -1092,27 +1122,28 @@ class Tutorial {
         types.forEach(t => t.style.opacity = '0');
         if (turn) turn.textContent = '地主先出 → AI-东';
 
-        setTimeout(() => {
-            cards[0]?.classList.add('tut-play-active');
-            types[0].style.opacity = '1';
-            this.audio?.playCardPlace?.();
-        }, 500);
-
-        setTimeout(() => {
-            if (turn) turn.textContent = 'AI-西 接牌';
-            cards[0]?.classList.remove('tut-play-active');
-            cards[1]?.classList.add('tut-play-active');
-            types[1].style.opacity = '1';
-            this.audio?.playCardPlace?.();
-        }, 1800);
-
-        setTimeout(() => {
-            if (turn) turn.textContent = '轮到 你';
-            cards[1]?.classList.remove('tut-play-active');
-            cards[2]?.classList.add('tut-play-active');
-            this.audio?.playButtonClick?.();
-            if (btn) btn.disabled = false;
-        }, 3100);
+        this._clearTimers();
+        this._playTimeouts.push(
+            setTimeout(() => {
+                cards[0]?.classList.add('tut-play-active');
+                if (types[0]) types[0].style.opacity = '1';
+                this.audio?.playCardPlace?.();
+            }, 500),
+            setTimeout(() => {
+                if (turn) turn.textContent = 'AI-西 接牌';
+                cards[0]?.classList.remove('tut-play-active');
+                cards[1]?.classList.add('tut-play-active');
+                if (types[1]) types[1].style.opacity = '1';
+                this.audio?.playCardPlace?.();
+            }, 1800),
+            setTimeout(() => {
+                if (turn) turn.textContent = '轮到 你';
+                cards[1]?.classList.remove('tut-play-active');
+                cards[2]?.classList.add('tut-play-active');
+                this.audio?.playButtonClick?.();
+                if (btn) btn.disabled = false;
+            }, 3100)
+        );
     }
 
     _startPractice() {

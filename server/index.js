@@ -24,7 +24,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 const app = express();
 const server = createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 65536 });
 const roomManager = new RoomManager();
 
 // ---- 中间件 ----
@@ -114,6 +114,10 @@ wss.on('connection', (ws, req) => {
             roomManager.sendToPeer(ws, { type: 'error', message: 'Message must be an object' });
             return;
         }
+        if (typeof msg.type !== 'string') {
+            roomManager.sendToPeer(ws, { type: 'error', message: 'Missing or invalid message type' });
+            return;
+        }
         try {
             handleMessage(ws, msg);
         } catch (err) {
@@ -154,6 +158,8 @@ function handleMessage(ws, msg) {
 
     switch (type) {
         case 'create_room': {
+            // 先离开当前房间，防止一个 ws 在多个房间
+            roomManager.leaveRoom(ws);
             const peerId = msg.peerId || generatePeerId();
             const room = roomManager.createRoom(ws, peerId);
             roomManager.sendToPeer(ws, {
@@ -194,8 +200,12 @@ function handleMessage(ws, msg) {
                 roomManager.sendToPeer(ws, { type: 'error', message: 'Only host can start' });
                 return;
             }
-            if (room.players.size < 3) {
-                roomManager.sendToPeer(ws, { type: 'error', message: 'Need 3 players' });
+            if (room.players.size !== 3) {
+                roomManager.sendToPeer(ws, { type: 'error', message: 'Need exactly 3 players' });
+                return;
+            }
+            if (room.gameStarted) {
+                roomManager.sendToPeer(ws, { type: 'error', message: 'Game already started' });
                 return;
             }
             roomManager.startGame(roomId);
@@ -211,23 +221,29 @@ function handleMessage(ws, msg) {
         case 'game_start': {
             // 房主发送游戏开始同步时，标记房间为已开始，防止新玩家加入
             const roomId2 = roomManager.playerToRoom.get(ws);
-            if (roomId2) {
-                const room2 = roomManager.rooms.get(roomId2);
-                if (room2) {
-                    const senderPeerId = roomManager._getPeerIdByWs(room2, ws);
-                    if (senderPeerId !== room2.hostId) {
-                        roomManager.sendToPeer(ws, { type: 'error', message: 'Only host can start game' });
-                        break;
-                    }
-                    if (room2.players.size < 3) {
-                        roomManager.sendToPeer(ws, { type: 'error', message: 'Need 3 players' });
-                        break;
-                    }
-                    if (!room2.gameStarted) {
-                        roomManager.startGame(roomId2);
-                    }
-                }
+            if (!roomId2) {
+                roomManager.sendToPeer(ws, { type: 'error', message: 'Not in a room' });
+                break;
             }
+            const room2 = roomManager.rooms.get(roomId2);
+            if (!room2) {
+                roomManager.sendToPeer(ws, { type: 'error', message: 'Room not found' });
+                break;
+            }
+            const senderPeerId = roomManager._getPeerIdByWs(room2, ws);
+            if (senderPeerId !== room2.hostId) {
+                roomManager.sendToPeer(ws, { type: 'error', message: 'Only host can start game' });
+                break;
+            }
+            if (room2.players.size !== 3) {
+                roomManager.sendToPeer(ws, { type: 'error', message: 'Need exactly 3 players' });
+                break;
+            }
+            if (room2.gameStarted) {
+                roomManager.sendToPeer(ws, { type: 'error', message: 'Game already started' });
+                break;
+            }
+            roomManager.startGame(roomId2);
             roomManager.relayMessage(ws, msg);
             break;
         }
@@ -240,7 +256,7 @@ function handleMessage(ws, msg) {
         }
 
         default: {
-            roomManager.relayMessage(ws, msg);
+            roomManager.sendToPeer(ws, { type: 'error', message: 'Unknown message type: ' + type });
         }
     }
 }
@@ -288,22 +304,20 @@ server.listen(PORT, HOST, () => {
 });
 
 // 优雅关闭
-process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down...');
+function gracefulShutdown(signal) {
+    console.log(`${signal} received, shutting down...`);
     clearInterval(heartbeatInterval);
+    // 终止所有活跃 WebSocket 连接
+    wss.clients.forEach(ws => {
+        try { ws.terminate(); } catch (e) {}
+    });
+    roomManager.destroy();
     wss.close(() => {
         server.close(() => {
             process.exit(0);
         });
     });
-});
+}
 
-process.on('SIGINT', () => {
-    console.log('\nSIGINT received, shutting down...');
-    clearInterval(heartbeatInterval);
-    wss.close(() => {
-        server.close(() => {
-            process.exit(0);
-        });
-    });
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
