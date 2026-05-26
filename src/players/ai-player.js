@@ -131,7 +131,7 @@ class AIPlayer extends Player {
             // 策略：优先出长牌型，小牌优先
             // 过滤掉单独的大牌（保留到后面出）
             const nonBig = allPlays.filter(p => {
-                if (p.cards.length === 1 && p.cards[0].value >= 14) return false;
+                if (p.cards.length === 1 && p.cards[0]?.value >= 14) return false;
                 return true;
             });
             

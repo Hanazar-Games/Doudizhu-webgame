@@ -1204,7 +1204,8 @@ class Renderer {
         let dragStartY = 0;
         const dragThreshold = () => {
             const raw = getComputedStyle(document.documentElement).getPropertyValue('--ddz-drag-threshold');
-            return parseFloat(raw) || 7;
+            const val = parseFloat(raw);
+            return Number.isFinite(val) ? val : 7;
         };
 
         const getCardAt = (x, y) => {
@@ -1686,7 +1687,10 @@ class Renderer {
         const areas = this.container.querySelectorAll('.player-area');
         for (const area of areas) {
             const cd = area.querySelector('.countdown-timer');
-            if (cd) cd.style.opacity = '0';
+            if (cd) {
+                cd.style.opacity = '0';
+                setTimeout(() => cd.remove(), 300);
+            }
         }
     }
 
@@ -1715,7 +1719,10 @@ class Renderer {
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
         const el = area.querySelector('.thinking-indicator');
-        if (el) el.style.opacity = '0';
+        if (el) {
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 300);
+        }
     }
 
     showAIHint(playerIndex, cards) {
@@ -1736,7 +1743,10 @@ class Renderer {
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
         const hint = area.querySelector('.ai-hint');
-        if (hint) hint.style.opacity = '0';
+        if (hint) {
+            hint.style.opacity = '0';
+            setTimeout(() => hint.remove(), 300);
+        }
     }
 
     // ---- 控制面板 ----
@@ -2287,7 +2297,7 @@ class Renderer {
 
             // 累计比分
             const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
-            const sorted = matchStatus.matchScores.map((s, i) => ({ score: s, index: i, name: this.gameState.players[i]?.name }))
+            const sorted = (matchStatus.matchScores || []).map((s, i) => ({ score: s, index: i, name: this.gameState.players[i]?.name }))
                 .sort((a, b) => b.score - a.score);
             matchScoreText = `
                 <div class="match-scores">
