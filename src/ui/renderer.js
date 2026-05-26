@@ -41,7 +41,14 @@ class Renderer {
             document.removeEventListener('keydown', this._keyboardHandler);
             this._keyboardHandler = null;
         }
-        this.audio?.stopBGM();
+        if (this._globalBackMenuHandler) {
+            document.getElementById('btn-back-menu')?.removeEventListener('click', this._globalBackMenuHandler);
+            this._globalBackMenuHandler = null;
+        }
+        if (this._globalPauseHandler) {
+            document.getElementById('btn-pause')?.removeEventListener('click', this._globalPauseHandler);
+            this._globalPauseHandler = null;
+        }
         this.audio = null;
         this.mode = null;
         this.gameState = null;
@@ -272,15 +279,17 @@ class Renderer {
         // 游戏头部按钮（返回菜单、暂停）——不在 this.container 内，用 document 查询
         const btnBackMenu = document.getElementById('btn-back-menu');
         const btnPause = document.getElementById('btn-pause');
-        btnBackMenu?.addEventListener('click', () => {
+        this._globalBackMenuHandler = () => {
             this.audio?.playButtonClick();
             window.gameApp?.showMenu();
-        });
-        btnPause?.addEventListener('click', () => {
+        };
+        this._globalPauseHandler = () => {
             this.audio?.playButtonClick();
             if (this._isPaused) this._resumeGame();
             else this._pauseGame();
-        });
+        };
+        btnBackMenu?.addEventListener('click', this._globalBackMenuHandler);
+        btnPause?.addEventListener('click', this._globalPauseHandler);
         [btnBackMenu, btnPause].forEach(b => this._bindRipple(b));
     }
 
@@ -911,13 +920,14 @@ class Renderer {
             return;
         }
         const pattern = Rules.analyze(cards);
-        if (pattern.isValid()) {
+        const allowed = this.gameState?._isPatternAllowed?.(pattern, cards) ?? pattern.isValid();
+        if (pattern.isValid() && allowed) {
             hintEl.textContent = `${Rules.getTypeName(pattern.type)} (主牌: ${pattern.mainValue})`;
             hintEl.className = 'hand-hint valid';
             this._renderSmartSelection(null);
         } else {
             const playable = this._getPlayableSelection(cards);
-            if (playable.optimized && playable.pattern?.isValid?.()) {
+            if (playable.optimized && playable.pattern?.isValid?.() && (this.gameState?._isPatternAllowed?.(playable.pattern, playable.cards) ?? true)) {
                 const dropped = playable.dropped > 0 ? ` · 去掉${playable.dropped}张` : '';
                 hintEl.textContent = `可出${Rules.getTypeName(playable.pattern.type)}${dropped}`;
                 hintEl.className = 'hand-hint valid smart';
@@ -971,6 +981,13 @@ class Renderer {
         if (removedCount !== playedCards.length) {
             this.renderHands();
         }
+        // 更新人类玩家区域的危险牌提示
+        const humanArea = this._getPlayerArea(this.mode?.humanIndex);
+        const player = this.gameState?.players[this.mode?.humanIndex];
+        if (humanArea && player) {
+            humanArea.classList.toggle('low-cards', this.gameState?.phase === PHASE.PLAYING && player.hand.length <= 5);
+            humanArea.classList.toggle('danger-cards', this.gameState?.phase === PHASE.PLAYING && player.hand.length <= 2);
+        }
     }
 
     _isHumanPlayTurn() {
@@ -995,7 +1012,8 @@ class Renderer {
 
         const { lastPattern, isNewRound } = this._getPlayContext();
         const directPattern = Rules.analyze(sorted);
-        if (directPattern.isValid() && (isNewRound || Rules.canBeat(lastPattern, directPattern))) {
+        const directAllowed = this.gameState?._isPatternAllowed?.(directPattern, sorted) ?? directPattern.isValid();
+        if (directPattern.isValid() && directAllowed && (isNewRound || Rules.canBeat(lastPattern, directPattern))) {
             return { cards: sorted, pattern: directPattern, optimized: false, dropped: 0 };
         }
 
@@ -1006,6 +1024,7 @@ class Renderer {
             ...this._extractPrunedValidSubsets(sorted),
         ].filter(candidate => {
             if (!candidate.pattern?.isValid?.()) return false;
+            if (!(this.gameState?._isPatternAllowed?.(candidate.pattern, candidate.cards) ?? true)) return false;
             return isNewRound || Rules.canBeat(lastPattern, candidate.pattern);
         });
 
@@ -1815,7 +1834,7 @@ class Renderer {
 
         const isNewRound = !lastPattern || lastPattern.type === 'INVALID' ||
                            (this.gameState?.passCount >= 2) ||
-                           (this.gameState?.lastPlay.playerIndex === playerIndex);
+                           (this.gameState?.lastPlay?.playerIndex === playerIndex);
         const btnPass = panel.querySelector('#btn-pass');
         if (btnPass) btnPass.disabled = isNewRound && this.gameState?.allowPassOnFirst !== true;
 
@@ -2027,6 +2046,8 @@ class Renderer {
 
         const count = area.querySelector('.card-count');
         if (count) count.textContent = data.remaining;
+        area?.classList.toggle('low-cards', this.gameState?.phase === PHASE.PLAYING && data.remaining <= 5);
+        area?.classList.toggle('danger-cards', this.gameState?.phase === PHASE.PLAYING && data.remaining <= 2);
 
         // 音效 + 特效（权重分级）
         const pattern = data.pattern;
@@ -2177,10 +2198,10 @@ class Renderer {
         if (playedArea && this.gameState?.phase === PHASE.PLAYING) {
             playedArea.classList.remove('has-pass');
             // 如果是新一轮首家，清空 played-area
-            const isNewRound = !this.gameState.lastPlay ||
-                this.gameState.lastPlay.pattern?.type === 'INVALID' ||
-                this.gameState.passCount >= 2 ||
-                this.gameState.lastPlay.playerIndex === playerIndex;
+            const isNewRound = !this.gameState?.lastPlay ||
+                this.gameState.lastPlay?.pattern?.type === 'INVALID' ||
+                (this.gameState?.passCount >= 2) ||
+                (this.gameState?.lastPlay?.playerIndex === playerIndex);
             if (isNewRound) {
                 playedArea.innerHTML = '';
                 playedArea.classList.remove('has-cards');
