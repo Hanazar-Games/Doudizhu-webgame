@@ -35,8 +35,28 @@ class BaseMode {
         // 跨局先手状态
         this._lastWinnerIndex = -1;
         this._lastLandlordIndex = -1;
+        this._pendingTimers = [];
         
         this._bindGameEvents();
+    }
+
+    destroy() {
+        this.isRunning = false;
+        this._stopCountdown();
+        for (const t of this._pendingTimers) {
+            clearTimeout(t);
+        }
+        this._pendingTimers = [];
+    }
+
+    _setTimer(fn, delay) {
+        const id = setTimeout(() => {
+            const idx = this._pendingTimers.indexOf(id);
+            if (idx >= 0) this._pendingTimers.splice(idx, 1);
+            fn();
+        }, delay);
+        this._pendingTimers.push(id);
+        return id;
     }
     
     // 设置比赛参数
@@ -485,7 +505,7 @@ class BaseMode {
             this._processPlay();
             // 切换到游戏BGM
             this.renderer?.audio?.stopBGM();
-            setTimeout(() => {
+            this._setTimer(() => {
                 if (this.isRunning) this.renderer?.audio?.playGameBGM();
             }, 500);
         }
@@ -582,7 +602,7 @@ class BaseMode {
         }
         
         this.renderer?.audio?.stopBGM();
-        setTimeout(() => {
+        this._setTimer(() => {
             if (!this.isRunning) return;
             if (isHumanWin) {
                 this.renderer?.audio?.playWinBGM();

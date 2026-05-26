@@ -28,7 +28,7 @@ class LANMode extends BaseMode {
     }
 
     destroy() {
-        this.isRunning = false;
+        super.destroy();
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
