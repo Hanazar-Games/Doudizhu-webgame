@@ -240,7 +240,7 @@
                         </label>
                         <label class="setting-row">先手规则
                             <select data-setting="firstPlayer">
-                                <option value="random" selected>随机</option>
+                                <option value="random" selected>轮庄</option>
                                 <option value="winner">上局赢家</option>
                                 <option value="landlord">固定地主位</option>
                             </select>
@@ -248,14 +248,14 @@
                         <label class="setting-row">大小王规则
                             <select data-setting="jokerRule">
                                 <option value="standard" selected>标准（火箭最大）</option>
-                                <option value="split">可拆分使用</option>
+                                <option value="split" disabled>可拆分使用（实验性）</option>
                                 <option value="disabled">禁用大小王</option>
                             </select>
                         </label>
                         <label class="setting-row">炸弹规则
                             <select data-setting="bombRule">
                                 <option value="standard" selected>标准（4张同点）</option>
-                                <option value="soft">软炸弹（可带牌）</option>
+                                <option value="soft" disabled>软炸弹（可带牌/实验性）</option>
                                 <option value="strict">严格（仅限4张）</option>
                             </select>
                         </label>
@@ -312,7 +312,8 @@
                         <span class="toggle-switch-track"></span>
                         <span class="toggle-switch-label">明牌（所有人手牌可见）</span>
                     </label>
-                        <label class="toggle-switch-wrap">
+                        <!-- exchangeThree 未实现，暂时隐藏 -->
+                        <label class="toggle-switch-wrap" style="display:none">
                         <input type="checkbox"  data-setting="exchangeThree">
                         <span class="toggle-switch-track"></span>
                         <span class="toggle-switch-label">换三张（开局互换）</span>

@@ -140,7 +140,21 @@ docker-compose up -d
 
 ## 版本公告
 
-### v1.2.4 (当前版本) — 规则引擎 & 音频/渲染深度修复
+### v1.2.6 (当前版本) — UI/UX/SFX/BGM 生命周期深度修复
+
+**Bug 修复**
+- ⏸️ **暂停遮罩竞态**：`_showPauseOverlay` 复用已存在 overlay 时未清理 `_removeTimeout`，快速 ESC 导致遮罩被意外移除 — 新增 `clearTimeout(overlay._removeTimeout)`
+- ❓ **帮助面板动画残留**：`help-panel` 缺少 `data-anim-fx` 标记，`destroy()` 无法清理其动画残留 — 添加标记
+- 🔊 **底牌音效空引用**：`setTimeout(() => this.audio.playBottomReveal())` 在 destroy() 后 audio 为 null 时崩溃 — 改为可选链 `this.audio?.playBottomReveal?.()`
+- 🎛️ **MasterCompressor 竞态**：`_getMasterCompressor()` 未检查 `ctx.state === 'closing'`，极窄竞态下可能访问已关闭 context — 增加 closing 状态拦截
+- ⚙️ **设置面板 timer 堆积**：`openSettings`/`closeSettings` 的 setTimeout 未保存引用，快速开关导致 focus/close timer 堆积 — 保存到 `_settingsFocusTimer` / `_settingsCloseTimer` 并在关闭时互清
+- 🎮 **游戏 BGM timer 泄漏**：`showGame()` 中 1500ms 延迟切 BGM 的 setTimeout 无引用，快速进出游戏时旧 timer 仍触发 — 保存到 `_gameBgmTimer` 并在进入前清理
+- 🎵 **菜单 BGM timer 泄漏**：`_playMenuBGM()` 延迟 timer 无引用 — 保存到 `_menuBgmTimer`
+- 🔒 **模式启动重入**：`startLANMode()` / `startCustomMode()` 缺少 `_modeStarting` 互斥锁，快速双击按钮可能导致模式重复初始化 — 添加与 `startAIMode()` 一致的锁
+
+---
+
+### v1.2.5 — 规则引擎 & 音频/渲染深度修复
 
 **🔴 严重 Bug 修复（软锁/崩溃/数据丢失类）**
 - **规则设置不生效**：`resetSettings()` 未真正清除 localStorage，旧设置残留；`allowPassOnFirst`、`noShuffle`、`baseScore`、`jokerRule='disabled'`、`bombRule='strict'` 等设置未在 `GameState.playCards()` 中强制执行 — `resetSettings()` 现在 `removeItem` 后返回纯默认对象；所有规则在 `playCards()` / `pass()` 中通过 `_isPatternAllowed()` 统一拦截

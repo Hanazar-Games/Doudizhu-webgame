@@ -112,17 +112,33 @@ class AIPlayer extends Player {
                            (gameState.lastPlay?.playerIndex === this.index) ||
                            (gameState.passCount >= 2);
 
+        let cards;
         if (isNewRound) {
-            return this._chooseLeadPlay();
+            cards = this._chooseLeadPlay();
         } else {
-            return this._chooseResponsePlay(lastPattern);
+            cards = this._chooseResponsePlay(lastPattern);
         }
+        // 规则门：过滤禁用牌型，不合法时回退到 getHint
+        if (cards.length > 0 && gameState?._isPatternAllowed) {
+            const p = Rules.analyze(cards);
+            if (!gameState._isPatternAllowed(p, cards)) {
+                const fallback = this.getHint(this.hand, lastPattern, isNewRound, gameState);
+                cards = fallback || [];
+            }
+        }
+        return cards;
     }
 
     // 为玩家提供提示（返回一组推荐的牌）
-    getHint(handCards, lastPattern, isNewRound = false) {
+    // gameState 可选；传入时会对候选牌型做 _isPatternAllowed 过滤
+    getHint(handCards, lastPattern, isNewRound = false, gameState = null) {
         // 保持向后兼容：外部未传入 isNewRound 时，从 lastPattern 推断
         const actuallyNewRound = isNewRound || !lastPattern || lastPattern.type === 'INVALID';
+        const ruleFilter = gameState?._isPatternAllowed ? (cards) => {
+            const p = Rules.analyze(cards);
+            return gameState._isPatternAllowed(p, cards);
+        } : null;
+
         if (actuallyNewRound) {
             // 首出：给出最佳首出建议
             const allPlays = Rules.findAllLegalPlays(handCards);
@@ -130,27 +146,34 @@ class AIPlayer extends Player {
             
             // 策略：优先出长牌型，小牌优先
             // 过滤掉单独的大牌（保留到后面出）
-            const nonBig = allPlays.filter(p => {
+            let candidates = allPlays.filter(p => {
                 if (p.cards.length === 1 && p.cards[0]?.value >= 14) return false;
                 return true;
             });
+            if (candidates.length === 0) candidates = allPlays;
             
-            if (nonBig.length > 0) return nonBig[0].cards;
-            return allPlays[0].cards;
+            // 规则过滤
+            if (ruleFilter) {
+                candidates = candidates.filter(p => ruleFilter(p.cards));
+            }
+            
+            return candidates.length > 0 ? candidates[0].cards : [];
         } else {
             // 跟牌：找最小能压过的
             const beats = Rules.findAllBeats(handCards, lastPattern);
             if (beats.length === 0) return [];
             
             // 优先不用炸弹（预计算模式避免重复 analyze）
-            const scored = beats.map(c => ({ cards: c, p: Rules.analyze(c) }));
-            const nonBomb = scored.filter(s => s.p.type !== 'BOMB' && s.p.type !== 'ROCKET');
+            let scored = beats.map(c => ({ cards: c, p: Rules.analyze(c) }));
+            let nonBomb = scored.filter(s => s.p.type !== 'BOMB' && s.p.type !== 'ROCKET');
             if (nonBomb.length > 0) {
                 nonBomb.sort((a, b) => a.cards.length - b.cards.length || a.p.mainValue - b.p.mainValue);
-                return nonBomb[0].cards;
+                if (ruleFilter) nonBomb = nonBomb.filter(s => ruleFilter(s.cards));
+                if (nonBomb.length > 0) return nonBomb[0].cards;
             }
             
             scored.sort((a, b) => a.cards.length - b.cards.length || a.p.mainValue - b.p.mainValue);
+            if (ruleFilter) scored = scored.filter(s => ruleFilter(s.cards));
             return scored[0]?.cards || [];
         }
     }

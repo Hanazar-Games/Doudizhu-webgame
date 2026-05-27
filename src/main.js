@@ -245,7 +245,9 @@ class GameApp {
         if (this.renderer) return;
         this._syncAudioSettings(this.menuAudio);
         this.menuAudio?.stopBGM();
-        setTimeout(() => {
+        if (this._menuBgmTimer) clearTimeout(this._menuBgmTimer);
+        this._menuBgmTimer = setTimeout(() => {
+            this._menuBgmTimer = null;
             if (!this.renderer) this.menuAudio?.playMenuBGM();
         }, delay);
     }
@@ -470,8 +472,10 @@ class GameApp {
         });
         this._settingsOpen = true;
         this._getActiveAudio()?.playSettingOpen?.();
-        // 聚焦搜索框
-        setTimeout(() => {
+        // 聚焦搜索框（保存 timer 引用以便关闭时取消）
+        if (this._settingsFocusTimer) clearTimeout(this._settingsFocusTimer);
+        this._settingsFocusTimer = setTimeout(() => {
+            this._settingsFocusTimer = null;
             document.getElementById('settings-search-input')?.focus();
         }, 100);
         // 初始化搜索
@@ -483,10 +487,17 @@ class GameApp {
         if (!overlay || overlay.classList.contains('hidden')) return;
         this._getActiveAudio()?.playSettingClose?.();
         this._settingsOpen = false;
+        // 取消待执行的 focus timer
+        if (this._settingsFocusTimer) {
+            clearTimeout(this._settingsFocusTimer);
+            this._settingsFocusTimer = null;
+        }
+        if (this._settingsCloseTimer) clearTimeout(this._settingsCloseTimer);
         overlay.style.transition = 'opacity 0.2s ease-in, transform 0.2s ease-in';
         overlay.style.opacity = '0';
         overlay.style.transform = 'scale(0.96)';
-        setTimeout(() => {
+        this._settingsCloseTimer = setTimeout(() => {
+            this._settingsCloseTimer = null;
             overlay.classList.add('hidden');
             overlay.style.opacity = '';
             overlay.style.transform = '';
@@ -1311,7 +1322,9 @@ class GameApp {
         if (menu) {
             menu.style.transition = 'opacity 0.3s ease';
             menu.style.opacity = '0';
-            setTimeout(() => {
+            if (menu._hideTimer) clearTimeout(menu._hideTimer);
+            menu._hideTimer = setTimeout(() => {
+                menu._hideTimer = null;
                 menu.classList.add('hidden');
                 menu.style.opacity = '';
                 menu.style.transition = '';
@@ -1327,7 +1340,9 @@ class GameApp {
                 requestAnimationFrame(() => {
                     game.style.opacity = '1';
                     game.style.transform = 'scale(1)';
-                    setTimeout(() => {
+                    if (game._animTimer) clearTimeout(game._animTimer);
+                    game._animTimer = setTimeout(() => {
+                        game._animTimer = null;
                         game.style.transition = '';
                         game.style.transform = '';
                     }, 400);
@@ -1338,11 +1353,17 @@ class GameApp {
         // 切换为游戏BGM（延迟等发牌动画）
         this._stopMenuAudio();
         this.renderer?.audio?.stopBGM();
-        setTimeout(() => this.renderer?.audio?.playGameBGM(), 1500);
+        if (this._gameBgmTimer) clearTimeout(this._gameBgmTimer);
+        this._gameBgmTimer = setTimeout(() => {
+            this._gameBgmTimer = null;
+            this.renderer?.audio?.playGameBGM();
+        }, 1500);
     }
 
     // ---- AI模式 ----
     async startAIMode() {
+        if (this._modeStarting) return;
+        this._modeStarting = true;
         try {
             // 停止旧游戏并清理 renderer
             if (this.currentMode) {
@@ -1416,6 +1437,8 @@ class GameApp {
 
     // ---- 局域网模式 ----
     async startLANMode() {
+        if (this._modeStarting) return;
+        this._modeStarting = true;
         try {
             if (this.currentMode) {
                 this.currentMode.isRunning = false;
@@ -1446,11 +1469,15 @@ class GameApp {
             console.error('启动局域网模式失败:', err);
             this._showFallbackToast('连接失败，请返回菜单重试');
             this.showMenu();
+        } finally {
+            this._modeStarting = false;
         }
     }
 
     // ---- 自定义模式 ----
     async startCustomMode() {
+        if (this._modeStarting) return;
+        this._modeStarting = true;
         try {
             if (this.currentMode) {
                 this.currentMode.isRunning = false;
@@ -1473,6 +1500,8 @@ class GameApp {
             console.error('启动自定义模式失败:', err);
             this._showFallbackToast('游戏启动失败，请返回菜单重试');
             this.showMenu();
+        } finally {
+            this._modeStarting = false;
         }
     }
 }

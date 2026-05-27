@@ -97,11 +97,8 @@ class BaseMode {
         throw new Error('init must be implemented by subclass');
     }
 
-    // 开始一局
-    async startGame() {
-        this.isRunning = true;
-
-        // 从设置读取游戏规则并配置 GameState
+    // 从设置读取游戏规则并配置 GameState（供 BaseMode / LANMode / CustomMode 共用）
+    _applyGameRules() {
         const settings = Storage.getSettings();
         this.speedFactor = Math.max(0.3, Math.min(5.0, parseFloat(settings.gameSpeed) || 1.0));
         this.gameState.callMode = ['score', 'grab'].includes(settings.callMode) ? settings.callMode : 'score';
@@ -138,6 +135,12 @@ class BaseMode {
         this.gameState.allowAntiSpring = settings.allowAntiSpring !== false;
         this.gameState.bombDoubles = settings.bombDoubles !== false;
         this.gameState.rocketDoubles = settings.rocketDoubles !== false;
+    }
+
+    // 开始一局
+    async startGame() {
+        this.isRunning = true;
+        this._applyGameRules();
 
         let deck = Card.createDeck();
         if (!this.gameState.noShuffle) {
@@ -428,7 +431,8 @@ class BaseMode {
     _startCountdown(playerIndex, type) {
         this._stopCountdown();
         const settings = Storage.getSettings();
-        if (settings.timerEnabled === false) {
+        // timerEnabled 在 HTML 中是 select，值为字符串 "true"/"false"，用宽松比较兼容
+        if (settings.timerEnabled == false) {
             return; // 倒计时关闭，不启动
         }
         this._turnCountdown = Math.max(10, Math.min(120, settings.timerSeconds ?? 30));
@@ -470,7 +474,7 @@ class BaseMode {
             const isNewRound = !lastPattern || lastPattern.type === 'INVALID' ||
                                (this.gameState.passCount >= 2) ||
                                (this.gameState.lastPlay?.playerIndex === this.humanIndex);
-            const hint = ai.getHint(player.hand, lastPattern, isNewRound);
+            const hint = ai.getHint(player.hand, lastPattern, isNewRound, this.gameState);
             if (hint.length > 0) {
                 this.humanPlay(hint);
             } else {

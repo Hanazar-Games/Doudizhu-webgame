@@ -273,7 +273,13 @@ class LANMode extends BaseMode {
             return;
         }
 
-        const deck = Card.shuffle(Card.createDeck());
+        // 应用游戏规则（与 BaseMode 保持一致）
+        this._applyGameRules();
+
+        let deck = Card.createDeck();
+        if (!this.gameState.noShuffle) {
+            deck = Card.shuffle(deck);
+        }
         const bottom = deck.slice(51, 54);
         
         const gameData = {
@@ -296,6 +302,8 @@ class LANMode extends BaseMode {
                 this.gameState.setPlayer(i, new Player(`玩家${i + 1}`, false));
             }
         }
+        // 非 host 客户端也需要应用本地规则设置
+        this._applyGameRules();
         const deck = this._deserializeDeck(data.deck);
         const bottom = this._deserializeDeck(data.bottomCards);
         this.gameState.dealerIndex = data.dealerIndex;

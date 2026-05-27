@@ -517,6 +517,305 @@ test('GameState baseScore setting affects settlement', () => {
     assert(gs.scores[0] === 10, `Expected landlord score 10 with baseScore=5, got ${gs.scores[0]}`);
 });
 
+// ===== Settlement multiplier tests =====
+test('GameState scoreMultiplier affects settlement', () => {
+    const gs = new GameState();
+    const p0 = new Player('P0');
+    gs.setPlayer(0, p0);
+    gs.setPlayer(1, new Player('P1'));
+    gs.setPlayer(2, new Player('P2'));
+    gs.landlordIndex = 0;
+    p0.isLandlord = true;
+    gs.currentCall = 1;
+    gs.baseScore = 1;
+    gs.scoreMultiplier = 3;
+    gs.scores = [0, 0, 0];
+    gs.allowSpring = false;
+    gs.allowAntiSpring = false;
+    gs.bombDoubles = false;
+    gs.rocketDoubles = false;
+    gs.history = [];
+    gs._settleRound(0);
+    // 地主赢：得分 = 1 * 1 * 3 * 2 = 6
+    assert(gs.scores[0] === 6, `Expected landlord score 6 with scoreMultiplier=3, got ${gs.scores[0]}`);
+});
+
+test('GameState bombDoubles=false disables bomb doubling', () => {
+    const gs = new GameState();
+    const p0 = new Player('P0');
+    gs.setPlayer(0, p0);
+    gs.setPlayer(1, new Player('P1'));
+    gs.setPlayer(2, new Player('P2'));
+    gs.landlordIndex = 0;
+    p0.isLandlord = true;
+    gs.currentCall = 1;
+    gs.baseScore = 1;
+    gs.scoreMultiplier = 1;
+    gs.scores = [0, 0, 0];
+    gs.allowSpring = false;
+    gs.allowAntiSpring = false;
+    gs.bombDoubles = false; // 禁用炸弹翻倍
+    gs.rocketDoubles = false;
+    gs.history = [
+        { pattern: { type: 'BOMB' } },
+        { pattern: { type: 'BOMB' } },
+    ];
+    gs._settleRound(0);
+    // 禁用炸弹翻倍，multiplier=1，得分 = 1 * 1 * 2 = 2
+    assert(gs.scores[0] === 2, `Expected landlord score 2 with bombDoubles=false, got ${gs.scores[0]}`);
+});
+
+test('GameState bombDoubles=true enables bomb doubling', () => {
+    const gs = new GameState();
+    const p0 = new Player('P0');
+    gs.setPlayer(0, p0);
+    gs.setPlayer(1, new Player('P1'));
+    gs.setPlayer(2, new Player('P2'));
+    gs.landlordIndex = 0;
+    p0.isLandlord = true;
+    gs.currentCall = 1;
+    gs.baseScore = 1;
+    gs.scoreMultiplier = 1;
+    gs.scores = [0, 0, 0];
+    gs.allowSpring = false;
+    gs.allowAntiSpring = false;
+    gs.bombDoubles = true; // 启用炸弹翻倍
+    gs.rocketDoubles = false;
+    gs.history = [
+        { pattern: { type: 'BOMB' } },
+        { pattern: { type: 'BOMB' } },
+    ];
+    gs._settleRound(0);
+    // 2个炸弹 -> multiplier = 2^2 = 4，得分 = 1 * 4 * 2 = 8
+    assert(gs.scores[0] === 8, `Expected landlord score 8 with 2 bombs, got ${gs.scores[0]}`);
+});
+
+test('GameState rocketDoubles=false disables rocket doubling', () => {
+    const gs = new GameState();
+    const p0 = new Player('P0');
+    gs.setPlayer(0, p0);
+    gs.setPlayer(1, new Player('P1'));
+    gs.setPlayer(2, new Player('P2'));
+    gs.landlordIndex = 0;
+    p0.isLandlord = true;
+    gs.currentCall = 1;
+    gs.baseScore = 1;
+    gs.scoreMultiplier = 1;
+    gs.scores = [0, 0, 0];
+    gs.allowSpring = false;
+    gs.allowAntiSpring = false;
+    gs.bombDoubles = false;
+    gs.rocketDoubles = false; // 禁用火箭翻倍
+    gs.history = [
+        { pattern: { type: 'ROCKET' } },
+    ];
+    gs._settleRound(0);
+    // 禁用火箭翻倍，multiplier=1，得分 = 1 * 1 * 2 = 2
+    assert(gs.scores[0] === 2, `Expected landlord score 2 with rocketDoubles=false, got ${gs.scores[0]}`);
+});
+
+test('GameState rocketDoubles=true enables rocket doubling', () => {
+    const gs = new GameState();
+    const p0 = new Player('P0');
+    gs.setPlayer(0, p0);
+    gs.setPlayer(1, new Player('P1'));
+    gs.setPlayer(2, new Player('P2'));
+    gs.landlordIndex = 0;
+    p0.isLandlord = true;
+    gs.currentCall = 1;
+    gs.baseScore = 1;
+    gs.scoreMultiplier = 1;
+    gs.scores = [0, 0, 0];
+    gs.allowSpring = false;
+    gs.allowAntiSpring = false;
+    gs.bombDoubles = false;
+    gs.rocketDoubles = true; // 启用火箭翻倍
+    gs.history = [
+        { pattern: { type: 'ROCKET' } },
+    ];
+    gs._settleRound(0);
+    // 1个火箭 -> multiplier = 2^1 = 2，得分 = 1 * 2 * 2 = 4
+    assert(gs.scores[0] === 4, `Expected landlord score 4 with 1 rocket, got ${gs.scores[0]}`);
+});
+
+test('GameState allowSpring=false disables spring bonus', () => {
+    const gs = new GameState();
+    const p0 = new Player('P0');
+    gs.setPlayer(0, p0);
+    gs.setPlayer(1, new Player('P1'));
+    gs.setPlayer(2, new Player('P2'));
+    gs.landlordIndex = 0;
+    p0.isLandlord = true;
+    gs.currentCall = 1;
+    gs.baseScore = 1;
+    gs.scoreMultiplier = 1;
+    gs.scores = [0, 0, 0];
+    gs.allowSpring = false; // 禁用春天
+    gs.allowAntiSpring = false;
+    gs.bombDoubles = false;
+    gs.rocketDoubles = false;
+    gs.history = [];
+    gs.playCounts = [1, 0, 0]; // 农民未出牌
+    gs._settleRound(0);
+    // 春天应触发但被禁用，multiplier=1，得分 = 1 * 1 * 2 = 2
+    assert(gs.scores[0] === 2, `Expected landlord score 2 with allowSpring=false, got ${gs.scores[0]}`);
+});
+
+test('GameState allowSpring=true enables spring bonus', () => {
+    const gs = new GameState();
+    const p0 = new Player('P0');
+    gs.setPlayer(0, p0);
+    gs.setPlayer(1, new Player('P1'));
+    gs.setPlayer(2, new Player('P2'));
+    gs.landlordIndex = 0;
+    p0.isLandlord = true;
+    gs.currentCall = 1;
+    gs.baseScore = 1;
+    gs.scoreMultiplier = 1;
+    gs.scores = [0, 0, 0];
+    gs.allowSpring = true; // 启用春天
+    gs.allowAntiSpring = false;
+    gs.bombDoubles = false;
+    gs.rocketDoubles = false;
+    gs.history = [];
+    gs.playCounts = [1, 0, 0]; // 农民未出牌 -> 春天
+    gs._settleRound(0);
+    // 春天翻倍，得分 = 1 * 2 * 2 = 4
+    assert(gs.scores[0] === 4, `Expected landlord score 4 with spring, got ${gs.scores[0]}`);
+});
+
+test('GameState allowAntiSpring=false disables anti-spring bonus', () => {
+    const gs = new GameState();
+    const p0 = new Player('P0');
+    gs.setPlayer(0, p0);
+    gs.setPlayer(1, new Player('P1'));
+    gs.setPlayer(2, new Player('P2'));
+    gs.landlordIndex = 0;
+    p0.isLandlord = true;
+    gs.currentCall = 1;
+    gs.baseScore = 1;
+    gs.scoreMultiplier = 1;
+    gs.scores = [0, 0, 0];
+    gs.allowSpring = false;
+    gs.allowAntiSpring = false; // 禁用反春天
+    gs.bombDoubles = false;
+    gs.rocketDoubles = false;
+    gs.history = [];
+    gs.playCounts = [1, 1, 1]; // 地主只出1次 -> 反春天条件，但被禁用
+    gs._settleRound(1); // 农民赢
+    // 反春天应触发但被禁用，multiplier=1，农民赢每人+1，地主-2
+    assert(gs.scores[0] === -2, `Expected landlord score -2 with allowAntiSpring=false, got ${gs.scores[0]}`);
+    assert(gs.scores[1] === 1, `Expected peasant score 1, got ${gs.scores[1]}`);
+});
+
+test('GameState allowAntiSpring=true enables anti-spring bonus', () => {
+    const gs = new GameState();
+    const p0 = new Player('P0');
+    gs.setPlayer(0, p0);
+    gs.setPlayer(1, new Player('P1'));
+    gs.setPlayer(2, new Player('P2'));
+    gs.landlordIndex = 0;
+    p0.isLandlord = true;
+    gs.currentCall = 1;
+    gs.baseScore = 1;
+    gs.scoreMultiplier = 1;
+    gs.scores = [0, 0, 0];
+    gs.allowSpring = false;
+    gs.allowAntiSpring = true; // 启用反春天
+    gs.bombDoubles = false;
+    gs.rocketDoubles = false;
+    gs.history = [];
+    gs.playCounts = [1, 1, 1]; // 地主只出1次 -> 反春天
+    gs._settleRound(1); // 农民赢
+    // 反春天翻倍，得分 = 1 * 2 * 1 = 2（农民每人），地主 = -4
+    assert(gs.scores[0] === -4, `Expected landlord score -4 with anti-spring, got ${gs.scores[0]}`);
+    assert(gs.scores[1] === 2, `Expected peasant score 2, got ${gs.scores[1]}`);
+});
+
+// ===== Bomb as Rocket test =====
+test('GameState bombAsRocket allows bomb to beat rocket', () => {
+    const gs = new GameState();
+    const p0 = new Player('P0');
+    gs.setPlayer(0, p0);
+    gs.setPlayer(1, new Player('P1'));
+    gs.setPlayer(2, new Player('P2'));
+    p0.setHand(makeCards(['3', '3', '3', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', 'JOKER_SMALL', 'JOKER_BIG', '6', '7']));
+    gs.bottomCards = [];
+    gs.landlordIndex = 0;
+    p0.isLandlord = true;
+    gs.phase = PHASE.PLAYING;
+    gs.currentTurn = 0;
+    gs.bombAsRocket = false;
+    gs.lastPlay = { playerIndex: 2, cards: makeCards(['JOKER_SMALL', 'JOKER_BIG']), pattern: Rules.analyze(makeCards(['JOKER_SMALL', 'JOKER_BIG'])) };
+    gs.passCount = 0;
+    // 炸弹不能打火箭（默认）
+    const bombCards = makeCards(['3', '3', '3', '3']);
+    const result1 = gs.playCards(0, bombCards, Rules.analyze(bombCards));
+    assert(result1.success === false, 'Expected bomb to fail against rocket when bombAsRocket=false');
+
+    // 启用 bombAsRocket
+    gs.bombAsRocket = true;
+    // 需要重置 lastPlay（因为上一步 playCards 可能修改了状态）
+    gs.lastPlay = { playerIndex: 2, cards: makeCards(['JOKER_SMALL', 'JOKER_BIG']), pattern: Rules.analyze(makeCards(['JOKER_SMALL', 'JOKER_BIG'])) };
+    gs.passCount = 0;
+    // P0 已经出了一张3（在上一轮尝试中），手牌不够了，需要重置
+    p0.setHand(makeCards(['3', '3', '3', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', 'JOKER_SMALL', 'JOKER_BIG', '6', '7']));
+    const result2 = gs.playCards(0, bombCards, Rules.analyze(bombCards));
+    assert(result2.success === true, 'Expected bomb to beat rocket when bombAsRocket=true');
+});
+
+// ===== Grab mode test =====
+test('GameState callMode=grab basic flow', () => {
+    const gs = new GameState();
+    gs.setPlayer(0, new Player('P0'));
+    gs.setPlayer(1, new Player('P1'));
+    gs.setPlayer(2, new Player('P2'));
+    const deck = Card.shuffle(Card.createDeck());
+    gs.startRound(deck.slice(0, 51), deck.slice(51, 54));
+    gs.callMode = 'grab';
+
+    // P0 叫地主
+    const r1 = gs.callLandlord(0, 1); // CALL
+    assert(r1 === true, 'Expected call to succeed');
+    assert(gs.grabPhase === 'call');
+
+    // P1 pass
+    const r2 = gs.callLandlord(1, 0); // PASS
+    assert(r2 === true);
+
+    // P2 pass
+    const r3 = gs.callLandlord(2, 0); // PASS
+    assert(r3 === true);
+
+    // 转完一圈，有人叫了地主，进入抢地主阶段
+    assert(gs.grabPhase === 'grab', `Expected grab phase, got ${gs.grabPhase}`);
+    assert(gs.currentCallPlayer === 0);
+});
+
+// ===== No shuffle test =====
+test('GameState noShuffle preserves deck order', () => {
+    const gs = new GameState();
+    gs.setPlayer(0, new Player('P0'));
+    gs.setPlayer(1, new Player('P1'));
+    gs.setPlayer(2, new Player('P2'));
+    const deck = Card.createDeck();
+    gs.noShuffle = true;
+    const top51 = deck.slice(0, 51);
+    const bottom3 = deck.slice(51, 54);
+    gs.startRound(top51, bottom3);
+    // 不洗牌时，GameState 保存的 deck 顺序应与输入一致
+    // （手牌会被 setHand 排序，所以不直接比手牌，而是比 deck 顺序）
+    assert(gs.deck.length === 51, `Expected deck length 51, got ${gs.deck.length}`);
+    for (let i = 0; i < 51; i++) {
+        assert(gs.deck[i].value === top51[i].value && gs.deck[i].suit?.name === top51[i].suit?.name,
+            `Expected unshuffled deck at position ${i}`);
+    }
+    // 验证三家分到的牌正好是 deck 的三段（不考虑 setHand 排序）
+    const p0Values = gs.players[0].hand.map(c => c.value).sort((a, b) => a - b);
+    const expectedP0 = top51.slice(0, 17).map(c => c.value).sort((a, b) => a - b);
+    assert(JSON.stringify(p0Values) === JSON.stringify(expectedP0), 'P0 hand should contain first 17 cards');
+});
+
 // ===== Summary =====
 console.log(`\n====================`);
 console.log(`Total: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);

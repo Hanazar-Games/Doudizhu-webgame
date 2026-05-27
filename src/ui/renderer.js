@@ -641,9 +641,14 @@ class Renderer {
 
     _showPauseOverlay() {
         let overlay = document.getElementById('pause-overlay');
+        if (overlay && overlay._removeTimeout) {
+            clearTimeout(overlay._removeTimeout);
+            overlay._removeTimeout = null;
+        }
         if (!overlay) {
             overlay = document.createElement('div');
             overlay.id = 'pause-overlay';
+            overlay.dataset.animFx = 'true';
             overlay.innerHTML = `
                 <div class="pause-content">
                     <h2>⏸ 游戏暂停</h2>
@@ -708,6 +713,7 @@ class Renderer {
         }
         panel = document.createElement('div');
         panel.id = 'help-panel';
+        panel.dataset.animFx = 'true';
         panel.innerHTML = `
             <div class="help-content">
                 <h3>⌨️ 快捷键指南</h3>
@@ -838,7 +844,7 @@ class Renderer {
                                (this.gameState?.lastPlay?.playerIndex === this.mode?.humanIndex);
             const ai = new AIPlayer('hint', 'hard');
             ai.hand = player.hand;
-            const hint = ai.getHint(player.hand, lastPattern, isNewRound);
+            const hint = ai.getHint(player.hand, lastPattern, isNewRound, this.gameState);
 
             if (hint.length === 0) {
                 this.showToast('建议：不出');
@@ -1660,6 +1666,7 @@ class Renderer {
 
     clearSelection() {
         this.selectedCards.clear();
+        if (!this.container) return;
         const selected = this.container.querySelectorAll('.card.selected');
         for (const el of selected) el.classList.remove('selected');
         this._clearHint();
@@ -1893,14 +1900,16 @@ class Renderer {
     hidePlayControls() {
         const panel = this.container.querySelector('#play-controls');
         if (!panel || panel.classList.contains('hidden')) return;
+        if (panel._hideTimeout) clearTimeout(panel._hideTimeout);
         panel.style.transition = 'transform 0.2s ease-in, opacity 0.2s ease-in';
         panel.style.transform = 'translateY(20px)';
         panel.style.opacity = '0';
-        setTimeout(() => {
+        panel._hideTimeout = setTimeout(() => {
             panel.classList.add('hidden');
             panel.style.transform = '';
             panel.style.opacity = '';
             panel.style.transition = '';
+            panel._hideTimeout = null;
         }, 200);
     }
 
@@ -1976,7 +1985,7 @@ class Renderer {
             }
             // 底牌揭示音效
             data.bottomCards.forEach((_, i) => {
-                setTimeout(() => this.audio.playBottomReveal(), i * 150);
+                setTimeout(() => this.audio?.playBottomReveal?.(), i * 150);
             });
         }
 

@@ -78,7 +78,7 @@ class AudioManager {
     // ==================== 通用底层 ====================
 
     _getMasterCompressor() {
-        if (!this.ctx) return null;
+        if (!this.ctx || this.ctx.state === 'closed' || this.ctx.state === 'closing') return null;
         if (!this._masterCompressor) {
             this._masterCompressor = this.ctx.createDynamicsCompressor();
             this._masterCompressor.threshold.setValueAtTime(-12, this.ctx.currentTime);
@@ -344,6 +344,7 @@ class AudioManager {
     }
 
     playCall() {
+        if (!this._isSfxEnabled('play')) return;
         // 叫分：庄重的双音
         this._tone(523, 0.15, 'sine', 0.13);
         setTimeout(() => this._tone(659, 0.2, 'sine', 0.13), 100);
