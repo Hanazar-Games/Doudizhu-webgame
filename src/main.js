@@ -774,72 +774,71 @@ class GameApp {
         const winRate = this.stats.gamesPlayed > 0
             ? Math.round((this.stats.wins / this.stats.gamesPlayed) * 100) + '%'
             : '0%';
-        const statsEl = document.querySelector('.stats-panel');
-        if (statsEl) {
-            statsEl.remove();
-        }
-        // 如果不存在，在菜单中创建一个
-        const menuContainer = document.querySelector('.menu-container');
-        if (menuContainer) {
-            const panel = document.createElement('div');
-            panel.className = 'stats-panel';
-            const level = this.stats.level || 1;
-            const exp = this.stats.exp || 0;
-            const expNeeded = level * 100;
-            const expPercent = Math.round((exp / expNeeded) * 100);
-            panel.innerHTML = `
-                <div class="level-bar">
-                    <div class="level-info">
-                        <span class="level-badge">Lv.${level}</span>
-                        <span class="exp-text">${exp}/${expNeeded} EXP</span>
-                    </div>
-                    <div class="exp-bar"><div class="exp-fill" style="width:${expPercent}%"></div></div>
-                </div>
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <span class="stat-value">${this.stats.gamesPlayed}</span>
-                        <span class="stat-label">总局数</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" style="color:#4caf50">${this.stats.wins}</span>
-                        <span class="stat-label">胜场</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" style="color:#f44336">${this.stats.losses}</span>
-                        <span class="stat-label">负场</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" style="color:#f0c040">${winRate}</span>
-                        <span class="stat-label">胜率</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value">${this.stats.streak > 0 ? '+' : ''}${this.stats.streak}<small style="opacity:0.6;font-size:0.7rem">/${this.stats.maxStreak || 0}</small></span>
-                        <span class="stat-label">连胜/最高</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value">${this.stats.totalScore}</span>
-                        <span class="stat-label">总得分</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" style="color:#ff9800">${this.stats.maxScore || 0}</span>
-                        <span class="stat-label">最高单局</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" style="color:#9c27b0">${this.stats.maxBombsInGame || 0}</span>
-                        <span class="stat-label">最多炸弹</span>
-                    </div>
-                </div>
-                <button id="btn-clear-stats" class="btn-small" style="margin-top:8px;font-size:0.7rem">重置记录</button>
-            `;
-            menuContainer.insertBefore(panel, menuContainer.querySelector('.settings-panel'));
+        const wrap = document.querySelector('.stats-panel-wrap');
+        if (!wrap) return;
+        wrap.innerHTML = '';
 
-            panel.querySelector('#btn-clear-stats')?.addEventListener('click', () => {
-                if (confirm('确定要清除所有游戏记录吗？')) {
-                    Storage.clearStats();
-                    location.reload();
-                }
-            });
-        }
+        const panel = document.createElement('div');
+        panel.className = 'stats-panel';
+        const level = this.stats.level || 1;
+        const exp = this.stats.exp || 0;
+        const expNeeded = level * 100;
+        const expPercent = Math.round((exp / expNeeded) * 100);
+        const streakVal = this.stats.streak;
+        const streakColor = streakVal > 0 ? '#4caf50' : streakVal < 0 ? '#f44336' : '#f0c040';
+
+        panel.innerHTML = `
+            <div class="level-bar">
+                <div class="level-info">
+                    <span class="level-badge">Lv.${level}</span>
+                    <span class="exp-text">${exp}/${expNeeded} EXP</span>
+                </div>
+                <div class="exp-bar"><div class="exp-fill" style="width:${expPercent}%"></div></div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-value">${this.stats.gamesPlayed}</span>
+                    <span class="stat-label">总局数</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" style="color:${streakColor}">${streakVal > 0 ? '+' : ''}${streakVal}<small style="opacity:0.5;font-size:0.65rem">/${this.stats.maxStreak || 0}</small></span>
+                    <span class="stat-label">连胜/最高</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" style="color:#4caf50">${this.stats.wins}</span>
+                    <span class="stat-label">胜场</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" style="color:#f44336">${this.stats.losses}</span>
+                    <span class="stat-label">负场</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" style="color:#f0c040">${winRate}</span>
+                    <span class="stat-label">胜率</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value">${this.stats.totalScore}</span>
+                    <span class="stat-label">总得分</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" style="color:#ff9800">${this.stats.maxScore || 0}</span>
+                    <span class="stat-label">最高单局</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" style="color:#9c27b0">${this.stats.maxBombsInGame || 0}</span>
+                    <span class="stat-label">最多炸弹</span>
+                </div>
+            </div>
+            <button id="btn-clear-stats" class="btn-clear-stats">重置记录</button>
+        `;
+        wrap.appendChild(panel);
+
+        panel.querySelector('#btn-clear-stats')?.addEventListener('click', () => {
+            if (confirm('确定要清除所有游戏记录吗？')) {
+                Storage.clearStats();
+                location.reload();
+            }
+        });
     }
 
     _initTutorial() {

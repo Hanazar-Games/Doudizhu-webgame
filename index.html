@@ -15,21 +15,85 @@
 <body data-theme="green">
     <!-- 菜单界面 -->
     <div id="menu-screen" class="screen">
+        <div class="menu-bg-decoration"></div>
         <div class="menu-container">
-            <h1 class="game-title">斗地主</h1>
-            <p class="game-subtitle">经典三人棋牌游戏</p>
-            
-            <div class="menu-buttons">
-                <button id="btn-ai-mode" class="btn-primary">人机对战</button>
-                <button id="btn-lan-mode" class="btn-secondary">局域网联机</button>
-                <button id="btn-custom-mode" class="btn-secondary">自定义模式</button>
-                <button id="btn-replay" class="btn-secondary">牌局回放</button>
-                <button id="btn-achievements" class="btn-secondary">成就系统</button>
-                <button id="btn-tutorial" class="btn-secondary">📖 新手教程</button>
-                <button id="btn-settings" class="btn-small">设置</button>
+            <!-- 标题区 -->
+            <header class="menu-header">
+                <div class="menu-title-wrap">
+                    <div class="title-icon title-icon--spade">♠</div>
+                    <h1 class="game-title">斗地主</h1>
+                    <div class="title-icon title-icon--heart">♥</div>
+                </div>
+                <p class="game-subtitle">经典三人棋牌游戏</p>
+                <div class="title-divider"></div>
+            </header>
+
+            <!-- 主体内容 -->
+            <div class="menu-body">
+                <!-- 左侧：游戏模式 -->
+                <div class="menu-left">
+                    <div class="section-label">游戏模式</div>
+                    <div class="mode-cards">
+                        <!-- 主模式 -->
+                        <button id="btn-ai-mode" class="mode-card mode-card--primary">
+                            <div class="mode-card__icon">🤖</div>
+                            <div class="mode-card__content">
+                                <div class="mode-card__title">人机对战</div>
+                                <div class="mode-card__desc">挑战 AI，磨练牌技</div>
+                            </div>
+                            <div class="mode-card__arrow">→</div>
+                        </button>
+
+                        <div class="mode-card-row">
+                            <button id="btn-lan-mode" class="mode-card mode-card--secondary">
+                                <div class="mode-card__icon">🌐</div>
+                                <div class="mode-card__content">
+                                    <div class="mode-card__title">局域网联机</div>
+                                    <div class="mode-card__desc">好友同乐</div>
+                                </div>
+                            </button>
+                            <button id="btn-custom-mode" class="mode-card mode-card--secondary">
+                                <div class="mode-card__icon">⚙️</div>
+                                <div class="mode-card__content">
+                                    <div class="mode-card__title">自定义模式</div>
+                                    <div class="mode-card__desc">自由设定</div>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div class="mode-card-row mode-card-row--small">
+                            <button id="btn-replay" class="mode-card mode-card--ghost">
+                                <div class="mode-card__icon">📹</div>
+                                <div class="mode-card__title">牌局回放</div>
+                            </button>
+                            <button id="btn-achievements" class="mode-card mode-card--ghost">
+                                <div class="mode-card__icon">🏆</div>
+                                <div class="mode-card__title">成就系统</div>
+                            </button>
+                            <button id="btn-tutorial" class="mode-card mode-card--ghost">
+                                <div class="mode-card__icon">📖</div>
+                                <div class="mode-card__title">新手教程</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧：统计面板 -->
+                <div class="menu-right">
+                    <div class="stats-panel-wrap">
+                        <!-- JS 动态插入 .stats-panel -->
+                    </div>
+                </div>
             </div>
-            
-            <div class="version-info">v1.2.4</div>
+
+            <!-- 底部：设置 + 版本 -->
+            <footer class="menu-footer">
+                <button id="btn-settings" class="btn-settings-float" aria-label="设置">
+                    <span>⚙️</span>
+                    <span>设置</span>
+                </button>
+                <span class="version-info">v1.2.4</span>
+            </footer>
         </div>
     </div>
 
