@@ -650,12 +650,25 @@ class Renderer {
             overlay.id = 'pause-overlay';
             overlay.dataset.animFx = 'true';
             overlay.innerHTML = `
-                <div class="pause-content">
-                    <h2>⏸ 游戏暂停</h2>
-                    <p>按 <kbd>ESC</kbd> 或点击按钮继续</p>
-                    <button id="btn-resume" class="btn-primary">继续游戏</button>
-                    <button id="btn-pause-settings" class="btn-secondary">设置</button>
-                    <button id="btn-pause-exit" class="btn-secondary btn-danger">退出</button>
+                <div class="pause-backdrop"></div>
+                <div class="pause-card">
+                    <div class="pause-card__icon">⏸</div>
+                    <h2 class="pause-card__title">游戏暂停</h2>
+                    <p class="pause-card__hint">按 <kbd class="pause-kbd">ESC</kbd> 继续游戏</p>
+                    <div class="pause-card__actions">
+                        <button id="btn-resume" class="screen-btn screen-btn--primary screen-btn--large">
+                            <span>▶</span>
+                            <span>继续游戏</span>
+                        </button>
+                        <button id="btn-pause-settings" class="screen-btn screen-btn--secondary screen-btn--large">
+                            <span>⚙️</span>
+                            <span>设置</span>
+                        </button>
+                        <button id="btn-pause-exit" class="screen-btn screen-btn--danger screen-btn--large">
+                            <span>🚪</span>
+                            <span>退出到菜单</span>
+                        </button>
+                    </div>
                 </div>
             `;
             document.body.appendChild(overlay);

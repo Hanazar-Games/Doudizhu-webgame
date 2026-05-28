@@ -1187,61 +1187,174 @@
 
     <!-- LAN 联机界面 -->
     <div id="lan-screen" class="screen hidden">
+        <div class="screen-bg-decoration"></div>
         <div class="lan-container">
-            <h2>局域网联机</h2>
+            <header class="screen-header">
+                <div class="screen-header__icon">🌐</div>
+                <h2 class="screen-header__title">局域网联机</h2>
+                <p class="screen-header__subtitle">与好友在同一网络下实时对战</p>
+            </header>
             <div class="lan-tabs">
-                <button class="lan-tab active" data-tab="join">加入房间</button>
-                <button class="lan-tab" data-tab="host">创建房间</button>
+                <button class="lan-tab active" data-tab="join">
+                    <span class="lan-tab__icon">🚪</span>
+                    <span class="lan-tab__text">加入房间</span>
+                </button>
+                <button class="lan-tab" data-tab="host">
+                    <span class="lan-tab__icon">🏠</span>
+                    <span class="lan-tab__text">创建房间</span>
+                </button>
             </div>
-            <div id="lan-join-panel">
-                <input type="text" id="lan-room-id" placeholder="房间号" maxlength="8">
-                <input type="text" id="lan-player-name" placeholder="玩家名称" maxlength="12">
-                <button id="btn-lan-join" class="btn-primary">加入</button>
-            </div>
-            <div id="lan-host-panel" class="hidden">
-                <p id="lan-status" class="lan-host-status">正在检测本机托管服务...</p>
-                <div id="room-info" class="hidden">
-                    <span>房间号: <strong id="room-id-display">-</strong></span>
+            <div class="lan-body">
+                <div id="lan-join-panel" class="lan-panel">
+                    <div class="form-group">
+                        <label class="form-label">房间号</label>
+                        <div class="form-input-wrap">
+                            <span class="form-input-icon">🔑</span>
+                            <input type="text" id="lan-room-id" class="form-input" placeholder="输入 8 位房间号" maxlength="8">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">玩家名称</label>
+                        <div class="form-input-wrap">
+                            <span class="form-input-icon">👤</span>
+                            <input type="text" id="lan-player-name" class="form-input" placeholder="输入昵称" maxlength="12">
+                        </div>
+                    </div>
+                    <button id="btn-lan-join" class="screen-btn screen-btn--primary">
+                        <span>🚀</span>
+                        <span>加入房间</span>
+                    </button>
                 </div>
-                <div id="lan-host-url-row" class="hidden">
-                    <label>局域网地址</label>
-                    <input type="text" id="lan-host-url" readonly>
-                    <button id="btn-copy-lan-url" class="btn-small">📋 复制</button>
+                <div id="lan-host-panel" class="lan-panel hidden">
+                    <div class="lan-status-card">
+                        <div class="lan-status-dot" id="lan-status-dot"></div>
+                        <p id="lan-status" class="lan-status-text">正在检测本机托管服务...</p>
+                    </div>
+                    <div id="room-info" class="lan-room-info hidden">
+                        <div class="info-row">
+                            <span class="info-label">房间号</span>
+                            <span class="info-value info-value--code" id="room-id-display">-</span>
+                        </div>
+                    </div>
+                    <div id="lan-host-url-row" class="lan-url-row hidden">
+                        <label class="form-label">局域网地址</label>
+                        <div class="form-input-wrap form-input-wrap--readonly">
+                            <input type="text" id="lan-host-url" class="form-input" readonly>
+                            <button id="btn-copy-lan-url" class="btn-copy" title="复制地址">📋</button>
+                        </div>
+                    </div>
+                    <div id="player-list" class="lan-player-list"></div>
+                    <div class="lan-actions">
+                        <button id="btn-lan-host" class="screen-btn screen-btn--primary">
+                            <span>🏠</span>
+                            <span>创建房间</span>
+                        </button>
+                        <button id="btn-lan-start" class="screen-btn screen-btn--accent hidden">
+                            <span>🎮</span>
+                            <span>开始游戏</span>
+                        </button>
+                    </div>
                 </div>
-                <button id="btn-lan-host" class="btn-primary">创建房间</button>
-                <button id="btn-lan-start" class="btn-primary hidden">开始游戏</button>
-                <div id="player-list"></div>
             </div>
-            <button id="btn-back-lan" class="btn-small btn-back">← 返回</button>
+            <button id="btn-back-lan" class="screen-btn screen-btn--ghost screen-btn--back">
+                <span>←</span>
+                <span>返回菜单</span>
+            </button>
         </div>
     </div>
 
     <!-- 自定义模式界面 -->
     <div id="custom-screen" class="screen hidden">
+        <div class="screen-bg-decoration"></div>
         <div class="custom-container">
-            <h2>自定义模式</h2>
-            <div class="custom-options">
-                <label class="toggle-switch-wrap">
-                        <input type="checkbox"  id="cfg-show-all">
-                        <span class="toggle-switch-track"></span>
-                        <span class="toggle-switch-label">显示所有手牌（观战模式）</span>
-                    </label>
-                <label class="toggle-switch-wrap">
-                        <input type="checkbox"  id="cfg-auto-play">
-                        <span class="toggle-switch-track"></span>
-                        <span class="toggle-switch-label">开启托管</span>
-                    </label>
-                <label>AI难度 <select id="cfg-ai-diff"><option value="easy">简单</option><option value="normal" selected>普通</option><option value="hard">困难</option></select></label>
-                <label>音效 <input type="checkbox" id="cfg-sound" checked></label>
-                <label>叫分模式 <select id="cfg-call-mode"><option value="score">叫分</option><option value="grab">抢地主</option></select></label>
-                <label class="toggle-switch-wrap">
-                        <input type="checkbox"  id="cfg-laizi">
-                        <span class="toggle-switch-track"></span>
-                        <span class="toggle-switch-label">癞子模式</span>
-                    </label>
+            <header class="screen-header">
+                <div class="screen-header__icon">⚙️</div>
+                <h2 class="screen-header__title">自定义模式</h2>
+                <p class="screen-header__subtitle">自由设定规则，打造专属对局</p>
+            </header>
+            <div class="custom-body">
+                <div class="config-group">
+                    <h3 class="config-group__title">
+                        <span class="config-group__icon">🎮</span>
+                        游戏选项
+                    </h3>
+                    <div class="config-items">
+                        <label class="config-item">
+                            <span class="config-item__label">AI 难度</span>
+                            <div class="config-item__control">
+                                <select id="cfg-ai-diff" class="form-select">
+                                    <option value="easy">简单</option>
+                                    <option value="normal" selected>普通</option>
+                                    <option value="hard">困难</option>
+                                </select>
+                            </div>
+                        </label>
+                        <label class="config-item">
+                            <span class="config-item__label">叫分模式</span>
+                            <div class="config-item__control">
+                                <select id="cfg-call-mode" class="form-select">
+                                    <option value="score">叫分</option>
+                                    <option value="grab">抢地主</option>
+                                </select>
+                            </div>
+                        </label>
+                        <label class="config-item config-item--toggle">
+                            <span class="config-item__label">音效</span>
+                            <div class="config-item__control">
+                                <label class="toggle-switch-wrap">
+                                    <input type="checkbox" id="cfg-sound" checked>
+                                    <span class="toggle-switch-track"></span>
+                                </label>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <div class="config-group">
+                    <h3 class="config-group__title">
+                        <span class="config-group__icon">🔧</span>
+                        特殊规则
+                    </h3>
+                    <div class="config-items">
+                        <label class="config-item config-item--toggle">
+                            <span class="config-item__label">显示所有手牌（观战模式）</span>
+                            <div class="config-item__control">
+                                <label class="toggle-switch-wrap">
+                                    <input type="checkbox" id="cfg-show-all">
+                                    <span class="toggle-switch-track"></span>
+                                </label>
+                            </div>
+                        </label>
+                        <label class="config-item config-item--toggle">
+                            <span class="config-item__label">开启托管</span>
+                            <div class="config-item__control">
+                                <label class="toggle-switch-wrap">
+                                    <input type="checkbox" id="cfg-auto-play">
+                                    <span class="toggle-switch-track"></span>
+                                </label>
+                            </div>
+                        </label>
+                        <label class="config-item config-item--toggle">
+                            <span class="config-item__label">癞子模式</span>
+                            <div class="config-item__control">
+                                <label class="toggle-switch-wrap">
+                                    <input type="checkbox" id="cfg-laizi">
+                                    <span class="toggle-switch-track"></span>
+                                </label>
+                            </div>
+                        </label>
+                    </div>
+                </div>
             </div>
-            <button id="btn-custom-start" class="btn-primary">开始游戏</button>
-            <button id="btn-back-custom" class="btn-small btn-back">← 返回</button>
+            <div class="custom-actions">
+                <button id="btn-custom-start" class="screen-btn screen-btn--primary">
+                    <span>🎮</span>
+                    <span>开始游戏</span>
+                </button>
+                <button id="btn-back-custom" class="screen-btn screen-btn--ghost screen-btn--back">
+                    <span>←</span>
+                    <span>返回菜单</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1262,11 +1375,25 @@
 
     <!-- 暂停覆盖层 -->
     <div id="pause-overlay" class="hidden">
-        <div class="pause-content">
-            <h2>游戏暂停</h2>
-            <button id="btn-resume" class="btn-primary">继续</button>
-            <button id="btn-pause-settings" class="btn-secondary">设置</button>
-            <button id="btn-pause-exit" class="btn-secondary btn-danger">退出</button>
+        <div class="pause-backdrop"></div>
+        <div class="pause-card">
+            <div class="pause-card__icon">⏸</div>
+            <h2 class="pause-card__title">游戏暂停</h2>
+            <p class="pause-card__hint">按 <kbd class="pause-kbd">ESC</kbd> 继续游戏</p>
+            <div class="pause-card__actions">
+                <button id="btn-resume" class="screen-btn screen-btn--primary screen-btn--large">
+                    <span>▶</span>
+                    <span>继续游戏</span>
+                </button>
+                <button id="btn-pause-settings" class="screen-btn screen-btn--secondary screen-btn--large">
+                    <span>⚙️</span>
+                    <span>设置</span>
+                </button>
+                <button id="btn-pause-exit" class="screen-btn screen-btn--danger screen-btn--large">
+                    <span>🚪</span>
+                    <span>退出到菜单</span>
+                </button>
+            </div>
         </div>
     </div>
 
