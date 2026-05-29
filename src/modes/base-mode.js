@@ -242,9 +242,12 @@ class BaseMode {
             return false;
         }
         const success = this.gameState.callLandlord(idx, action);
-        if (success && this.gameState.phase === PHASE.CALLING) {
-            // 继续处理后续AI叫分
-            this._processCalling();
+        if (success) {
+            this.renderer?.hideCallControls();
+            if (this.gameState.phase === PHASE.CALLING) {
+                // 继续处理后续AI叫分
+                this._processCalling();
+            }
         }
         return success;
     }
@@ -407,8 +410,11 @@ class BaseMode {
         const pattern = Rules.analyze(selectedCards);
         const result = this.gameState.playCards(idx, selectedCards, pattern);
         
-        if (result.success && !result.win && this.gameState.phase === PHASE.PLAYING) {
-            this._processPlay();
+        if (result.success) {
+            this.renderer?.hidePlayControls();
+            if (!result.win && this.gameState.phase === PHASE.PLAYING) {
+                this._processPlay();
+            }
         }
         return result;
     }
@@ -422,8 +428,11 @@ class BaseMode {
             return false;
         }
         const success = this.gameState.pass(idx);
-        if (success && this.gameState.phase === PHASE.PLAYING) {
-            this._processPlay();
+        if (success) {
+            this.renderer?.hidePlayControls();
+            if (this.gameState.phase === PHASE.PLAYING) {
+                this._processPlay();
+            }
         }
         return success;
     }
@@ -431,8 +440,8 @@ class BaseMode {
     _startCountdown(playerIndex, type) {
         this._stopCountdown();
         const settings = Storage.getSettings();
-        // timerEnabled 在 HTML 中是 select，值为字符串 "true"/"false"，用宽松比较兼容
-        if (settings.timerEnabled == false) {
+        // timerEnabled 在 HTML 中是 select，值为字符串 "true"/"false"
+        if (settings.timerEnabled === false || settings.timerEnabled === 'false') {
             return; // 倒计时关闭，不启动
         }
         this._turnCountdown = Math.max(10, Math.min(120, settings.timerSeconds ?? 30));
@@ -592,9 +601,9 @@ class BaseMode {
         // 累计比赛分数
         if (this.matchConfig.isMatchMode) {
             this.matchConfig.currentRound++;
-            // GameState.scores 已经是跨局累加值，直接赋值而非累加
+            // GameState.resetRound() 每局开始时清零 scores，此处需累加
             for (let i = 0; i < 3; i++) {
-                this.matchConfig.matchScores[i] = data.scores[i];
+                this.matchConfig.matchScores[i] += data.scores[i];
             }
         }
         // BGM切换为胜利/失败（观战模式下humanIndex=-1，按旁观处理）

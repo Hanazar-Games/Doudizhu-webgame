@@ -178,8 +178,9 @@ class GameApp {
 
         // 游戏内音效开关（所有模式通用）
         document.getElementById('btn-sound-toggle')?.addEventListener('click', () => {
-            this.renderer?.audio?.playButtonClick();
-            const enabled = this.renderer?.audio?.toggle();
+            const audio = this._getActiveAudio();
+            audio?.playButtonClick();
+            const enabled = audio?.toggle();
             const btn = document.getElementById('btn-sound-toggle');
             if (btn) btn.textContent = enabled ? '🔊' : '🔇';
             this.settings.soundEnabled = enabled;
@@ -224,7 +225,11 @@ class GameApp {
     _syncAudioSettings(audio) {
         if (!audio) return;
         audio.enabled = this.settings.soundEnabled !== false;
-        audio.bgmEnabled = this.settings.bgmEnabled !== false;
+        const newBgmEnabled = this.settings.bgmEnabled !== false;
+        if (audio.bgmEnabled && !newBgmEnabled) {
+            audio.stopBGM();
+        }
+        audio.bgmEnabled = newBgmEnabled;
         audio.sfxEnabled = this.settings.sfxEnabled !== false;
         audio.setBGMVolume(this.settings.bgmVolume ?? 0.5);
         audio.setSFXVolume(this.settings.sfxVolume ?? 0.5);
@@ -254,6 +259,7 @@ class GameApp {
 
     _stopMenuAudio() {
         this.menuAudio?.stopBGM();
+        if (this._menuBgmTimer) { clearTimeout(this._menuBgmTimer); this._menuBgmTimer = null; }
     }
 
     _animateMenuEntrance() {
@@ -1178,9 +1184,12 @@ class GameApp {
             this.currentMode.isRunning = false;
             this.currentMode.destroy?.();
         }
+        this.renderer?.audio?.stopBGM();
         this.renderer?.destroy?.();
         this.renderer = null;
         this.currentMode = null;
+
+        if (this._gameBgmTimer) { clearTimeout(this._gameBgmTimer); this._gameBgmTimer = null; }
 
         // 切换回菜单BGM
         this._playMenuBGM();

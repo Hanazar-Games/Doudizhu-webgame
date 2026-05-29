@@ -140,17 +140,39 @@ docker-compose up -d
 
 ## 版本公告
 
-### v1.2.8 (当前版本) — 全站 UI 深度美化
+### v1.2.9 (当前版本) — 游戏桌布局重构 & 全站 Bug 深度修复
 
-**UI 全面优化**
-- 🌐 **LAN 联机界面重设计**：毛玻璃卡片容器、图标化标签页（加入/创建）、带图标的表单输入框、状态指示器、玩家列表卡片化
-- ⚙️ **自定义模式界面重设计**：分组卡片布局（游戏选项 / 特殊规则）、统一开关样式、带图标的下拉选择器
-- ⏸️ **暂停界面重设计**：毛玻璃卡片 + 动态光晕背景、金色渐变标题、图标化按钮（继续/设置/退出）、ESC 快捷键提示
-- 🏆 **成就面板重设计**：深色毛玻璃面板、入场缩放动画、解锁/锁定状态区分、图标圆角背景
-- 📹 **回放界面重设计**：金色渐变标题、空状态图标提示、卡片式记录项 hover 抬升效果
-- 🎮 **游戏界面优化**：头部按钮圆角毛玻璃化、侧边面板切换按钮 active 状态金色高亮
-- 🎨 **通用组件**：新增 `.screen-btn` 系列（primary/accent/secondary/danger/ghost）、`.form-input`、`.form-select`、`.screen-header` 等复用组件
-- ✨ **全屏背景装饰**：所有子屏幕（LAN/自定义/回放）共享动态光晕背景
+**游戏桌布局重构**
+- 🎴 **对角布局**：对手从顶部/左侧改为左上/右上对角分布，桌面空间更均衡
+- ⏱️ **中央倒计时**：倒计时从玩家头像旁移至桌面中央，大圆形显示，所有玩家共享同一倒计时
+- 🃏 **手牌放大**：Desktop 卡牌从 72px 放大至 82px，overlap 优化，更清晰易读
+- 🎛️ **控制区上移**：叫分/出牌按钮从底部 fixed 上移至手牌上方，背景透明可穿透，不遮挡交互
+
+**🔴 严重 Bug 修复**
+- **CSS 响应式断点失效**：`max-width: 768px` 断点被后面的 `max-width: 900px` 完全覆盖，形同虚设 — 补充 769–900px 手牌负 margin 和响应式 margin-top
+- **`timerEnabled` 关闭无效**：字符串 `"false"` 与 `== false` 判断为假，用户关闭倒计时后仍继续运行 — 改为显式 `=== false || === 'false'` 检查
+- **超时后控制面板不隐藏**：倒计时超时自动 pass 后，叫分/出牌按钮仍然显示在 AI 回合 — 在 `humanCall`/`humanPlay`/`humanPass` 成功后主动隐藏控制面板
+- **比赛模式分数不累计**：`matchScores` 每局被直接赋值而非累加，比赛排行榜始终只显示最近一局 — 改为 `+=` 累加
+- **BGM 叠加与内存泄漏**：`Renderer.destroy()` 未 `stopBGM()`，返回菜单后游戏 BGM 持续播放；`AudioManager` 无 `destroy()`，loop timer 永久持有实例 — 新增 `AudioManager.destroy()`，在 `Renderer.destroy()` 和 `showMenu()` 前停止 BGM
+- **`_playBGMSequence` 竞态**：快速切换 BGM 时多套音符同时 schedule，导致多重 BGM 叠加 — 每次 schedule 前检查 generation，已变更则中断
+
+**🟡 高优先级修复**
+- **Renderer 事件监听器泄漏**：`_bindControls` / `_bindPanelToggles` / `_initQuickPhrases` 等数十个事件监听器在 `destroy()` 中未移除 — 新增 `_addControlListener` 辅助方法统一收集，destroy 时批量清理
+- **暂停覆盖层重复绑定**：快速按 ESC 时 `_pauseListenersBound` 标志与 250ms remove timeout 竞态，导致事件监听器重复绑定 — 移除标志，改为每次显示前先 `removeEventListener`
+- **`hideCountdown` 竞态**：opacity fade-out 的 300ms timeout 与下回合 `showCountdown` 冲突，倒计时重新显示后突然消失 — 给元素附加 `_hideTimeout` 属性，设置新 timeout 前清理旧的
+- **`showCountdown` mode 缺失异常**：`this.mode` 未初始化时 `humanIndex` 为 `undefined`，所有玩家都显示小倒计时 — 显式判断 `humanIndex !== undefined`
+- **Joker 增量更新失败**：`_createCardElement` 中 Joker 的 `dataset.suit` 可能为 suit name，但 `_updateHumanHand` 比较时用 `rankKey`，导致无法匹配 — 统一使用 `rankKey`
+- **Avatar 不随 `humanIndex` 变化**：`_initLayout` 中 avatar 固定为 `👤`/`🤖`，`humanIndex !== 0` 时人类玩家显示机器人头像 — 在 `renderHands` 中动态更新
+- **`_ensureContext()` 旧节点残留**：重建 AudioContext 后旧 `_bgmNodes` 仍连接在旧音频图上 — 重建前显式 `stopBGM()` 并 `disconnect()` 所有旧节点
+- **`_stopMenuAudio()` 未清理 timer**：`_menuBgmTimer` 在停止菜单 BGM 时未清理 — 添加 `clearTimeout`
+- **`showMenu()` 未清理 `_gameBgmTimer`** — 添加 `clearTimeout`
+- **`_syncAudioSettings()` 绕过 stopBGM()**：直接赋值属性导致关闭 BGM 后当前音乐不立即停止 — 检测到 `true→false` 变化时主动 `stopBGM()`
+
+**🟢 中低优先级优化**
+- `playTick()` 增加 80ms 防抖，防止高频叠加噪音
+- `playCall()` 追踪 setTimeout ID，切换场景时自动取消
+- 暂停恢复时记录并还原暂停前的 BGM 类型（而非强制切回 game BGM）
+- `#ddz-table::before` inset bottom 与 padding-bottom 统一匹配
 
 ---
 
@@ -400,6 +422,20 @@ docker-compose up -d
 ---
 
 ## 历史公告
+
+### v1.2.8 — 全站 UI 深度美化
+
+**UI 全面优化**
+- 🌐 **LAN 联机界面重设计**：毛玻璃卡片容器、图标化标签页（加入/创建）、带图标的表单输入框、状态指示器、玩家列表卡片化
+- ⚙️ **自定义模式界面重设计**：分组卡片布局（游戏选项 / 特殊规则）、统一开关样式、带图标的下拉选择器
+- ⏸️ **暂停界面重设计**：毛玻璃卡片 + 动态光晕背景、金色渐变标题、图标化按钮（继续/设置/退出）、ESC 快捷键提示
+- 🏆 **成就面板重设计**：深色毛玻璃面板、入场缩放动画、解锁/锁定状态区分、图标圆角背景
+- 📹 **回放界面重设计**：金色渐变标题、空状态图标提示、卡片式记录项 hover 抬升效果
+- 🎮 **游戏界面优化**：头部按钮圆角毛玻璃化、侧边面板切换按钮 active 状态金色高亮
+- 🎨 **通用组件**：新增 `.screen-btn` 系列（primary/accent/secondary/danger/ghost）、`.form-input`、`.form-select`、`.screen-header` 等复用组件
+- ✨ **全屏背景装饰**：所有子屏幕（LAN/自定义/回放）共享动态光晕背景
+
+---
 
 ### v1.1.6 — 全局 UX 增强大更新
 

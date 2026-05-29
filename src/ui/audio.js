@@ -18,6 +18,8 @@ class AudioManager {
         this._bgmGain = null;
         this._bgmNodes = [];
         this._bgmTimer = null;
+        this._winSfxTimeout = null;
+        this._callTimeout = null;
         this._bgmLoopStart = 0;
         this._currentBGM = null;
         this._bgmGeneration = 0;
@@ -49,12 +51,20 @@ class AudioManager {
     }
 
     _init() {
-        this.ctx = null;
+        // 初始化已在 constructor 中完成
     }
 
     async _ensureContext() {
         if (!this.enabled) return false;
         if (!this.ctx || this.ctx.state === 'closed' || this.ctx.state === 'closing') {
+            this.stopBGM();
+            this._bgmNodes.forEach(n => {
+                try {
+                    if (n.gain) n.gain.disconnect();
+                    if (n.osc) n.osc.disconnect();
+                } catch (e) {}
+            });
+            this._bgmNodes = [];
             this.ctx = null;
             this._masterCompressor = null;
             this._bgmGain = null;
@@ -140,6 +150,7 @@ class AudioManager {
 
     playTick() {
         if (!this._isSfxEnabled('tick')) return;
+        if (!this._shouldPlaySfx('tick', 80)) return;
         this._playTick().catch(() => {});
     }
 
@@ -164,6 +175,10 @@ class AudioManager {
         if (this._winSfxTimeout) {
             clearTimeout(this._winSfxTimeout);
             this._winSfxTimeout = null;
+        }
+        if (this._callTimeout) {
+            clearTimeout(this._callTimeout);
+            this._callTimeout = null;
         }
         const now = this.ctx ? this.ctx.currentTime : 0;
         this._bgmNodes.forEach(n => {
@@ -225,10 +240,9 @@ class AudioManager {
         osc.connect(gain);
         gain.connect(master);
         osc.start(t);
-        const stopTime = t + duration + 0.1;
-        osc.stop(stopTime);
+        osc.stop(t + duration + 0.1);
         
-        const nodeRef = { osc, gain, stopTime };
+        const nodeRef = { osc, gain };
         this._bgmNodes.push(nodeRef);
         
         // 播放结束后自动从列表中移除，防止内存泄漏
@@ -242,21 +256,23 @@ class AudioManager {
     async _playBGMSequence(notes, tempoBPM = 100, waveform = 'sine', loop = true) {
         this.stopBGM();
         if (!this.bgmEnabled) return;
+        const gen = this._bgmGeneration;
         if (!(await this._ensureContext())) return;
+        if (gen !== this._bgmGeneration) return;
 
         const beat = 60 / tempoBPM;
         let totalDuration = 0;
-        notes.forEach(n => {
+        for (const n of notes) {
+            if (gen !== this._bgmGeneration) return;
             const start = (n.beat || 0) * beat;
             const dur = (n.dur || 0.5) * beat;
             totalDuration = Math.max(totalDuration, start + dur);
             // triangle 波形能量比 sine 高约 3dB，适当降低音量
             const vol = waveform === 'triangle' ? (n.vol || 1) * 0.8 : (n.vol || 1);
             this._scheduleBGMNote(n.freq, start, dur, waveform, vol);
-        });
+        }
 
         if (loop && totalDuration > 0) {
-            const gen = this._bgmGeneration;
             // 使用精确的 AudioContext 时间调度 loop，消除 200ms 间隙
             const loopDelay = Math.max(0, totalDuration - 0.05);
             this._bgmTimer = setTimeout(() => {
@@ -344,10 +360,14 @@ class AudioManager {
     }
 
     playCall() {
-        if (!this._isSfxEnabled('play')) return;
+        if (!this._isSfxEnabled('call')) return;
         // 叫分：庄重的双音
         this._tone(523, 0.15, 'sine', 0.13);
-        setTimeout(() => this._tone(659, 0.2, 'sine', 0.13), 100);
+        if (this._callTimeout) clearTimeout(this._callTimeout);
+        this._callTimeout = setTimeout(() => {
+            this._callTimeout = null;
+            this._tone(659, 0.2, 'sine', 0.13);
+        }, 100);
     }
 
     playPass() {
@@ -729,6 +749,24 @@ class AudioManager {
     toggleSFX() {
         this.sfxEnabled = !this.sfxEnabled;
         return this.sfxEnabled;
+    }
+
+    destroy() {
+        this.stopBGM();
+        this._bgmNodes.forEach(n => {
+            try {
+                if (n.gain) n.gain.disconnect();
+                if (n.osc) n.osc.disconnect();
+            } catch (e) {}
+        });
+        this._bgmNodes = [];
+        if (this.ctx && this.ctx.state !== 'closed') {
+            try {
+                this.ctx.close();
+            } catch (e) {}
+        }
+        this.ctx = null;
+        this.enabled = false;
     }
 }
 

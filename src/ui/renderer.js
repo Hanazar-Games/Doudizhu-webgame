@@ -26,6 +26,7 @@ class Renderer {
         this.hintCards = [];
         this._selectionHistory = []; // 选牌历史，用于撤销
 
+        this._controlListeners = [];
         this._initLayout();
         this._keyboardHandler = null;
         this._bindKeyboard();
@@ -33,6 +34,7 @@ class Renderer {
     }
 
     destroy() {
+        this.audio?.stopBGM();
         this._destroyed = true;
         this._isPaused = false;
         this._removePauseOverlay();
@@ -48,6 +50,17 @@ class Renderer {
         if (this._globalPauseHandler) {
             document.getElementById('btn-pause')?.removeEventListener('click', this._globalPauseHandler);
             this._globalPauseHandler = null;
+        }
+        if (this._controlListeners) {
+            for (const { el, type, handler, options } of this._controlListeners) {
+                try { el?.removeEventListener(type, handler, options); } catch (e) {}
+            }
+            this._controlListeners = [];
+        }
+        const modalOverlay = this.container?.querySelector('#modal-overlay');
+        if (modalOverlay && this._modalOverlayClick) {
+            modalOverlay.removeEventListener('click', this._modalOverlayClick);
+            this._modalOverlayClick = null;
         }
         this.audio = null;
         this.mode = null;
@@ -131,9 +144,7 @@ class Renderer {
                         <div class="label">底牌</div>
                         <div class="cards"></div>
                     </div>
-                    <div id="last-play-info">
-                        <div id="last-play-type"></div>
-                    </div>
+                    <div id="center-countdown" class="center-countdown hidden"></div>
                     <div id="turn-indicator" aria-live="polite"></div>
                 </div>
             </div>
@@ -199,9 +210,16 @@ class Renderer {
         const addRipple = (e) => {
             this.anim.ripple(e.clientX, e.clientY, 'rgba(240,192,64,0.3)');
         };
+        const pressAnim = () => this.anim.buttonPress(btn);
         // 使用 pointerdown 统一处理鼠标和触摸，避免 ghost click 双重触发
-        btn.addEventListener('pointerdown', addRipple);
-        btn.addEventListener('pointerdown', () => this.anim.buttonPress(btn));
+        this._addControlListener(btn, 'pointerdown', addRipple);
+        this._addControlListener(btn, 'pointerdown', pressAnim);
+    }
+
+    _addControlListener(el, type, handler, options) {
+        if (!el) return;
+        el.addEventListener(type, handler, options);
+        this._controlListeners.push({ el, type, handler, options });
     }
 
     _bindControls() {
@@ -209,7 +227,7 @@ class Renderer {
         // 叫分按钮
         const callBtns = this.container.querySelectorAll('#call-controls button[data-call]');
         for (const btn of callBtns) {
-            btn.addEventListener('click', (e) => {
+            const handler = (e) => {
                 this.audio.playButtonClick();
                 this.anim.buttonPress(btn);
                 if (this.gameState?.phase !== PHASE.CALLING || this.gameState?.currentTurn !== this.mode?.humanIndex) {
@@ -224,7 +242,8 @@ class Renderer {
                 } else {
                     this.hideCallControls();
                 }
-            });
+            };
+            this._addControlListener(btn, 'click', handler);
             this._bindRipple(btn);
         }
 
@@ -234,23 +253,29 @@ class Renderer {
         const btnReset = this.container.querySelector('#btn-reset');
         const btnHint = this.container.querySelector('#btn-hint');
 
-        btnPlay?.addEventListener('click', () => { this.audio.playButtonClick(); this.anim.buttonPress(btnPlay); this._doPlay(); });
-        btnPass?.addEventListener('click', () => { this.audio.playButtonClick(); this.anim.buttonPress(btnPass); this._doPass(); });
-        btnReset?.addEventListener('click', () => { this.audio.playButtonClick(); this.anim.buttonPress(btnReset); this.clearSelection(); });
-        btnHint?.addEventListener('click', () => { this.audio.playButtonClick(); this.anim.buttonPress(btnHint); this._doHint(); });
+        const playHandler = () => { this.audio.playButtonClick(); this.anim.buttonPress(btnPlay); this._doPlay(); };
+        const passHandler = () => { this.audio.playButtonClick(); this.anim.buttonPress(btnPass); this._doPass(); };
+        const resetHandler = () => { this.audio.playButtonClick(); this.anim.buttonPress(btnReset); this.clearSelection(); };
+        const hintHandler = () => { this.audio.playButtonClick(); this.anim.buttonPress(btnHint); this._doHint(); };
+        this._addControlListener(btnPlay, 'click', playHandler);
+        this._addControlListener(btnPass, 'click', passHandler);
+        this._addControlListener(btnReset, 'click', resetHandler);
+        this._addControlListener(btnHint, 'click', hintHandler);
         [btnPlay, btnPass, btnReset, btnHint].forEach(b => this._bindRipple(b));
 
         // 托管按钮
         const btnAutoCall = this.container.querySelector('#btn-auto-call');
         const btnAutoPlay = this.container.querySelector('#btn-auto-play');
-        btnAutoCall?.addEventListener('click', () => { this.audio.playButtonClick(); this.anim.buttonPress(btnAutoCall); this._toggleAuto(); });
-        btnAutoPlay?.addEventListener('click', () => { this.audio.playButtonClick(); this.anim.buttonPress(btnAutoPlay); this._toggleAuto(); });
+        const autoCallHandler = () => { this.audio.playButtonClick(); this.anim.buttonPress(btnAutoCall); this._toggleAuto(); };
+        const autoPlayHandler = () => { this.audio.playButtonClick(); this.anim.buttonPress(btnAutoPlay); this._toggleAuto(); };
+        this._addControlListener(btnAutoCall, 'click', autoCallHandler);
+        this._addControlListener(btnAutoPlay, 'click', autoPlayHandler);
         [btnAutoCall, btnAutoPlay].forEach(b => this._bindRipple(b));
 
         // 双击出牌
         const handContainer = this.container.querySelector('#player-right .hand-front');
         if (handContainer) {
-            handContainer.addEventListener('dblclick', (e) => {
+            const dblclickHandler = (e) => {
                 const settings = Storage.getSettings();
                 if (settings.doubleClickToPlay !== true) return;
                 if (this.gameState?.phase !== PHASE.PLAYING) return;
@@ -258,18 +283,18 @@ class Renderer {
                 e.preventDefault();
                 this.audio.playButtonClick();
                 this._doPlay();
-            });
+            };
             // 右键取消选牌
-            handContainer.addEventListener('contextmenu', (e) => {
+            const contextmenuHandler = (e) => {
                 const settings = Storage.getSettings();
                 if (settings.rightClickCancel !== false) {
                     e.preventDefault();
                     this.clearSelection();
                     this.audio.playCardDeselect();
                 }
-            });
+            };
             // 滚轮缩放
-            handContainer.addEventListener('wheel', (e) => {
+            const wheelHandler = (e) => {
                 const settings = Storage.getSettings();
                 if (settings.wheelZoom !== true) return;
                 e.preventDefault();
@@ -277,7 +302,10 @@ class Renderer {
                 const current = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ddz-card-scale')) || 1;
                 const next = Math.max(0.7, Math.min(1.5, current + delta));
                 document.documentElement.style.setProperty('--ddz-card-scale', String(next));
-            }, { passive: false });
+            };
+            this._addControlListener(handContainer, 'dblclick', dblclickHandler);
+            this._addControlListener(handContainer, 'contextmenu', contextmenuHandler);
+            this._addControlListener(handContainer, 'wheel', wheelHandler, { passive: false });
         }
 
         // 游戏头部按钮（返回菜单、暂停）——不在 this.container 内，用 document 查询
@@ -327,16 +355,19 @@ class Renderer {
             }
         };
 
-        btnTracker?.addEventListener('click', () => _toggleSidePanel(tracker, [history, chat], btnTracker));
-        this._bindRipple(btnTracker);
-        btnHistory?.addEventListener('click', () => _toggleSidePanel(history, [tracker, chat], btnHistory));
-        this._bindRipple(btnHistory);
-        btnChat?.addEventListener('click', () => {
+        const trackerHandler = () => _toggleSidePanel(tracker, [history, chat], btnTracker);
+        const historyHandler = () => _toggleSidePanel(history, [tracker, chat], btnHistory);
+        const chatHandler = () => {
             _toggleSidePanel(chat, [tracker, history], btnChat);
             if (chat && !chat.classList.contains('hidden') && !chat.classList.contains('panel-exit')) {
                 setTimeout(() => chatInput?.focus(), 100);
             }
-        });
+        };
+        this._addControlListener(btnTracker, 'click', trackerHandler);
+        this._bindRipple(btnTracker);
+        this._addControlListener(btnHistory, 'click', historyHandler);
+        this._bindRipple(btnHistory);
+        this._addControlListener(btnChat, 'click', chatHandler);
         this._bindRipple(btnChat);
 
         // 聊天输入
@@ -351,38 +382,42 @@ class Renderer {
             chatInput.value = '';
         };
 
-        btnSend?.addEventListener('click', sendChat);
-        chatInput?.addEventListener('keydown', (e) => {
+        this._addControlListener(btnSend, 'click', sendChat);
+        const chatKeydownHandler = (e) => {
             if (e.key === 'Enter') sendChat();
-        });
-        // 移动端键盘弹出时确保输入框可见
-        chatInput?.addEventListener('focus', () => {
+        };
+        const chatFocusHandler = () => {
             setTimeout(() => {
                 chatInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 300);
-        });
+        };
+        this._addControlListener(chatInput, 'keydown', chatKeydownHandler);
+        this._addControlListener(chatInput, 'focus', chatFocusHandler);
 
         // 导出出牌历史
         const btnExportHistory = this.container.querySelector('#btn-export-history');
-        btnExportHistory?.addEventListener('click', () => {
+        const exportHistoryHandler = () => {
             this.audio.playButtonClick();
             this._exportHistory();
-        });
+        };
+        this._addControlListener(btnExportHistory, 'click', exportHistoryHandler);
 
         // 清空出牌历史
         const btnClearHistory = this.container.querySelector('#btn-clear-history');
-        btnClearHistory?.addEventListener('click', () => {
+        const clearHistoryHandler = () => {
             this.audio.playButtonClick();
             const content = this.container.querySelector('#history-content');
             if (content) content.innerHTML = '';
-        });
+        };
+        this._addControlListener(btnClearHistory, 'click', clearHistoryHandler);
 
         // 快捷键提示点击展开帮助
         const shortcutHint = this.container.querySelector('#shortcut-hint');
-        shortcutHint?.addEventListener('click', () => {
+        const shortcutHandler = () => {
             this.audio.playButtonClick();
             this._toggleHelpPanel();
-        });
+        };
+        this._addControlListener(shortcutHint, 'click', shortcutHandler);
     }
 
     _initEmptyStates() {
@@ -418,10 +453,11 @@ class Renderer {
             btn.style.opacity = '0';
             btn.style.transform = 'scale(0.5)';
             btn.style.transition = `all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${i * 50}ms`;
-            btn.addEventListener('click', () => {
+            const handler = () => {
                 this.audio.playButtonClick();
                 this._sendChatMessage(p.text);
-            });
+            };
+            this._addControlListener(btn, 'click', handler);
             container.appendChild(btn);
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
@@ -617,6 +653,7 @@ class Renderer {
         if (this._isPaused) return;
         this._isPaused = true;
         this.mode?.pauseGame?.();
+        this._bgmBeforePause = this.audio?._currentBGM;
         this.audio?.stopBGM();
         this._showPauseOverlay();
     }
@@ -626,7 +663,11 @@ class Renderer {
         this._isPaused = false;
         this.mode?.resumeGame?.();
         this._removePauseOverlay();
-        this.audio?.playGameBGM();
+        const bgm = this._bgmBeforePause;
+        if (bgm === 'menu') this.audio?.playMenuBGM();
+        else if (bgm === 'game') this.audio?.playGameBGM();
+        else if (bgm === 'win') this.audio?.playWinBGM();
+        else if (bgm === 'lose') this.audio?.playLoseBGM();
     }
 
     _zoomTable(delta) {
@@ -673,21 +714,29 @@ class Renderer {
             `;
             document.body.appendChild(overlay);
         }
-        // 仅绑定一次事件（兼容静态 HTML 和动态创建）
-        if (!this._pauseListenersBound) {
-            this._pauseListenersBound = true;
-            overlay.querySelector('#btn-resume')?.addEventListener('click', () => this._resumeGame());
-            overlay.querySelector('#btn-pause-settings')?.addEventListener('click', () => {
+        // 绑定暂停覆盖层事件（每次显示前移除旧监听器，防止重复绑定）
+        if (!this._pauseResumeHandler) {
+            this._pauseResumeHandler = () => this._resumeGame();
+            this._pauseSettingsHandler = () => {
                 this.audio?.playButtonClick();
                 this._resumeGame();
                 window.gameApp?.openSettings();
-            });
-            overlay.querySelector('#btn-pause-exit')?.addEventListener('click', () => {
+            };
+            this._pauseExitHandler = () => {
                 this.audio?.playButtonClick();
                 this._resumeGame();
                 window.gameApp?.showMenu();
-            });
+            };
         }
+        const btnResume = overlay.querySelector('#btn-resume');
+        const btnSettings = overlay.querySelector('#btn-pause-settings');
+        const btnExit = overlay.querySelector('#btn-pause-exit');
+        btnResume?.removeEventListener('click', this._pauseResumeHandler);
+        btnResume?.addEventListener('click', this._pauseResumeHandler);
+        btnSettings?.removeEventListener('click', this._pauseSettingsHandler);
+        btnSettings?.addEventListener('click', this._pauseSettingsHandler);
+        btnExit?.removeEventListener('click', this._pauseExitHandler);
+        btnExit?.addEventListener('click', this._pauseExitHandler);
         overlay.classList.remove('hidden');
         overlay.style.display = 'flex';
         overlay.style.opacity = '0';
@@ -700,13 +749,11 @@ class Renderer {
     _removePauseOverlay() {
         const overlay = document.getElementById('pause-overlay');
         if (!overlay) {
-            this._pauseListenersBound = false;
             return;
         }
         if (overlay._removeTimeout) clearTimeout(overlay._removeTimeout);
         overlay.style.transition = 'opacity 0.25s ease-in';
         overlay.style.opacity = '0';
-        this._pauseListenersBound = false;
         overlay._removeTimeout = setTimeout(() => {
             overlay.remove();
             overlay._removeTimeout = null;
@@ -1491,7 +1538,11 @@ class Renderer {
             // 更新玩家信息
             const nameEl = area.querySelector('.player-name');
             const badgeEl = area.querySelector('.player-badge');
+            const avatarEl = area.querySelector('.player-avatar');
             if (nameEl) nameEl.textContent = player.name;
+            if (avatarEl) {
+                avatarEl.textContent = (i === this.mode?.humanIndex) ? '👤' : '🤖';
+            }
             if (badgeEl) {
                 badgeEl.textContent = player.isLandlord ? '地主' : '农民';
                 badgeEl.className = 'player-badge ' + (player.isLandlord ? 'landlord' : 'peasant');
@@ -1543,7 +1594,7 @@ class Renderer {
         const el = document.createElement('div');
         el.className = card.getCardClass() + (card.isLaizi ? ' laizi' : '');
         el.dataset.value = card.value;
-        el.dataset.suit = card.suit?.name || card.rankKey;
+        el.dataset.suit = card.isJoker() ? card.rankKey : (card.suit?.name || card.rankKey);
 
         const inner = document.createElement('div');
         inner.className = 'card-inner';
@@ -1699,35 +1750,54 @@ class Renderer {
     }
 
     showCountdown(playerIndex, seconds) {
-        const area = this._getPlayerArea(playerIndex);
-        if (!area) return;
-        let cd = area.querySelector('.countdown-timer');
-        const isNew = !cd;
-        if (!cd) {
-            cd = document.createElement('div');
-            cd.className = 'countdown-timer';
-            area.appendChild(cd);
+        // 1. 对手区域显示小倒计时（人类玩家只在桌面中央显示大倒计时）
+        const humanIdx = this.mode?.humanIndex;
+        if (humanIdx !== undefined && playerIndex !== humanIdx) {
+            const area = this._getPlayerArea(playerIndex);
+            if (area) {
+                let cd = area.querySelector('.countdown-timer');
+                const isNew = !cd;
+                if (!cd) {
+                    cd = document.createElement('div');
+                    cd.className = 'countdown-timer';
+                    area.appendChild(cd);
+                }
+                cd.textContent = seconds + 's';
+                cd.classList.remove('urgent', 'critical');
+                if (seconds <= 5) cd.classList.add('critical');
+                else if (seconds <= 10) cd.classList.add('urgent');
+                cd.style.opacity = '1';
+                if (isNew) this.anim.countdownAppear(cd);
+            }
         }
-        cd.textContent = seconds + 's';
-        cd.classList.remove('urgent', 'critical');
-        if (seconds <= 5) cd.classList.add('critical');
-        else if (seconds <= 10) cd.classList.add('urgent');
-        cd.style.opacity = '1';
-        // 新出现的倒计时添加弹跳动画
-        if (isNew) {
-            this.anim.countdownAppear(cd);
+
+        // 2. 桌面中央大倒计时（始终显示当前回合玩家）
+        const centerCd = this.container.querySelector('#center-countdown');
+        if (centerCd) {
+            centerCd.classList.remove('hidden', 'urgent', 'critical');
+            centerCd.textContent = seconds;
+            if (seconds <= 5) centerCd.classList.add('critical');
+            else if (seconds <= 10) centerCd.classList.add('urgent');
         }
     }
 
     hideCountdown() {
+        // 1. 清除玩家区域倒计时
         const areas = this.container.querySelectorAll('.player-area');
         for (const area of areas) {
             const cd = area.querySelector('.countdown-timer');
             if (cd) {
                 cd.style.opacity = '0';
-                setTimeout(() => cd.remove(), 300);
+                if (cd._hideTimeout) clearTimeout(cd._hideTimeout);
+                cd._hideTimeout = setTimeout(() => {
+                    cd.remove();
+                    cd._hideTimeout = null;
+                }, 300);
             }
         }
+        // 2. 隐藏桌面中央倒计时
+        const centerCd = this.container.querySelector('#center-countdown');
+        if (centerCd) centerCd.classList.add('hidden');
     }
 
     showThinking(playerIndex, hintText = null) {
@@ -1886,16 +1956,7 @@ class Renderer {
         const btnPass = panel.querySelector('#btn-pass');
         if (btnPass) btnPass.disabled = isNewRound && this.gameState?.allowPassOnFirst !== true;
 
-        // 显示上家牌型
-        const lastTypeEl = this.container.querySelector('#last-play-type');
-        if (lastTypeEl && lastPattern && !isNewRound) {
-            lastTypeEl.textContent = `上家: ${Rules.getTypeName(lastPattern.type)}`;
-            lastTypeEl.classList.add('info-pop');
-        } else if (lastTypeEl) {
-            lastTypeEl.textContent = '首家出牌';
-            lastTypeEl.classList.add('info-pop');
-        }
-        setTimeout(() => lastTypeEl?.classList.remove('info-pop'), 350);
+        // 上家牌型提示已移除，改为桌面中央倒计时显示
 
         // 按钮依次弹出
         const btns = panel.querySelectorAll('button');

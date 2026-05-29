@@ -966,8 +966,8 @@ body[data-theme="purple"] {
     position: relative;
     flex: 1;
     display: grid;
-    grid-template-rows: 140px 1fr 180px;
-    grid-template-columns: 160px 1fr 160px;
+    grid-template-rows: 160px 1fr 220px;
+    grid-template-columns: 200px 1fr 200px;
     gap: 8px;
     padding: 16px;
     max-width: 1200px;
@@ -993,19 +993,54 @@ body[data-theme="purple"] {
     border-color: rgba(240,192,64,0.30);
 }
 
+/* 左上对手 */
 #player-top {
-    grid-column: 2;
+    grid-column: 1;
     grid-row: 1;
 }
 
+/* 右上对手 */
 #player-left {
-    grid-column: 1;
-    grid-row: 2;
+    grid-column: 3;
+    grid-row: 1;
 }
 
+/* 底部人类玩家（全宽居中） */
 #player-right {
-    grid-column: 3;
-    grid-row: 2;
+    grid-column: 1 / 4;
+    grid-row: 3;
+    justify-content: flex-start;
+    padding-bottom: 4px;
+    gap: 6px;
+    flex-direction: column-reverse;
+}
+
+#player-right .player-info {
+    order: 3;
+    margin-bottom: 0;
+    margin-top: 4px;
+}
+
+#player-right .hand-front {
+    order: 1;
+    min-height: 140px;
+    padding: 8px 20px;
+}
+
+#player-right .played-area {
+    order: 2;
+}
+
+/* 桌面中央区域（跨上下两行） */
+#table-center {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
 }
 
 .player-info {
@@ -1313,8 +1348,8 @@ body[data-theme="purple"] {
 
 /* ===== 扑克牌样式 ===== */
 .card {
-    width: 72px;
-    height: 100px;
+    width: 82px;
+    height: 114px;
     position: relative;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -1435,16 +1470,22 @@ body[data-theme="purple"] {
 /* ===== 控制区 ===== */
 #controls-area {
     position: fixed;
-    bottom: 0;
+    bottom: auto;
+    top: calc(100% - 440px);
     left: 0;
     right: 0;
-    padding: 16px 20px 24px;
-    background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
+    padding: 8px 20px 10px;
+    background: transparent;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     z-index: 20;
+    pointer-events: none;
+}
+
+#call-controls, #play-controls {
+    pointer-events: auto;
 }
 
 #call-controls, #play-controls {
@@ -1593,15 +1634,49 @@ body[data-theme="purple"] {
 }
 
 #last-play-type {
-    text-align: center;
-    font-size: 0.95rem;
-    color: rgba(255,255,255,0.82);
-    min-height: 22px;
-    font-weight: 600;
-    padding: 4px 14px;
-    background: rgba(0,0,0,0.22);
-    border-radius: 999px;
-    border: 1px solid rgba(255,255,255,0.06);
+    display: none;
+}
+
+/* 桌面中央大倒计时 */
+.center-countdown {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.65);
+    border: 3px solid rgba(240,192,64,0.6);
+    color: #f0c040;
+    font-size: 1.8rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 40px rgba(240,192,64,0.2), 0 8px 24px rgba(0,0,0,0.4);
+    transition: all 0.3s ease;
+    animation: centerCdAppear 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 10;
+}
+
+.center-countdown.hidden {
+    display: none;
+}
+
+.center-countdown.urgent {
+    border-color: #ff9800;
+    color: #ff9800;
+    box-shadow: 0 0 50px rgba(255,152,0,0.3), 0 8px 24px rgba(0,0,0,0.4);
+    animation: centerCdAppear 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), countdownPulse 0.6s ease-in-out infinite;
+}
+
+.center-countdown.critical {
+    border-color: #f44336;
+    color: #f44336;
+    box-shadow: 0 0 60px rgba(244,67,54,0.35), 0 8px 24px rgba(0,0,0,0.4);
+    animation: centerCdAppear 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), countdownPulse 0.3s ease-in-out infinite;
+}
+
+@keyframes centerCdAppear {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 /* ===== 气泡提示 ===== */
@@ -3388,12 +3463,12 @@ body[data-theme="purple"] {
     }
     
     .card {
-        width: 48px;
-        height: 68px;
+        width: 52px;
+        height: 74px;
     }
 
     #player-right .hand-front .card {
-        margin-left: -32px;
+        margin-left: -34px;
     }
 
     .card-corner .rank {
@@ -4257,11 +4332,11 @@ select:focus-visible {
 }
 
 #ddz-table {
-    grid-template-rows: minmax(104px, 0.85fr) minmax(220px, 1.3fr) minmax(210px, 1fr);
-    grid-template-columns: minmax(118px, 0.58fr) minmax(420px, 1.9fr) minmax(118px, 0.58fr);
+    grid-template-rows: 170px 1fr 340px;
+    grid-template-columns: 200px 1fr 200px;
     max-width: 1280px;
     height: 100%;
-    padding: 18px 18px 126px;
+    padding: 18px 18px 60px;
     isolation: isolate;
     transform: scale(var(--ddz-table-scale, 1));
 }
@@ -4269,7 +4344,7 @@ select:focus-visible {
 #ddz-table::before {
     content: '';
     position: absolute;
-    inset: 12px 18px 108px;
+    inset: 12px 18px 60px;
     z-index: -2;
     border-radius: 32px;
     background:
@@ -4282,7 +4357,7 @@ select:focus-visible {
 #ddz-table::after {
     content: '';
     position: absolute;
-    inset: 34px 50px 132px;
+    inset: 34px 50px 160px;
     z-index: -1;
     border-radius: 50%;
     border: 1px solid rgba(240,192,64,0.12);
@@ -4291,7 +4366,7 @@ select:focus-visible {
 
 .table-aura {
     position: absolute;
-    inset: 20% 18% 22%;
+    inset: 18% 18% 28%;
     z-index: -1;
     border-radius: 999px;
     background: radial-gradient(ellipse at center, rgba(240,192,64,0.16), transparent 64%);
@@ -4305,25 +4380,37 @@ select:focus-visible {
     50% { transform: scale(1.04); opacity: 0.78; }
 }
 
+/* 左上对手 */
 #player-top {
-    grid-column: 2;
+    grid-column: 1;
     grid-row: 1;
 }
 
+/* 右上对手 */
 #player-left {
-    grid-column: 1;
-    grid-row: 2;
-}
-
-#player-right {
     grid-column: 3;
-    grid-row: 2;
+    grid-row: 1;
 }
 
+/* 底部人类玩家（全宽居中） */
+#player-right {
+    grid-column: 1 / 4;
+    grid-row: 3;
+    justify-content: flex-end;
+    padding-bottom: 4px;
+    gap: 6px;
+}
+
+/* 桌面中央区域（跨上下两行） */
 #table-center {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 1 / 3;
     align-self: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
 }
 
 .player-area {
@@ -4490,6 +4577,7 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
     order: 4;
     min-height: 118px;
     width: min(100%, 900px);
+    margin-top: 60px;
     cursor: pointer;
     touch-action: pan-y; /* 保留垂直滚动，避免完全阻断 */
     user-select: none;
@@ -4630,9 +4718,9 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 /* 桌面端手牌尺寸 */
 @media (min-width: 901px) {
     #player-right .hand-front .card {
-        width: calc(72px * var(--ddz-card-scale, 1));
-        height: calc(100px * var(--ddz-card-scale, 1));
-        margin-left: -44px;
+        width: calc(82px * var(--ddz-card-scale, 1));
+        height: calc(114px * var(--ddz-card-scale, 1));
+        margin-left: -52px;
         flex-shrink: 0;
     }
     #player-right .hand-front .card:first-child {
@@ -4896,7 +4984,7 @@ body[data-motion="fancy"] .table-aura {
 }
 
 #controls-area {
-    padding: 12px 20px 18px;
+    padding: 10px 20px 14px;
     background:
         linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0.30) 54%, transparent);
 }
@@ -5013,19 +5101,29 @@ body[data-motion="fancy"] .table-aura {
     }
 
     #ddz-table {
-        grid-template-columns: 86px 1fr 86px;
+        grid-template-columns: 90px 1fr 90px;
         grid-template-rows: 86px minmax(190px, 1fr) 178px;
         padding: 8px 8px 118px;
     }
 
     #ddz-table::before {
-        inset: 8px 8px 98px;
+        inset: 8px 8px 118px;
         border-radius: 22px;
     }
 
     #ddz-table::after,
     .table-aura {
         display: none;
+    }
+
+    #player-top {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    #player-left {
+        grid-column: 3;
+        grid-row: 1;
     }
 
     #player-right {
@@ -5036,9 +5134,23 @@ body[data-motion="fancy"] .table-aura {
         gap: 6px;
     }
 
+    #table-center {
+        grid-column: 2;
+        grid-row: 1 / 3;
+    }
+
     #player-right .hand-front {
         min-height: 96px;
         padding-inline: 8px;
+        margin-top: 20px;
+    }
+
+    #player-right .hand-front .card {
+        margin-left: -38px;
+    }
+
+    #player-right .hand-front .card:first-child {
+        margin-left: 0;
     }
 
     #player-right .played-area {
@@ -5175,10 +5287,20 @@ body[data-motion="fancy"] .table-aura {
     }
 
     #ddz-table {
-        grid-template-columns: 62px 1fr 62px;
+        grid-template-columns: 64px 1fr 64px;
         grid-template-rows: 74px minmax(160px, 1fr) 158px;
         gap: 2px;
         padding-bottom: 126px;
+    }
+
+    #player-top {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    #player-left {
+        grid-column: 3;
+        grid-row: 1;
     }
 
     #player-left .player-info,
@@ -5201,6 +5323,18 @@ body[data-motion="fancy"] .table-aura {
 
     #player-right .player-info {
         flex-direction: row;
+    }
+
+    #player-right .hand-front {
+        margin-top: 8px;
+    }
+
+    #player-right .hand-front .card {
+        margin-left: -30px;
+    }
+
+    #player-right .hand-front .card:first-child {
+        margin-left: 0;
     }
 
     #player-right .player-badge,
