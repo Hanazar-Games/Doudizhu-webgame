@@ -140,7 +140,7 @@ docker-compose up -d
 
 ## 版本公告
 
-### v1.2.9 (当前版本) — 游戏桌布局重构 & 全站 Bug 深度修复
+### v1.2.10 (当前版本) — 游戏桌布局重构 & 全站 Bug 深度修复
 
 **游戏桌布局重构**
 - 🎴 **对角布局**：对手从顶部/左侧改为左上/右上对角分布，桌面空间更均衡
@@ -172,7 +172,21 @@ docker-compose up -d
 - `playTick()` 增加 80ms 防抖，防止高频叠加噪音
 - `playCall()` 追踪 setTimeout ID，切换场景时自动取消
 - 暂停恢复时记录并还原暂停前的 BGM 类型（而非强制切回 game BGM）
-- `#ddz-table::before` inset bottom 与 padding-bottom 统一匹配
+
+**第二轮补充修复 (v1.2.9-patch)**
+- **CSS 死代码清理**：删除 `max-width: 768px` 断点中被 `900px` 覆盖的无效 `#ddz-table` 规则；删除 `#player-right` 的 `justify-content: flex-start` 和 `#table-center` 的重复 `grid-row: 2` 死代码
+- **560px 以下手牌裁剪**：`hand-front` 未设置 `overflow-x: auto`，边缘 3-4 张牌被完全裁出屏幕 — 添加 `overflow-x: auto; touch-action: pan-x pan-y`
+- **560px 断点 inset 不匹配**：`#ddz-table::before` 的 inset bottom 继承自 900px 断点（118px），与 560px 的 padding-bottom（126px）差 8px — 补充 `inset: 8px 8px 126px`
+- **中央倒计时 z-index 无效**：`.center-countdown` 为 `position: static`，`z-index: 10` 不生效 — 添加 `position: relative; z-index: 30`
+- **控制区小屏定位错误**：`#controls-area` 的 `top: calc(100% - 440px)` 在 ≤900px 下遮挡中央区域 — 在 900px/560px 断点中覆盖为 `bottom: 0`
+- **Renderer 匿名 timeout 泄漏**：`showPass`/`showChatBubble`/`showToast`/`showAchievementUnlock`/`showCallResult`/`hideThinking`/`hideAIHint`/`animatePlay`/`showLandlord`/`showRoundResult` 等数十处 `setTimeout` 无引用，`destroy()` 无法清理 — 新增 `_setTimer()` 统一追踪，destroy 时批量 `clearTimeout`
+- **help-panel 监听器泄漏**：`_toggleHelpPanel` 中匿名 click handler 未被 `_controlListeners` 收集 — 提取为实例属性，`_removeHelpPanel()` 时显式 `removeEventListener`
+- **hideCountdown timeout 泄漏**：`_hideTimeout` 存储在 DOM 元素上，`destroy()` 未清理 — 在 destroy 中遍历 `.countdown-timer` 并 `clearTimeout`
+- **暂停时 AI 延迟未中断**：`_processPlay` 中 `await _delay(thinkMs)` 不受 `isRunning` 影响，暂停后 AI 仍继续出牌 — `_delay()` 改为将 timer 加入 `_pendingTimers`，`pauseGame()` 时统一 `clearTimeout`
+- **观战模式叫分文案错误**：抢地主模式下观战提示仍显示"不叫" — 根据 `callMode === 'grab' && grabPhase === 'grab'` 显示"不抢"
+- **AI 回合无倒计时**：中央倒计时仅在人类回合显示 — AI 分支处理前也调用 `_startCountdown()`
+- **BGM/SFX 设置不即时生效**：设置面板开关只保存 localStorage，未同步 audio 对象 — `_bindUXSettings` 中即时调用 `stopBGM()`/`playMenuBGM()` 和 `toggle()`
+- **比赛局数选项不全**：`match-rounds` 只有 1/4/8/16 局 — 补充 2 局和 3 局选项
 
 ---
 

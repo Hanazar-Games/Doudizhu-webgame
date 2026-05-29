@@ -31,6 +31,16 @@ class Renderer {
         this._keyboardHandler = null;
         this._bindKeyboard();
         this._trackerData = null;
+        this._activeTimers = new Set();
+    }
+
+    _setTimer(fn, delay) {
+        const id = setTimeout(() => {
+            this._activeTimers?.delete(id);
+            fn();
+        }, delay);
+        this._activeTimers.add(id);
+        return id;
     }
 
     destroy() {
@@ -80,6 +90,13 @@ class Renderer {
             try { el.remove(); } catch (e) {}
         });
         this._comboData = null;
+        // 清理倒计时 timer
+        this.container?.querySelectorAll('.countdown-timer').forEach(cd => {
+            if (cd._hideTimeout) clearTimeout(cd._hideTimeout);
+        });
+        // 清理活跃 timer
+        for (const id of this._activeTimers) clearTimeout(id);
+        this._activeTimers.clear();
         // 隐藏侧边面板，防止它们出现在其他屏幕上
         this.container?.querySelector('#card-tracker')?.classList.add('hidden');
         this.container?.querySelector('#play-history')?.classList.add('hidden');
@@ -762,7 +779,13 @@ class Renderer {
 
     _removeHelpPanel() {
         const panel = document.getElementById('help-panel');
-        if (panel) panel.remove();
+        if (panel) {
+            if (this._helpPanelClickHandler) {
+                panel.removeEventListener('click', this._helpPanelClickHandler);
+                this._helpPanelClickHandler = null;
+            }
+            panel.remove();
+        }
     }
 
     _toggleHelpPanel() {
@@ -812,9 +835,10 @@ class Renderer {
             </div>
         `;
         document.body.appendChild(panel);
-        panel.addEventListener('click', (e) => {
+        this._helpPanelClickHandler = (e) => {
             if (e.target === panel || e.target.id === 'btn-help-close') panel.remove();
-        });
+        };
+        panel.addEventListener('click', this._helpPanelClickHandler);
     }
 
     _doPlay() {
@@ -1827,7 +1851,7 @@ class Renderer {
         const el = area.querySelector('.thinking-indicator');
         if (el) {
             el.style.opacity = '0';
-            setTimeout(() => el.remove(), 300);
+            this._setTimer(() => el.remove(), 300);
         }
     }
 
@@ -1851,7 +1875,7 @@ class Renderer {
         const hint = area.querySelector('.ai-hint');
         if (hint) {
             hint.style.opacity = '0';
-            setTimeout(() => hint.remove(), 300);
+            this._setTimer(() => hint.remove(), 300);
         }
     }
 
@@ -2014,7 +2038,7 @@ class Renderer {
         }
 
         area?.appendChild(bubble);
-        setTimeout(() => bubble.remove(), 1500);
+        this._setTimer(() => bubble.remove(), 1500);
 
         // 音效：叫分/抢地主/不叫
         if (data.mode === 'grab' && data.action === 'grab') {
@@ -2059,7 +2083,7 @@ class Renderer {
             }
             // 底牌揭示音效
             data.bottomCards.forEach((_, i) => {
-                setTimeout(() => this.audio?.playBottomReveal?.(), i * 150);
+                this._setTimer(() => this.audio?.playBottomReveal?.(), i * 150);
             });
         }
 
@@ -2080,7 +2104,7 @@ class Renderer {
         const rect = area?.querySelector('.player-avatar')?.getBoundingClientRect();
         if (rect) {
             this.anim.landlordCrown(rect.left + rect.width/2, rect.top);
-            setTimeout(() => {
+            this._setTimer(() => {
                 this.anim.glowBurst(rect.left + rect.width/2, rect.top + rect.height/2, 'rgba(212,160,23,0.5)');
                 this.anim.sparkleBurst(rect.left + rect.width/2, rect.top, 12);
             }, 200);
@@ -2089,7 +2113,7 @@ class Renderer {
         // 地主区域脉冲
         if (area) {
             area.classList.add('turn-pulse');
-            setTimeout(() => area.classList.remove('turn-pulse'), 2000);
+            this._setTimer(() => area.classList.remove('turn-pulse'), 2000);
         }
     }
 
@@ -2157,7 +2181,7 @@ class Renderer {
                 playedArea.appendChild(el);
             }
         };
-        if (insertDelay > 0) setTimeout(insertCards, insertDelay);
+        if (insertDelay > 0) this._setTimer(insertCards, insertDelay);
         else insertCards();
 
         const count = area.querySelector('.card-count');
@@ -2233,10 +2257,10 @@ class Renderer {
         bubble.dataset.animFx = 'true';
         bubble.textContent = '不出';
         area?.appendChild(bubble);
-        setTimeout(() => {
+        this._setTimer(() => {
             bubble.style.transition = 'opacity 0.2s ease-in';
             bubble.style.opacity = '0';
-            setTimeout(() => bubble.remove(), 200);
+            this._setTimer(() => bubble.remove(), 200);
         }, 600);
 
         const playedArea = area?.querySelector('.played-area');
@@ -2275,10 +2299,10 @@ class Renderer {
             });
         });
 
-        setTimeout(() => {
+        this._setTimer(() => {
             bubble.style.transition = 'opacity 0.3s ease';
             bubble.style.opacity = '0';
-            setTimeout(() => bubble.remove(), 300);
+            this._setTimer(() => bubble.remove(), 300);
         }, 2000);
     }
 
@@ -2503,7 +2527,7 @@ class Renderer {
 
         // 胜利/失败庆祝动画
         if (isHumanWin) {
-            setTimeout(() => {
+            this._setTimer(() => {
                 if (this._destroyed) return;
                 this.anim.winCelebrate(data.isLandlordWin, data.winnerIndex);
                 // 金色雨
@@ -2511,7 +2535,7 @@ class Renderer {
             }, 300);
         } else {
             // 人类输了：简单闪光
-            setTimeout(() => {
+            this._setTimer(() => {
                 if (this._destroyed) return;
                 this.anim.flashScreen('rgba(100,100,100,0.15)', 400);
             }, 200);
@@ -2519,7 +2543,7 @@ class Renderer {
 
         // 春天/反春天特效
         if (data.springType) {
-            setTimeout(() => {
+            this._setTimer(() => {
                 if (this._destroyed) return;
                 this.audio.playSpring();
                 this.anim.springCelebrate();
@@ -2625,19 +2649,19 @@ class Renderer {
             this.audio.playChat();
         }
 
-        setTimeout(() => {
+        this._setTimer(() => {
             if (this._destroyed) return;
             toast.style.transition = 'all 0.3s ease-in';
             toast.style.opacity = '0';
             toast.style.transform = 'translateX(-50%) translateY(-20px) scale(0.9)';
-            setTimeout(() => toast.remove(), 300);
+            this._setTimer(() => toast.remove(), 300);
         }, 1800);
     }
 
     showAchievementUnlock(achievements) {
         if (!this.container || !achievements?.length) return;
         achievements.forEach((ach, i) => {
-            setTimeout(() => {
+            this._setTimer(() => {
                 if (this._destroyed) return;
                 const el = document.createElement('div');
                 el.className = 'achievement-toast';
@@ -2652,11 +2676,11 @@ class Renderer {
                 `;
                 this.container.appendChild(el);
                 this.audio?.playWin?.();
-                setTimeout(() => {
+                this._setTimer(() => {
                     el.style.transition = 'all 0.5s ease-in';
                     el.style.opacity = '0';
                     el.style.transform = 'translateX(-50%) translateY(-30px) scale(0.9)';
-                    setTimeout(() => el.remove(), 500);
+                    this._setTimer(() => el.remove(), 500);
                 }, 3500);
             }, i * 600);
         });

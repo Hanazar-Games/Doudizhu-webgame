@@ -172,6 +172,7 @@ class BaseMode {
                 }
                 
                 if (player.isAI || player.isAuto) {
+                    this._startCountdown(idx, 'call');
                     let call;
                     if (player.isAI) {
                         call = await player.decideCall(this.gameState);
@@ -185,7 +186,7 @@ class BaseMode {
                     let hintText = null;
                     if (this.humanIndex < 0) {
                         if (call === 0) {
-                            hintText = '不叫';
+                            hintText = (this.gameState.callMode === 'grab' && this.gameState.grabPhase === 'grab') ? '不抢' : '不叫';
                         } else if (this.gameState.callMode === 'grab') {
                             hintText = this.gameState.grabPhase === 'call' ? '叫地主' : '抢地主';
                         } else {
@@ -267,6 +268,7 @@ class BaseMode {
                 }
                 
                 if (player.isAI || player.isAuto) {
+                    this._startCountdown(idx, 'play');
                     this.renderer?.showThinking(idx);
                     const lastPattern = this.gameState.lastPlay?.pattern;
                     let cards;
@@ -493,7 +495,14 @@ class BaseMode {
     }
 
     _delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms / Math.max(0.3, this.speedFactor)));
+        return new Promise((resolve) => {
+            const id = setTimeout(() => {
+                const idx = this._pendingTimers.indexOf(id);
+                if (idx >= 0) this._pendingTimers.splice(idx, 1);
+                resolve();
+            }, ms / Math.max(0.3, this.speedFactor));
+            this._pendingTimers.push(id);
+        });
     }
 
     // ---- 倒计时相关 ----
@@ -501,6 +510,8 @@ class BaseMode {
         if (!this.isRunning || this.gameState.phase === PHASE.ENDED) return false;
         this._stopCountdown();
         this.isRunning = false;
+        for (const t of this._pendingTimers) clearTimeout(t);
+        this._pendingTimers = [];
         return true;
     }
 

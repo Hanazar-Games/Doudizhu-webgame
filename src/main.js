@@ -365,6 +365,20 @@ class GameApp {
                 this._applyUXSettings();
                 this._updateUXSettingLabel(key);
 
+                // === 即时同步音频开关 ===
+                if (key === 'bgmEnabled') {
+                    const audio = this._getActiveAudio();
+                    if (audio) {
+                        audio.bgmEnabled = control.checked;
+                        if (!control.checked) audio.stopBGM();
+                        else audio.playMenuBGM?.();
+                    }
+                }
+                if (key === 'sfxEnabled') {
+                    const audio = this._getActiveAudio();
+                    if (audio) audio.sfxEnabled = control.checked;
+                }
+
                 // === 音效反馈 ===
                 const audio = this._getActiveAudio();
                 if (control.type === 'checkbox') {
