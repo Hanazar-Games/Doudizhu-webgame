@@ -3499,10 +3499,6 @@ body[data-theme="purple"] {
         font-size: 0.75rem;
     }
     
-    .modal-content {
-        padding: 24px;
-    }
-    
     .game-header h2 {
         font-size: 1rem;
     }
@@ -4326,7 +4322,7 @@ select:focus-visible {
 #ddz-table::before {
     content: '';
     position: absolute;
-    inset: 12px 18px 60px;
+    inset: 18px 18px 60px;
     z-index: -2;
     border-radius: 32px;
     background:
@@ -5277,7 +5273,7 @@ body[data-motion="fancy"] .table-aura {
         grid-template-columns: 64px 1fr 64px;
         grid-template-rows: 74px minmax(160px, 1fr) 158px;
         gap: 2px;
-        padding-bottom: 126px;
+        padding: 8px 8px 126px;
     }
 
     #ddz-table::before {
@@ -5324,6 +5320,7 @@ body[data-motion="fancy"] .table-aura {
     #player-right .hand-front {
         margin-top: 8px;
         overflow-x: auto;
+        overflow-y: visible;
         touch-action: pan-x pan-y;
     }
 

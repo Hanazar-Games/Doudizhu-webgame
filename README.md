@@ -140,7 +140,34 @@ docker-compose up -d
 
 ## 版本公告
 
-### v1.2.10 (当前版本) — 游戏桌布局重构 & 全站 Bug 深度修复
+### v1.2.11 (当前版本) — 全站 Bug 深度修复（第三轮）
+
+**🔴 严重 Bug 修复**
+- **暂停时 AI Promise 永远挂起（游戏卡死）**：`pauseGame()` `clearTimeout` 后 `_delay` 的 Promise 永不 resolve，`_isProcessingPlay` 永远为 `true`，恢复后游戏彻底卡死 — `_pendingTimers` 改为存储 `{ id, resolve }`，pause 时手动 `resolve()` 释放；所有 `await _delay()` 处包裹 `try/catch` + `if (!this.isRunning) return`
+- **AI 回合中央倒计时闪烁**：AI 思考时间仅 200-1000ms，30 秒倒计时"一闪而过" — `_startCountdown()` 只在人类玩家回合调用 `renderer.showCountdown`，AI 分支删除多余调用
+- **游戏结束后倒计时未清理**：`PHASE.ENDED` 时 `_countdownInterval` 继续每秒触发 — `onPhaseChange` 新增 ENDED 分支统一清理
+- **humanCall 失败时倒计时停止**：失败时 `_stopCountdown()` 被调用但不重启 — 失败分支中重新 `_startCountdown()`
+
+**🟡 高优先级修复**
+- **Renderer `_closeModal` timeout 泄漏**：250ms 关闭动画仍用原生 `setTimeout`，destroy 后操作 DOM — 替换为 `_setTimer`
+- **Renderer `destroy()` 多次调用不安全**：缺少 `if (this._destroyed) return` 防护 — 添加防护
+- **暂停覆盖层按钮 destroy 未清理**：`destroy()` 中未移除 `#btn-resume`/`#btn-pause-settings`/`#btn-pause-exit` 监听器 — 显式移除
+- **结算面板按钮匿名 handler 无法移除**：`showRoundResult` 中使用匿名箭头函数 — 改为存储在按钮 `_roundClickHandler` 属性上，destroy 时遍历移除
+- **面板切换动画 setTimeout 泄漏**：`_bindPanelToggles` 中面板退出动画和 chat focus 使用原生 `setTimeout` — 替换为 `_setTimer` 并增加 `_destroyed` 检查
+- **Main 游戏内开启 BGM 错误播放菜单 BGM**：`_bindUXSettings` 中无条件 `playMenuBGM()` — 根据 `renderer` 存在与否及 `_currentBGM` 状态播放正确 BGM
+- **暂停时延迟 BGM 仍触发**：`showGame()` 的 1500ms `_gameBgmTimer` 在暂停后仍触发 — `_pauseGame()` 中清除
+- **设置重置后音频未同步**：程序性修改 DOM 不触发 change 事件 — 重置方法末尾显式调用 `_syncAudioSettings`
+
+**🟢 CSS 修复**
+- **560px 手牌垂直 hover 被裁剪**：`overflow-x: auto` 导致浏览器将 `overflow-y` 设为 auto — 显式 `overflow-y: visible`
+- **`#ddz-table::before` inset 与 padding 不匹配**：基础值 top 差 6px；560px 断点上/左/右差 10px — 统一对齐
+- **`.modal-content` 死规则**：768px 断点中 `.modal-content` 从未被使用 — 删除
+
+## 历史公告
+
+---
+
+### v1.2.10  — 游戏桌布局重构 & 全站 Bug 深度修复
 
 **游戏桌布局重构**
 - 🎴 **对角布局**：对手从顶部/左侧改为左上/右上对角分布，桌面空间更均衡
@@ -432,10 +459,6 @@ docker-compose up -d
 - 🟢 **_removePauseOverlay 内存泄漏**：改为 `classList.add('hidden')` 而不移除 DOM，动态 overlay 累积 — 恢复 `overlay.remove()` 并同步重置绑定标志
 
 ---
-
----
-
-## 历史公告
 
 ### v1.2.8 — 全站 UI 深度美化
 

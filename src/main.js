@@ -370,8 +370,22 @@ class GameApp {
                     const audio = this._getActiveAudio();
                     if (audio) {
                         audio.bgmEnabled = control.checked;
-                        if (!control.checked) audio.stopBGM();
-                        else audio.playMenuBGM?.();
+                        if (!control.checked) {
+                            audio.stopBGM();
+                        } else {
+                            // 根据当前场景播放正确的 BGM
+                            if (!this.renderer) {
+                                audio.playMenuBGM?.();
+                            } else if (audio._currentBGM === 'game') {
+                                audio.playGameBGM?.();
+                            } else if (audio._currentBGM === 'win') {
+                                audio.playWinBGM?.();
+                            } else if (audio._currentBGM === 'lose') {
+                                audio.playLoseBGM?.();
+                            } else {
+                                audio.playGameBGM?.();
+                            }
+                        }
                     }
                 }
                 if (key === 'sfxEnabled') {
@@ -625,6 +639,8 @@ class GameApp {
             }
             this._updateUXSettingLabel(key);
         });
+        this._syncAudioSettings(this.menuAudio);
+        if (this.renderer?.audio) this._syncAudioSettings(this.renderer.audio);
     }
 
     _syncAllSettings() {
@@ -655,6 +671,8 @@ class GameApp {
         if (sfxVal) sfxVal.textContent = Math.round((this.settings.sfxVolume ?? 0.5) * 100) + '%';
 
         this._syncUXSettingControls();
+        this._syncAudioSettings(this.menuAudio);
+        if (this.renderer?.audio) this._syncAudioSettings(this.renderer.audio);
     }
 
     _updateUXSettingLabel(key) {

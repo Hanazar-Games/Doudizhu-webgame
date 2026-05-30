@@ -44,6 +44,7 @@ class Renderer {
     }
 
     destroy() {
+        if (this._destroyed) return;
         this.audio?.stopBGM();
         this._destroyed = true;
         this._isPaused = false;
@@ -61,6 +62,13 @@ class Renderer {
             document.getElementById('btn-pause')?.removeEventListener('click', this._globalPauseHandler);
             this._globalPauseHandler = null;
         }
+        const pauseOverlay = document.getElementById('pause-overlay');
+        if (pauseOverlay) {
+            pauseOverlay.querySelector('#btn-resume')?.removeEventListener('click', this._pauseResumeHandler);
+            pauseOverlay.querySelector('#btn-pause-settings')?.removeEventListener('click', this._pauseSettingsHandler);
+            pauseOverlay.querySelector('#btn-pause-exit')?.removeEventListener('click', this._pauseExitHandler);
+            pauseOverlay.remove();
+        }
         if (this._controlListeners) {
             for (const { el, type, handler, options } of this._controlListeners) {
                 try { el?.removeEventListener(type, handler, options); } catch (e) {}
@@ -72,6 +80,12 @@ class Renderer {
             modalOverlay.removeEventListener('click', this._modalOverlayClick);
             this._modalOverlayClick = null;
         }
+        document.querySelectorAll('#btn-next-round, #btn-replay, #btn-share-round, #btn-round-back-menu').forEach(btn => {
+            if (btn._roundClickHandler) {
+                btn.removeEventListener('click', btn._roundClickHandler);
+                btn._roundClickHandler = null;
+            }
+        });
         this.audio = null;
         this.mode = null;
         this.gameState = null;
@@ -337,8 +351,8 @@ class Renderer {
             if (this._isPaused) this._resumeGame();
             else this._pauseGame();
         };
-        btnBackMenu?.addEventListener('click', this._globalBackMenuHandler);
-        btnPause?.addEventListener('click', this._globalPauseHandler);
+        this._addControlListener(btnBackMenu, 'click', this._globalBackMenuHandler);
+        this._addControlListener(btnPause, 'click', this._globalPauseHandler);
         [btnBackMenu, btnPause].forEach(b => this._bindRipple(b));
     }
 
@@ -359,7 +373,11 @@ class Renderer {
             for (const other of others) {
                 if (other && !other.classList.contains('hidden')) {
                     other.classList.add('panel-exit');
-                    setTimeout(() => { other.classList.add('hidden'); other.classList.remove('panel-exit'); }, 180);
+                    this._setTimer(() => {
+                        if (this._destroyed) return;
+                        other.classList.add('hidden');
+                        other.classList.remove('panel-exit');
+                    }, 180);
                 }
             }
             if (wasHidden) {
@@ -367,7 +385,11 @@ class Renderer {
                 btn?.setAttribute('aria-expanded', 'true');
             } else {
                 panel.classList.add('panel-exit');
-                setTimeout(() => { panel.classList.add('hidden'); panel.classList.remove('panel-exit'); }, 180);
+                this._setTimer(() => {
+                    if (this._destroyed) return;
+                    panel.classList.add('hidden');
+                    panel.classList.remove('panel-exit');
+                }, 180);
                 btn?.setAttribute('aria-expanded', 'false');
             }
         };
@@ -377,7 +399,7 @@ class Renderer {
         const chatHandler = () => {
             _toggleSidePanel(chat, [tracker, history], btnChat);
             if (chat && !chat.classList.contains('hidden') && !chat.classList.contains('panel-exit')) {
-                setTimeout(() => chatInput?.focus(), 100);
+                this._setTimer(() => chatInput?.focus(), 100);
             }
         };
         this._addControlListener(btnTracker, 'click', trackerHandler);
@@ -404,7 +426,8 @@ class Renderer {
             if (e.key === 'Enter') sendChat();
         };
         const chatFocusHandler = () => {
-            setTimeout(() => {
+            this._setTimer(() => {
+                if (this._destroyed) return;
                 chatInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 300);
         };
@@ -670,8 +693,13 @@ class Renderer {
         if (this._isPaused) return;
         this._isPaused = true;
         this.mode?.pauseGame?.();
-        this._bgmBeforePause = this.audio?._currentBGM;
         this.audio?.stopBGM();
+        this._bgmBeforePause = this.audio?._currentBGM;
+        // 清除可能即将触发的游戏 BGM timer
+        if (window.gameApp?._gameBgmTimer) {
+            clearTimeout(window.gameApp._gameBgmTimer);
+            window.gameApp._gameBgmTimer = null;
+        }
         this._showPauseOverlay();
     }
 
@@ -2376,14 +2404,14 @@ class Renderer {
 
     _closeModal(overlay, content) {
         if (!overlay || overlay.classList.contains('modal-exit')) return;
-        if (overlay._modalCloseTimeout) clearTimeout(overlay._modalCloseTimeout);
+        if (overlay._modalCloseTimeout) return;
         if (this._modalOverlayClick) {
             overlay.removeEventListener('click', this._modalOverlayClick);
             this._modalOverlayClick = null;
         }
         content?.classList.add('modal-exit');
         overlay.classList.add('modal-exit');
-        overlay._modalCloseTimeout = setTimeout(() => {
+        overlay._modalCloseTimeout = this._setTimer(() => {
             overlay.classList.add('hidden');
             overlay.classList.remove('modal-exit');
             content?.classList.remove('modal-exit');
@@ -2550,36 +2578,52 @@ class Renderer {
             }, 600);
         }
 
-        content.querySelector('#btn-next-round')?.addEventListener('click', () => {
-            this.audio.playButtonClick();
-            this._closeModal(overlay, content);
-            if (isMatchEnd && matchStatus) {
-                // 比赛结束，重置
-                this.mode?.setMatchRounds(matchStatus.totalRounds);
-            }
-            this.mode?.startGame();
-        });
-
-        if (!isMatchEnd) {
-            content.querySelector('#btn-replay')?.addEventListener('click', () => {
+        const btnNext = content.querySelector('#btn-next-round');
+        if (btnNext) {
+            btnNext._roundClickHandler = () => {
                 this.audio.playButtonClick();
                 this._closeModal(overlay, content);
-                if (window.gameApp?.startReplay) {
-                    window.gameApp.startReplay();
+                if (isMatchEnd && matchStatus) {
+                    // 比赛结束，重置
+                    this.mode?.setMatchRounds(matchStatus.totalRounds);
                 }
-            });
+                this.mode?.startGame();
+            };
+            btnNext.addEventListener('click', btnNext._roundClickHandler);
         }
 
-        content.querySelector('#btn-share-round')?.addEventListener('click', () => {
-            this.audio.playButtonClick();
-            this._shareRoundResult(data, matchStatus);
-        });
+        if (!isMatchEnd) {
+            const btnReplay = content.querySelector('#btn-replay');
+            if (btnReplay) {
+                btnReplay._roundClickHandler = () => {
+                    this.audio.playButtonClick();
+                    this._closeModal(overlay, content);
+                    if (window.gameApp?.startReplay) {
+                        window.gameApp.startReplay();
+                    }
+                };
+                btnReplay.addEventListener('click', btnReplay._roundClickHandler);
+            }
+        }
 
-        content.querySelector('#btn-round-back-menu')?.addEventListener('click', () => {
-            this.audio.playButtonClick();
-            this._closeModal(overlay, content);
-            window.gameApp?.showMenu();
-        });
+        const btnShare = content.querySelector('#btn-share-round');
+        if (btnShare) {
+            btnShare._roundClickHandler = () => {
+                this.audio.playButtonClick();
+                this._shareRoundResult(data, matchStatus);
+            };
+            btnShare.addEventListener('click', btnShare._roundClickHandler);
+        }
+
+        const btnRoundBackMenu = content.querySelector('#btn-round-back-menu');
+        if (btnRoundBackMenu) {
+            btnRoundBackMenu._roundClickHandler = () => {
+                this.audio.playButtonClick();
+                this._closeModal(overlay, content);
+                window.gameApp?.showMenu();
+            };
+            btnRoundBackMenu.addEventListener('click', btnRoundBackMenu._roundClickHandler);
+        }
     }
 
     _shareRoundResult(data, matchStatus) {

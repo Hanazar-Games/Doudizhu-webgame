@@ -44,19 +44,23 @@ class BaseMode {
         this.isRunning = false;
         this._stopCountdown();
         for (const t of this._pendingTimers) {
-            clearTimeout(t);
+            clearTimeout(t.id);
         }
         this._pendingTimers = [];
     }
 
     _setTimer(fn, delay) {
         const id = setTimeout(() => {
-            const idx = this._pendingTimers.indexOf(id);
-            if (idx >= 0) this._pendingTimers.splice(idx, 1);
+            this._removePendingTimer(id);
             fn();
         }, delay);
-        this._pendingTimers.push(id);
+        this._pendingTimers.push({ id, resolve: null });
         return id;
+    }
+
+    _removePendingTimer(id) {
+        const idx = this._pendingTimers.findIndex(t => t.id === id);
+        if (idx >= 0) this._pendingTimers.splice(idx, 1);
     }
     
     // 设置比赛参数
@@ -172,7 +176,6 @@ class BaseMode {
                 }
                 
                 if (player.isAI || player.isAuto) {
-                    this._startCountdown(idx, 'call');
                     let call;
                     if (player.isAI) {
                         call = await player.decideCall(this.gameState);
@@ -195,12 +198,24 @@ class BaseMode {
                     }
                     this.renderer?.showThinking(idx, hintText);
                     const thinkMs = Math.max(200, Math.min(5000, Storage.getSettings().aiThinkTime ?? 800));
-                    await this._delay(thinkMs);
+                    try {
+                        await this._delay(thinkMs);
+                    } catch (e) {
+                        return;
+                    }
+                    if (!this.isRunning) return;
                     // 观战模式下增加额外延迟，方便观众观察
                     if (this.humanIndex < 0) {
                         const spectatorDelay = Math.max(0, Math.min(5000, Storage.getSettings().spectatorDelay ?? 0));
-                        if (spectatorDelay > 0) await this._delay(spectatorDelay);
+                        if (spectatorDelay > 0) {
+                            try {
+                                await this._delay(spectatorDelay);
+                            } catch (e) {
+                                return;
+                            }
+                        }
                     }
+                    if (!this.isRunning) return;
                     this.renderer?.hideThinking(idx);
                     // delay 后重新检查回合，防止人类在此期间已行动
                     if (this.gameState.currentTurn !== idx) continue;
@@ -243,12 +258,14 @@ class BaseMode {
             return false;
         }
         const success = this.gameState.callLandlord(idx, action);
-        if (success) {
-            this.renderer?.hideCallControls();
-            if (this.gameState.phase === PHASE.CALLING) {
-                // 继续处理后续AI叫分
-                this._processCalling();
-            }
+        if (!success) {
+            this._startCountdown(idx, 'call');
+            return false;
+        }
+        this.renderer?.hideCallControls();
+        if (this.gameState.phase === PHASE.CALLING) {
+            // 继续处理后续AI叫分
+            this._processCalling();
         }
         return success;
     }
@@ -268,7 +285,6 @@ class BaseMode {
                 }
                 
                 if (player.isAI || player.isAuto) {
-                    this._startCountdown(idx, 'play');
                     this.renderer?.showThinking(idx);
                     const lastPattern = this.gameState.lastPlay?.pattern;
                     let cards;
@@ -287,12 +303,24 @@ class BaseMode {
                     }
                     const baseThink = Storage.getSettings().aiThinkTime ?? 1000;
                     const thinkMs = Math.max(200, Math.min(5000, player.isAuto ? baseThink + 200 : baseThink));
-                    await this._delay(thinkMs);
+                    try {
+                        await this._delay(thinkMs);
+                    } catch (e) {
+                        return;
+                    }
+                    if (!this.isRunning) return;
                     // 观战模式下增加额外延迟，方便观众观察
                     if (this.humanIndex < 0) {
                         const spectatorDelay = Math.max(0, Math.min(5000, Storage.getSettings().spectatorDelay ?? 0));
-                        if (spectatorDelay > 0) await this._delay(spectatorDelay);
+                        if (spectatorDelay > 0) {
+                            try {
+                                await this._delay(spectatorDelay);
+                            } catch (e) {
+                                return;
+                            }
+                        }
                     }
+                    if (!this.isRunning) return;
                     this.renderer?.hideThinking(idx);
                     this.renderer?.hideAIHint?.(idx);
                     
@@ -412,11 +440,13 @@ class BaseMode {
         const pattern = Rules.analyze(selectedCards);
         const result = this.gameState.playCards(idx, selectedCards, pattern);
         
-        if (result.success) {
-            this.renderer?.hidePlayControls();
-            if (!result.win && this.gameState.phase === PHASE.PLAYING) {
-                this._processPlay();
-            }
+        if (!result.success) {
+            this._startCountdown(idx, 'play');
+            return result;
+        }
+        this.renderer?.hidePlayControls();
+        if (!result.win && this.gameState.phase === PHASE.PLAYING) {
+            this._processPlay();
         }
         return result;
     }
@@ -430,11 +460,13 @@ class BaseMode {
             return false;
         }
         const success = this.gameState.pass(idx);
-        if (success) {
-            this.renderer?.hidePlayControls();
-            if (this.gameState.phase === PHASE.PLAYING) {
-                this._processPlay();
-            }
+        if (!success) {
+            this._startCountdown(idx, 'play');
+            return false;
+        }
+        this.renderer?.hidePlayControls();
+        if (this.gameState.phase === PHASE.PLAYING) {
+            this._processPlay();
         }
         return success;
     }
@@ -447,10 +479,15 @@ class BaseMode {
             return; // 倒计时关闭，不启动
         }
         this._turnCountdown = Math.max(10, Math.min(120, settings.timerSeconds ?? 30));
-        this.renderer?.showCountdown(playerIndex, this._turnCountdown);
+        // 只在人类玩家回合显示倒计时
+        if (playerIndex === this.humanIndex) {
+            this.renderer?.showCountdown(playerIndex, this._turnCountdown);
+        }
         this._countdownInterval = setInterval(() => {
             this._turnCountdown--;
-            this.renderer?.showCountdown(playerIndex, this._turnCountdown);
+            if (playerIndex === this.humanIndex) {
+                this.renderer?.showCountdown(playerIndex, this._turnCountdown);
+            }
             if (this._turnCountdown <= 10 && this._turnCountdown > 0) {
                 this.renderer?.audio?.playTick();
             }
@@ -497,11 +534,10 @@ class BaseMode {
     _delay(ms) {
         return new Promise((resolve) => {
             const id = setTimeout(() => {
-                const idx = this._pendingTimers.indexOf(id);
-                if (idx >= 0) this._pendingTimers.splice(idx, 1);
+                this._removePendingTimer(id);
                 resolve();
             }, ms / Math.max(0.3, this.speedFactor));
-            this._pendingTimers.push(id);
+            this._pendingTimers.push({ id, resolve });
         });
     }
 
@@ -510,7 +546,10 @@ class BaseMode {
         if (!this.isRunning || this.gameState.phase === PHASE.ENDED) return false;
         this._stopCountdown();
         this.isRunning = false;
-        for (const t of this._pendingTimers) clearTimeout(t);
+        for (const t of this._pendingTimers) {
+            clearTimeout(t.id);
+            try { t.resolve?.(); } catch (e) {}
+        }
         this._pendingTimers = [];
         return true;
     }
@@ -536,6 +575,16 @@ class BaseMode {
             this._setTimer(() => {
                 if (this.isRunning) this.renderer?.audio?.playGameBGM();
             }, 500);
+        }
+        else if (data.phase === PHASE.ENDED) {
+            this._stopCountdown();
+            for (const t of this._pendingTimers) {
+                clearTimeout(t.id ?? t);
+                try { t.resolve?.(); } catch (e) {}
+            }
+            this._pendingTimers = [];
+            this._isProcessingCalling = false;
+            this._isProcessingPlay = false;
         }
     }
 
