@@ -86,13 +86,19 @@
                 </div>
             </div>
 
-            <!-- 底部：设置 + 版本 -->
+            <!-- 底部：设置 + 公告 + 版本 -->
             <footer class="menu-footer">
-                <button id="btn-settings" class="btn-settings-float" aria-label="设置">
-                    <span>⚙️</span>
-                    <span>设置</span>
-                </button>
-                <span class="version-info">v1.2.4</span>
+                <div class="menu-footer-left">
+                    <button id="btn-settings" class="btn-settings-float" aria-label="设置">
+                        <span>⚙️</span>
+                        <span>设置</span>
+                    </button>
+                    <button id="btn-changelog" class="btn-changelog-float" aria-label="更新日志">
+                        <span>📜</span>
+                        <span>更新</span>
+                    </button>
+                </div>
+                <span class="version-info">v1.2.12</span>
             </footer>
         </div>
     </div>
@@ -234,6 +240,11 @@
                         <input type="checkbox"  data-setting="enableWinSound" checked>
                         <span class="toggle-switch-track"></span>
                         <span class="toggle-switch-label">胜利音效</span>
+                    </label>
+                    <label class="toggle-switch-wrap">
+                        <input type="checkbox"  data-setting="enableCommentary" checked>
+                        <span class="toggle-switch-track"></span>
+                        <span class="toggle-switch-label">战斗解说</span>
                     </label>
                     <label class="toggle-switch-wrap">
                         <input type="checkbox"  data-setting="enableTickSound" checked>
@@ -1439,6 +1450,71 @@
                     <button class="tutorial-next">下一步 →</button>
                 </div>
             </main>
+        </div>
+    </div>
+
+    <!-- 公告弹窗 -->
+    <div id="changelog-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="changelog-title">
+        <div class="changelog-modal">
+            <div class="changelog-header">
+                <h2 id="changelog-title">🎉 更新日志</h2>
+                <button id="btn-close-changelog" class="btn-close" aria-label="关闭">✕</button>
+            </div>
+            <div class="changelog-body">
+                <div class="changelog-current">
+                    <div class="changelog-version-badge">v1.2.12</div>
+                    <h3>牌局神评论系统</h3>
+                    <ul>
+                        <li>🎙️ <strong>牌局神评论</strong>：炸弹、火箭、春天、连击等关键时刻自动弹出热血解说评论</li>
+                        <li>💬 <strong>120+ 条评论库</strong>：根据牌型语境智能匹配幽默/热血解说词</li>
+                        <li>🎨 <strong>情绪色系统</strong>：炸弹红、火箭金、春天粉、胜利彩虹等视觉风格</li>
+                        <li>🎯 <strong>6 插槽防重叠</strong>：多条评论分散显示，不会互相遮挡</li>
+                        <li>⚙️ <strong>可开关</strong>：设置面板中可自由开启/关闭评论功能</li>
+                    </ul>
+                </div>
+                <details class="changelog-history">
+                    <summary>📚 历史版本</summary>
+                    <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.11</div>
+                            <h4>第三轮深度修复</h4>
+                            <ul>
+                                <li>修复暂停时 AI Promise 死锁（<code>_pendingTimers</code> 手动 resolve）</li>
+                                <li>修复 AI 回合中央倒计时闪烁（仅人类回合显示）</li>
+                                <li>修复游戏结束倒计时未清理（<code>onPhaseChange</code> ENDED 分支）</li>
+                                <li>Renderer <code>destroy()</code> 多次调用防护、BGM/SFX 即时同步</li>
+                            </ul>
+                        </div>
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.10</div>
+                            <h4>第二轮补充修复</h4>
+                            <ul>
+                                <li>清理 CSS 死代码，优化 560px 下手牌裁剪与 overflow</li>
+                                <li>修复 center-countdown z-index、控制区小屏定位</li>
+                            </ul>
+                        </div>
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.9</div>
+                            <h4>布局重构 & Bug 修复</h4>
+                            <ul>
+                                <li>对角布局、中央倒计时、手牌放大、控制区上移</li>
+                                <li>修复 timerEnabled 字符串判断、超时面板不隐藏等</li>
+                            </ul>
+                        </div>
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.8</div>
+                            <h4>全站 UI 深度美化</h4>
+                            <ul>
+                                <li>LAN/自定义/暂停/成就/回放界面全面毛玻璃化</li>
+                                <li>通用组件化重构，统一视觉语言</li>
+                            </ul>
+                        </div>
+                    </div>
+                </details>
+            </div>
+            <div class="changelog-footer">
+                <button id="btn-changelog-ok" class="btn-primary">知道了 👍</button>
+            </div>
         </div>
     </div>
 

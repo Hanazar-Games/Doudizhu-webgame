@@ -52,6 +52,7 @@ class GameApp {
             { id: 'btn-achievements', action: () => this.showAchievements() },
             { id: 'btn-tutorial', action: () => this.openTutorial() },
             { id: 'btn-settings', action: () => this.openSettings() },
+            { id: 'btn-changelog', action: () => this.openChangelog() },
 
         ];
         for (const { id, action } of menuBtns) {
@@ -207,6 +208,13 @@ class GameApp {
         // 新手引导
         this._initTutorial();
 
+        // 公告弹窗事件绑定
+        document.getElementById('btn-close-changelog')?.addEventListener('click', () => this.closeChangelog());
+        document.getElementById('btn-changelog-ok')?.addEventListener('click', () => this.closeChangelog());
+        document.getElementById('changelog-overlay')?.addEventListener('click', (e) => {
+            if (e.target.id === 'changelog-overlay') this.closeChangelog();
+        });
+
         // 隐藏加载画面 + 菜单入场动画 + BGM
         setTimeout(() => {
             // loading-screen 元素不存在，跳过
@@ -216,6 +224,9 @@ class GameApp {
                 this._playMenuBGM();
             }, 500);
         }, 600);
+
+        // 首次加载：延迟检查是否需要自动弹出公告
+        setTimeout(() => this._checkAutoShowChangelog(), 1200);
     }
 
     _getActiveAudio() {
@@ -238,6 +249,10 @@ class GameApp {
 
     _configureRendererAudio(renderer) {
         this._syncAudioSettings(renderer?.audio);
+        // 初始化评论系统开关
+        if (renderer?.commentary) {
+            renderer.commentary.setEnabled(this.settings.enableCommentary !== false);
+        }
         return renderer;
     }
 
@@ -392,6 +407,13 @@ class GameApp {
                     const audio = this._getActiveAudio();
                     if (audio) audio.sfxEnabled = control.checked;
                 }
+                // === 即时同步评论系统开关 ===
+                if (key === 'enableCommentary') {
+                    document.body.dataset.commentary = control.checked ? 'true' : 'false';
+                    if (this.renderer?.commentary) {
+                        this.renderer.commentary.setEnabled(control.checked);
+                    }
+                }
 
                 // === 音效反馈 ===
                 const audio = this._getActiveAudio();
@@ -448,7 +470,7 @@ class GameApp {
                 showPlayPreview: true, gestureEnabled: true, swipeToSelect: true,
                 longPressHint: false, hapticEnabled: true,
                 // 辅助
-                showTutorial: true, showShortcuts: true, showTableAura: true,
+                showTutorial: true, showShortcuts: true, showTableAura: true, enableCommentary: true,
                 opponentCards: 'stack', autoOpenTracker: false, autoOpenHistory: false,
                 hintDetail: 'type', sortOrder: 'auto', showRemainingCount: true,
                 showWinProbability: false, showBestMove: false, handAnalysis: false,
@@ -545,6 +567,51 @@ class GameApp {
         }
         // 焦点返回到设置按钮
         document.getElementById('btn-settings')?.focus();
+    }
+
+    // ===== 公告弹窗 =====
+    openChangelog() {
+        const overlay = document.getElementById('changelog-overlay');
+        if (!overlay || !overlay.classList.contains('hidden')) return;
+        overlay.classList.remove('hidden');
+        overlay.style.opacity = '0';
+        overlay.style.transform = 'scale(0.96)';
+        requestAnimationFrame(() => {
+            overlay.style.transition = 'opacity 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            requestAnimationFrame(() => {
+                overlay.style.opacity = '1';
+                overlay.style.transform = 'scale(1)';
+            });
+        });
+        this._getActiveAudio()?.playSettingOpen?.();
+        // 标记已读当前版本
+        try {
+            localStorage.setItem('ddz_last_changelog_version', '1.2.12');
+        } catch (e) {}
+    }
+
+    closeChangelog() {
+        const overlay = document.getElementById('changelog-overlay');
+        if (!overlay || overlay.classList.contains('hidden')) return;
+        this._getActiveAudio()?.playSettingClose?.();
+        overlay.style.transition = 'opacity 0.2s ease-in, transform 0.2s ease-in';
+        overlay.style.opacity = '0';
+        overlay.style.transform = 'scale(0.96)';
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            overlay.style.opacity = '';
+            overlay.style.transform = '';
+            overlay.style.transition = '';
+        }, 200);
+    }
+
+    _checkAutoShowChangelog() {
+        try {
+            const last = localStorage.getItem('ddz_last_changelog_version') || '';
+            if (last !== '1.2.12') {
+                this.openChangelog();
+            }
+        } catch (e) {}
     }
 
     // ===== 设置搜索过滤 =====
@@ -734,6 +801,7 @@ class GameApp {
         body.dataset.opponentCards = s.opponentCards || 'stack';
         body.dataset.showShortcuts = s.showShortcuts === false ? 'false' : 'true';
         body.dataset.tableAura = s.showTableAura === false ? 'false' : 'true';
+        body.dataset.commentary = s.enableCommentary === false ? 'false' : 'true';
         body.dataset.cardStyle = s.cardStyle || 'modern';
         body.dataset.cardBack = s.cardBackStyle || 'classic';
         body.dataset.fontSize = s.fontSize || 'medium';
