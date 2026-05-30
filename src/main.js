@@ -224,6 +224,25 @@ class GameApp {
             if (e.target.id === 'play-style-overlay') this.closePlayStyle();
         });
 
+        // 全局 ESC 键：关闭菜单界面的弹窗（设置/公告/牌风）
+        this._menuEscHandler = (e) => {
+            if (e.key !== 'Escape') return;
+            const settingsOverlay = document.getElementById('settings-overlay');
+            const changelogOverlay = document.getElementById('changelog-overlay');
+            const playStyleOverlay = document.getElementById('play-style-overlay');
+            if (playStyleOverlay && !playStyleOverlay.classList.contains('hidden')) {
+                this.closePlayStyle();
+                e.stopPropagation();
+            } else if (changelogOverlay && !changelogOverlay.classList.contains('hidden')) {
+                this.closeChangelog();
+                e.stopPropagation();
+            } else if (settingsOverlay && !settingsOverlay.classList.contains('hidden')) {
+                this.closeSettings();
+                e.stopPropagation();
+            }
+        };
+        document.addEventListener('keydown', this._menuEscHandler);
+
         // 隐藏加载画面 + 菜单入场动画 + BGM
         setTimeout(() => {
             // loading-screen 元素不存在，跳过
@@ -595,18 +614,20 @@ class GameApp {
         this._getActiveAudio()?.playSettingOpen?.();
         // 标记已读当前版本
         try {
-            localStorage.setItem('ddz_last_changelog_version', '1.2.12');
+            localStorage.setItem('ddz_last_changelog_version', this._version);
         } catch (e) {}
     }
 
     closeChangelog() {
         const overlay = document.getElementById('changelog-overlay');
         if (!overlay || overlay.classList.contains('hidden')) return;
+        if (this._changelogCloseTimer) clearTimeout(this._changelogCloseTimer);
         this._getActiveAudio()?.playSettingClose?.();
         overlay.style.transition = 'opacity 0.2s ease-in, transform 0.2s ease-in';
         overlay.style.opacity = '0';
         overlay.style.transform = 'scale(0.96)';
-        setTimeout(() => {
+        this._changelogCloseTimer = setTimeout(() => {
+            this._changelogCloseTimer = null;
             overlay.classList.add('hidden');
             overlay.style.opacity = '';
             overlay.style.transform = '';
@@ -617,7 +638,7 @@ class GameApp {
     _checkAutoShowChangelog() {
         try {
             const last = localStorage.getItem('ddz_last_changelog_version') || '';
-            if (last !== '1.2.13') {
+            if (last !== this._version) {
                 this.openChangelog();
             }
         } catch (e) {}
@@ -640,17 +661,25 @@ class GameApp {
         this._getActiveAudio()?.playSettingOpen?.();
         // 渲染内容
         const content = document.getElementById('play-style-content');
-        if (content) this.playStyle.renderPanel(content);
-    }
+        if (content) {
+            try {
+                this.playStyle.renderPanel(content);
+            } catch (e) {
+                console.error('牌风面板渲染失败:', e);
+                content.innerHTML = `<div class="play-style-empty"><div class="play-style-empty-icon">⚠️</div><p>数据加载失败</p><p class="play-style-empty-hint">请刷新页面重试</p></div>`;
+            }
+        }
 
     closePlayStyle() {
         const overlay = document.getElementById('play-style-overlay');
         if (!overlay || overlay.classList.contains('hidden')) return;
+        if (this._playStyleCloseTimer) clearTimeout(this._playStyleCloseTimer);
         this._getActiveAudio()?.playSettingClose?.();
         overlay.style.transition = 'opacity 0.2s ease-in, transform 0.2s ease-in';
         overlay.style.opacity = '0';
         overlay.style.transform = 'scale(0.96)';
-        setTimeout(() => {
+        this._playStyleCloseTimer = setTimeout(() => {
+            this._playStyleCloseTimer = null;
             overlay.classList.add('hidden');
             overlay.style.opacity = '';
             overlay.style.transform = '';
@@ -1058,7 +1087,7 @@ class GameApp {
         if (roundScore > (this.stats.maxScore || 0)) {
             this.stats.maxScore = roundScore;
         }
-        const bombs = gs?.history?.filter(h => h.pattern?.type === 'BOMB' || h.pattern?.type === 'ROCKET').length || 0;
+        const bombs = (gs?.history?.filter(h => h.pattern?.type === 'BOMB' || h.pattern?.type === 'ROCKET') || []).length;
         if (bombs > (this.stats.maxBombsInGame || 0)) {
             this.stats.maxBombsInGame = bombs;
         }
@@ -1091,7 +1120,7 @@ class GameApp {
         Storage.saveGameRecord(record);
 
         // 成就检查
-        const bombsPlayed = gs?.history?.filter(h => h.pattern?.type === 'BOMB' || h.pattern?.type === 'ROCKET').length || 0;
+        const bombsPlayed = (gs?.history?.filter(h => h.pattern?.type === 'BOMB' || h.pattern?.type === 'ROCKET') || []).length;
         const rocketPlayed = gs?.history?.some(h => h.pattern?.type === 'ROCKET') || false;
         const cleanSweep = gs?.players?.[humanIdx]?.hand?.length === 0;
         const roundData = {
@@ -1181,7 +1210,8 @@ class GameApp {
     }
 
     _bindRoundEndListener() {
-        if (!this.currentMode) return;
+        if (!this.currentMode || this._roundEndBound) return;
+        this._roundEndBound = true;
         this.currentMode.gameState.on('roundEnd', (data) => {
             this._saveGameResult(data);
         });
@@ -1267,14 +1297,17 @@ class GameApp {
 
     _enterLANGameFromNetwork(mode) {
         if (!mode || mode !== this.currentMode) return;
-        if (!this.renderer) {
-            this.renderer = new Renderer('game-table');
-            this.renderer.setGameState(mode.gameState);
-            this.renderer.setMode(mode);
-            this._configureRendererAudio(this.renderer);
-            mode.setRenderer(this.renderer);
-            this._bindRoundEndListener();
+        if (this.renderer) {
+            this.renderer.destroy();
+            this.renderer = null;
         }
+        this.renderer = new Renderer('game-table');
+        this.renderer.setGameState(mode.gameState);
+        this.renderer.setMode(mode);
+        this._configureRendererAudio(this.renderer);
+        mode.setRenderer(this.renderer);
+        this._roundEndBound = false;
+        this._bindRoundEndListener();
         this._stopMenuAudio();
         document.getElementById('menu-screen')?.classList.add('hidden');
         document.getElementById('lan-screen')?.classList.add('hidden');

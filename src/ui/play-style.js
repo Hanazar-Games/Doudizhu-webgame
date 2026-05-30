@@ -83,10 +83,18 @@ export class PlayStyleAnalyzer {
     _loadData() {
         try {
             const raw = localStorage.getItem('ddz_playStyle');
-            this.data = raw ? JSON.parse(raw) : this._defaultData();
+            const parsed = raw ? JSON.parse(raw) : null;
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                // 数据迁移：合并旧数据与默认结构
+                const defaults = this._defaultData();
+                this.data = { ...defaults, ...parsed };
+                if (!Array.isArray(this.data.games)) this.data.games = [];
+                return;
+            }
         } catch {
-            this.data = this._defaultData();
+            // fallthrough
         }
+        this.data = this._defaultData();
     }
 
     _defaultData() {
@@ -103,11 +111,10 @@ export class PlayStyleAnalyzer {
             springCount: 0,
             antiSpringCount: 0,
             maxCombo: 0,
-            bigPlayCount: 0, // straight/plane/bomb/rocket
+            bigPlayCount: 0,
             landlordCount: 0,
             landlordWinCount: 0,
             peasantWinCount: 0,
-            firstPlayer: true,
         };
     }
 
@@ -123,6 +130,7 @@ export class PlayStyleAnalyzer {
      * 记录一局游戏数据
      */
     recordGame(gameData) {
+        if (!gameData || typeof gameData !== 'object') return;
         const d = this.data;
 
         d.games.push({
@@ -135,7 +143,7 @@ export class PlayStyleAnalyzer {
             rocket: gameData.rocket || false,
             maxCombo: gameData.maxCombo || 0,
             thinkTime: gameData.thinkTime || 0,
-            decisions: gameData.decisions || 0,
+            decisions: gameData.decisions ?? 1,
             callScore: gameData.callScore || 0,
             bigPlays: gameData.bigPlays || 0,
         });
@@ -143,24 +151,49 @@ export class PlayStyleAnalyzer {
         // 只保留最近50局用于分析
         if (d.games.length > 50) d.games = d.games.slice(-50);
 
-        d.totalThinkTime += gameData.thinkTime || 0;
-        d.totalDecisions += gameData.decisions || 1;
-        d.callAttempts += (gameData.callScore || 0) > 0 ? 1 : 0;
-        d.callSuccess += gameData.isLandlord ? 1 : 0;
-        d.bombPlayed += gameData.bombs || 0;
-        d.rocketPlayed += gameData.rocket ? 1 : 0;
-        d.springCount += gameData.isSpring ? 1 : 0;
-        d.antiSpringCount += gameData.isAntiSpring ? 1 : 0;
-        d.bigPlayCount += gameData.bigPlays || 0;
-        d.maxCombo = Math.max(d.maxCombo, gameData.maxCombo || 0);
-        if (gameData.isLandlord) {
-            d.landlordCount++;
-            if (gameData.isWin) d.landlordWinCount++;
-        } else if (gameData.isWin) {
-            d.peasantWinCount++;
-        }
-
+        // 同步更新聚合计数器（与 games 数组保持一致）
+        this._recalcAggregates();
         this.saveData();
+    }
+
+    /**
+     * 从 games 数组重新计算所有聚合计数器
+     * 确保50局截断后数据不会失真
+     */
+    _recalcAggregates() {
+        const d = this.data;
+        const games = d.games;
+        d.totalThinkTime = 0;
+        d.totalDecisions = 0;
+        d.callAttempts = 0;
+        d.callSuccess = 0;
+        d.bombPlayed = 0;
+        d.rocketPlayed = 0;
+        d.springCount = 0;
+        d.antiSpringCount = 0;
+        d.bigPlayCount = 0;
+        d.maxCombo = 0;
+        d.landlordCount = 0;
+        d.landlordWinCount = 0;
+        d.peasantWinCount = 0;
+        for (const g of games) {
+            d.totalThinkTime += g.thinkTime || 0;
+            d.totalDecisions += g.decisions ?? 1;
+            d.callAttempts += (g.callScore || 0) > 0 ? 1 : 0;
+            d.callSuccess += g.isLandlord ? 1 : 0;
+            d.bombPlayed += g.bombs || 0;
+            d.rocketPlayed += g.rocket ? 1 : 0;
+            d.springCount += g.isSpring ? 1 : 0;
+            d.antiSpringCount += g.isAntiSpring ? 1 : 0;
+            d.bigPlayCount += g.bigPlays || 0;
+            d.maxCombo = Math.max(d.maxCombo, g.maxCombo || 0);
+            if (g.isLandlord) {
+                d.landlordCount++;
+                if (g.isWin) d.landlordWinCount++;
+            } else if (g.isWin) {
+                d.peasantWinCount++;
+            }
+        }
     }
 
     /**
@@ -173,10 +206,10 @@ export class PlayStyleAnalyzer {
         const stats = Storage.getStats();
 
         if (totalGames === 0) {
-            return { scores: null, labels: [], comboLabel: null, report: null };
+            return { scores: null, labels: [], comboLabel: null, advice: [], report: null };
         }
 
-        const recentGames = games.slice(-20); // 最近20局权重更高
+        const recentGames = games.slice(-20);
 
         // --- 攻击性 ---
         const avgBombs = d.bombPlayed / Math.max(totalGames, 1);
@@ -188,8 +221,11 @@ export class PlayStyleAnalyzer {
 
         // --- 稳健性 ---
         const callWinRate = d.callSuccess / Math.max(d.callAttempts, 1);
-        const passRate = stats.gamesPlayed > 0
-            ? (d.passCount / Math.max(d.playCount + d.passCount, 1))
+        // passRate: 从 games 数组统计 pass 比例（若数据不可用则用默认值）
+        const passCount = games.filter(g => g.passed).length;
+        const playCount = games.filter(g => g.played).length;
+        const passRate = totalGames > 0
+            ? (passCount / Math.max(passCount + playCount, 1))
             : 0.3;
         const landlordWinRate = d.landlordCount > 0 ? d.landlordWinCount / d.landlordCount : 0.5;
         const steadiness = Math.min(100, Math.round(
@@ -206,7 +242,6 @@ export class PlayStyleAnalyzer {
 
         // --- 速度型 ---
         const avgThinkTime = d.totalThinkTime / Math.max(d.totalDecisions, 1);
-        // 思考时间越短，速度分越高 (假设正常思考 3-8 秒)
         let speed = 50;
         if (avgThinkTime < 2000) speed = 95;
         else if (avgThinkTime < 4000) speed = 80;
@@ -214,9 +249,8 @@ export class PlayStyleAnalyzer {
         else if (avgThinkTime < 10000) speed = 50;
         else if (avgThinkTime < 15000) speed = 35;
         else speed = 20;
-        // 最近20局的思考时间权重更高
         const recentThinkTime = recentGames.reduce((s, g) => s + (g.thinkTime || 0), 0)
-            / Math.max(recentGames.reduce((s, g) => s + (g.decisions || 1), 0), 1);
+            / Math.max(recentGames.reduce((s, g) => s + (g.decisions ?? 1), 0), 1);
         if (recentThinkTime < avgThinkTime * 0.8) speed = Math.min(100, speed + 10);
         else if (recentThinkTime > avgThinkTime * 1.3) speed = Math.max(0, speed - 10);
         speed = Math.round(speed);
@@ -225,7 +259,6 @@ export class PlayStyleAnalyzer {
         const luckScore = Math.min(100, Math.round(
             (springRate * 30) + (rocketRate * 25) + (avgBombs * 15) + 30
         ));
-        // 如果胜率远高于技巧分，运气成分可能更高
         const luck = Math.min(100, Math.round(
             luckScore * 0.7 + Math.max(0, (winRate * 100 - skill) * 0.3)
         ));
@@ -244,12 +277,9 @@ export class PlayStyleAnalyzer {
             burst: Math.max(5, Math.min(95, burst)),
         };
 
-        // 生成标签
         const labels = this._getLabels(scores);
         const comboLabel = this._getComboLabel(scores);
-
-        // 生成建议
-        const advice = this._getAdvice(scores);
+        const advice = this._getAdvice(scores, totalGames);
 
         return {
             scores,
@@ -289,8 +319,17 @@ export class PlayStyleAnalyzer {
     }
 
     _getComboLabel(scores) {
-        // 找出最高和次高维度
         const entries = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+        if (entries.length < 2) {
+            return {
+                label: '斗地主玩家',
+                desc: '正在形成自己的牌风',
+                primary: entries[0]?.[0] || 'skill',
+                secondary: null,
+                primaryScore: entries[0]?.[1] || 0,
+                secondaryScore: 0,
+            };
+        }
         const [primary, secondary] = [entries[0][0], entries[1][0]];
 
         // 查找预设组合
@@ -314,7 +353,7 @@ export class PlayStyleAnalyzer {
         };
     }
 
-    _getAdvice(scores) {
+    _getAdvice(scores, totalGames) {
         const advice = [];
         const entries = Object.entries(scores).sort((a, b) => a[1] - b[1]);
         const lowest = entries[0];
@@ -367,7 +406,7 @@ export class PlayStyleAnalyzer {
         const center = size / 2;
         const radius = 100;
         const angleStep = (Math.PI * 2) / 6;
-        const values = this.dimensions.map(d => scores[d.key]);
+        const values = this.dimensions.map(d => scores[d.key] ?? 50);
 
         // 背景网格（5层）
         let gridSVG = '';

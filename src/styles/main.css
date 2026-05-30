@@ -1703,7 +1703,7 @@ body[data-theme="purple"] {
     backdrop-filter: blur(8px);
     font-size: 0.95rem;
     animation: toastIn 0.3s ease;
-    z-index: 100;
+    z-index: 2100;
 }
 
 @keyframes toastIn {
@@ -1727,7 +1727,7 @@ body[data-theme="purple"] {
     color: #fff;
     box-shadow: 0 8px 32px rgba(212,160,23,0.4);
     animation: achPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    z-index: 200;
+    z-index: 2100;
     min-width: 240px;
 }
 

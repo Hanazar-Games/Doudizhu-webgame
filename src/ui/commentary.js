@@ -36,7 +36,8 @@ class CommentaryEngine {
     trigger(event, data = {}) {
         if (!this._enabled) return;
         const now = performance.now();
-        if (now - this._lastCommentTime < this._cooldown) {
+        const remaining = this._cooldown - (now - this._lastCommentTime);
+        if (remaining > 0) {
             // 冷却中，加入队列稍后显示
             this._queue.push({ event, data });
             this._processQueue();
@@ -213,8 +214,14 @@ class CommentaryEngine {
         this._isShowing = true;
 
         const check = () => {
+            if (!this._enabled) {
+                this._queue = [];
+                this._isShowing = false;
+                return;
+            }
             const now = performance.now();
-            if (now - this._lastCommentTime >= this._cooldown && this._queue.length > 0) {
+            const remaining = this._cooldown - (now - this._lastCommentTime);
+            if (remaining <= 0 && this._queue.length > 0) {
                 const { event, data } = this._queue.shift();
                 const text = this._generateComment(event, data);
                 if (text) {
@@ -222,20 +229,23 @@ class CommentaryEngine {
                     this._lastCommentTime = now;
                 }
                 if (this._queue.length > 0) {
-                    const t = setTimeout(check, this._cooldown);
+                    const delay = Math.max(50, this._cooldown - (performance.now() - this._lastCommentTime));
+                    const t = setTimeout(check, delay);
                     this._activeTimers.add(t);
                 } else {
                     this._isShowing = false;
                 }
             } else if (this._queue.length > 0) {
-                const t = setTimeout(check, this._cooldown);
+                const delay = Math.max(50, remaining);
+                const t = setTimeout(check, delay);
                 this._activeTimers.add(t);
             } else {
                 this._isShowing = false;
             }
         };
 
-        const t = setTimeout(check, this._cooldown);
+        const delay = Math.max(50, this._cooldown - (performance.now() - this._lastCommentTime));
+        const t = setTimeout(check, delay);
         this._activeTimers.add(t);
     }
 
@@ -260,9 +270,13 @@ class CommentaryEngine {
     destroy() {
         this._queue = [];
         this._isShowing = false;
+        this._lastCommentTime = 0;
+        this._comboCount = 0;
+        this._lastPlayPlayer = -1;
+        this._lastSlotIndex = -1;
         for (const id of this._activeTimers) clearTimeout(id);
         this._activeTimers.clear();
-        document.querySelectorAll('.commentary-bubble').forEach(el => el.remove());
+        this.container?.querySelectorAll('.commentary-bubble').forEach(el => el.remove());
     }
 }
 

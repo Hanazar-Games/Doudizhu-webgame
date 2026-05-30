@@ -110,6 +110,15 @@ class Renderer {
         this.container?.querySelectorAll('.countdown-timer').forEach(cd => {
             if (cd._hideTimeout) clearTimeout(cd._hideTimeout);
         });
+        // 清理面板隐藏 timer
+        ['#call-controls', '#play-controls'].forEach(sel => {
+            const panel = this.container?.querySelector(sel);
+            if (panel?._hideTimeout) clearTimeout(panel._hideTimeout);
+        });
+        // 清理出牌区域 clear timer
+        this.container?.querySelectorAll('.played-area').forEach(area => {
+            if (area._clearTimeout) clearTimeout(area._clearTimeout);
+        });
         // 清理活跃 timer
         for (const id of this._activeTimers) clearTimeout(id);
         this._activeTimers.clear();
@@ -128,6 +137,10 @@ class Renderer {
             handContainer._dragCleanup();
             handContainer._dragCleanup = null;
         }
+        if (handContainer?._dragTimer) {
+            clearTimeout(handContainer._dragTimer);
+            handContainer._dragTimer = null;
+        }
         this.container = null;
     }
 
@@ -141,6 +154,13 @@ class Renderer {
 
     _initLayout() {
         if (!this.container) return;
+        // 清理旧的事件监听器，防止 _initLayout 多次调用时累积
+        if (this._controlListeners) {
+            for (const { el, type, handler, options } of this._controlListeners) {
+                try { el?.removeEventListener(type, handler, options); } catch (e) {}
+            }
+        }
+        this._controlListeners = [];
         this.container.innerHTML = `
             <div id="ddz-table">
                 <div class="table-aura" aria-hidden="true"></div>
@@ -1438,7 +1458,11 @@ class Renderer {
                 this._updateHandHint(this._getSelectedCards());
                 // 阻止本次拖拽产生的 click 重复触发选牌
                 handContainer._dragJustEnded = true;
-                setTimeout(() => { handContainer._dragJustEnded = false; }, 120);
+                if (handContainer._dragTimer) clearTimeout(handContainer._dragTimer);
+                handContainer._dragTimer = setTimeout(() => {
+                    handContainer._dragTimer = null;
+                    if (handContainer) handContainer._dragJustEnded = false;
+                }, 120);
             }
             startIndex = -1;
             lastRangeKey = '';
@@ -1584,6 +1608,8 @@ class Renderer {
                         this._updateHandHint(this._getSelectedCards());
                     };
                     el.addEventListener('click', toggle);
+                    if (!this._controlListeners) this._controlListeners = [];
+                    this._controlListeners.push({ el, type: 'click', handler: toggle });
                     fragment.appendChild(el);
 
                     requestAnimationFrame(() => {

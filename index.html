@@ -1193,13 +1193,15 @@
                 </div>
             </div>
             
-            <div id="modal-overlay" class="hidden">
-                <div id="modal-content"></div>
-            </div>
         </div>
         
         <div id="fps-counter" class="debug-counter debug-counter--fps">FPS: --</div>
         <div id="memory-counter" class="debug-counter debug-counter--mem">MEM: --</div>
+    </div>
+
+    <!-- 全局模态弹窗 -->
+    <div id="modal-overlay" class="hidden">
+        <div id="modal-content"></div>
     </div>
 
     <!-- LAN 联机界面 -->
@@ -1466,19 +1468,30 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.13</div>
-                    <h3>牌风分析系统</h3>
+                    <div class="changelog-version-badge">v1.2.14</div>
+                    <h3>全面深度修复</h3>
                     <ul>
-                        <li>📊 <strong>牌风分析</strong>：6维雷达图深度解析你的出牌风格（攻击性/稳健性/技巧性/速度型/运气质/爆发性）</li>
-                        <li>🏷️ <strong>个性化标签</strong>：根据数据生成专属称号，如"核弹级""闪电侠""斗地主之神"等</li>
-                        <li>📈 <strong>数据概览</strong>：胜率、场均炸弹、春天率、平均思考时间等多维度统计</li>
-                        <li>💡 <strong>成长建议</strong>：AI智能分析短板并给出针对性提升建议</li>
-                        <li>🎨 <strong>SVG雷达图</strong>：纯代码绘制的高颜值六维能力图</li>
+                        <li>🔧 <strong>牌风分析修复</strong>：修复50局后数据失真、成长建议崩溃、数据迁移与空数据防护</li>
+                        <li>🎙️ <strong>评论系统修复</strong>：修复destroy状态泄漏、队列冷却抖动、禁用后仍显示的问题</li>
+                        <li>🛡️ <strong>渲染器修复</strong>：修复timer泄漏、事件监听器泄漏、多次initLayout累积问题</li>
+                        <li>⚙️ <strong>主程序修复</strong>：修复公告版本号不匹配、面板关闭竞态、roundEnd重复监听、LAN renderer未清理</li>
+                        <li>📐 <strong>结构与样式修复</strong>：修复modal-overlay嵌套、toast z-index被遮挡等DOM/CSS问题</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.13</div>
+                            <h4>牌风分析系统</h4>
+                            <ul>
+                                <li>📊 6维雷达图深度解析出牌风格（攻击性/稳健性/技巧性/速度型/运气质/爆发性）</li>
+                                <li>🏷️ 个性化标签：核弹级、闪电侠、斗地主之神等专属称号</li>
+                                <li>📈 胜率、场均炸弹、春天率、平均思考时间等多维度统计</li>
+                                <li>💡 AI智能分析短板并给出针对性提升建议</li>
+                                <li>🎨 SVG纯代码绘制高颜值六维能力图</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.12</div>
                             <h4>牌局神评论系统</h4>
@@ -1490,20 +1503,6 @@
                                 <li>⚙️ 可开关：设置面板中可自由开启/关闭评论功能</li>
                             </ul>
                         </div>
-                        <div class="changelog-version">
-                            <div class="changelog-version-badge">v1.2.11</div>
-                            <h4>第三轮深度修复</h4>
-                    <ul>
-                        <li>🎙️ <strong>牌局神评论</strong>：炸弹、火箭、春天、连击等关键时刻自动弹出热血解说评论</li>
-                        <li>💬 <strong>120+ 条评论库</strong>：根据牌型语境智能匹配幽默/热血解说词</li>
-                        <li>🎨 <strong>情绪色系统</strong>：炸弹红、火箭金、春天粉、胜利彩虹等视觉风格</li>
-                        <li>🎯 <strong>6 插槽防重叠</strong>：多条评论分散显示，不会互相遮挡</li>
-                        <li>⚙️ <strong>可开关</strong>：设置面板中可自由开启/关闭评论功能</li>
-                    </ul>
-                </div>
-                <details class="changelog-history">
-                    <summary>📚 历史版本</summary>
-                    <div class="changelog-history-content">
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.11</div>
                             <h4>第三轮深度修复</h4>
