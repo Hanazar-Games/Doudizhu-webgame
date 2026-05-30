@@ -1,6 +1,6 @@
 {
   "name": "doudizhu-webgame",
-  "version": "1.2.12",
+  "version": "1.2.13",
   "description": "斗地主网页版 - 支持人机对战、局域网联机、自定义模式",
   "type": "module",
   "scripts": {

@@ -11,6 +11,7 @@ import { AudioManager } from './ui/audio.js';
 import { Storage } from './utils/storage.js';
 import { ReplayManager } from './utils/replay.js';
 import { Tutorial } from './ui/tutorial.js';
+import { PlayStyleAnalyzer } from './ui/play-style.js';
 
 class GameApp {
     constructor() {
@@ -21,6 +22,7 @@ class GameApp {
         this._hasUserInteracted = false;
         this.settings = Storage.getSettings();
         this.stats = { gamesPlayed: 0, wins: 0, losses: 0, totalScore: 0, streak: 0, ...Storage.getStats() };
+        this.playStyle = new PlayStyleAnalyzer();
         this._syncVersionDisplay();
         this.init();
     }
@@ -50,6 +52,7 @@ class GameApp {
             { id: 'btn-custom-mode', action: () => this.startCustomMode() },
             { id: 'btn-replay', action: () => this.showReplayList() },
             { id: 'btn-achievements', action: () => this.showAchievements() },
+            { id: 'btn-play-style', action: () => this.openPlayStyle() },
             { id: 'btn-tutorial', action: () => this.openTutorial() },
             { id: 'btn-settings', action: () => this.openSettings() },
             { id: 'btn-changelog', action: () => this.openChangelog() },
@@ -213,6 +216,12 @@ class GameApp {
         document.getElementById('btn-changelog-ok')?.addEventListener('click', () => this.closeChangelog());
         document.getElementById('changelog-overlay')?.addEventListener('click', (e) => {
             if (e.target.id === 'changelog-overlay') this.closeChangelog();
+        });
+
+        // 牌风分析面板事件绑定
+        document.getElementById('btn-close-play-style')?.addEventListener('click', () => this.closePlayStyle());
+        document.getElementById('play-style-overlay')?.addEventListener('click', (e) => {
+            if (e.target.id === 'play-style-overlay') this.closePlayStyle();
         });
 
         // 隐藏加载画面 + 菜单入场动画 + BGM
@@ -608,10 +617,45 @@ class GameApp {
     _checkAutoShowChangelog() {
         try {
             const last = localStorage.getItem('ddz_last_changelog_version') || '';
-            if (last !== '1.2.12') {
+            if (last !== '1.2.13') {
                 this.openChangelog();
             }
         } catch (e) {}
+    }
+
+    // ===== 牌风分析面板 =====
+    openPlayStyle() {
+        const overlay = document.getElementById('play-style-overlay');
+        if (!overlay || !overlay.classList.contains('hidden')) return;
+        overlay.classList.remove('hidden');
+        overlay.style.opacity = '0';
+        overlay.style.transform = 'scale(0.96)';
+        requestAnimationFrame(() => {
+            overlay.style.transition = 'opacity 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            requestAnimationFrame(() => {
+                overlay.style.opacity = '1';
+                overlay.style.transform = 'scale(1)';
+            });
+        });
+        this._getActiveAudio()?.playSettingOpen?.();
+        // 渲染内容
+        const content = document.getElementById('play-style-content');
+        if (content) this.playStyle.renderPanel(content);
+    }
+
+    closePlayStyle() {
+        const overlay = document.getElementById('play-style-overlay');
+        if (!overlay || overlay.classList.contains('hidden')) return;
+        this._getActiveAudio()?.playSettingClose?.();
+        overlay.style.transition = 'opacity 0.2s ease-in, transform 0.2s ease-in';
+        overlay.style.opacity = '0';
+        overlay.style.transform = 'scale(0.96)';
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            overlay.style.opacity = '';
+            overlay.style.transform = '';
+            overlay.style.transition = '';
+        }, 200);
     }
 
     // ===== 设置搜索过滤 =====
@@ -1091,6 +1135,45 @@ class GameApp {
                 },
             };
             Storage.saveFullGame(fullGame);
+        }
+
+        // 牌风分析数据收集
+        try {
+            const humanHistory = gs?.history?.filter(h => h.playerIndex === humanIdx) || [];
+            const bigPlays = humanHistory.filter(h => {
+                const t = h.pattern?.type;
+                return t === 'BOMB' || t === 'ROCKET' || t === 'STRAIGHT' || t?.includes('TRIPLE_STRAIGHT');
+            }).length;
+            // 计算最大连击（连续出牌次数）
+            let maxCombo = 0, currentCombo = 0, lastPlayer = -1;
+            for (const h of gs?.history || []) {
+                if (h.playerIndex === lastPlayer) {
+                    currentCombo++;
+                } else {
+                    if (h.playerIndex === humanIdx) currentCombo = 1;
+                    else currentCombo = 0;
+                }
+                lastPlayer = h.playerIndex;
+                if (h.playerIndex === humanIdx) maxCombo = Math.max(maxCombo, currentCombo);
+            }
+            // 估算思考时间（基于AI延迟和人类操作）
+            const isLandlord = humanIdx === gs?.landlordIndex;
+            const callScore = gs?.currentCall || 0;
+            this.playStyle.recordGame({
+                isWin: isHumanWin,
+                isLandlord,
+                isSpring: data.springType === 'spring',
+                isAntiSpring: data.springType === 'antiSpring',
+                bombs: bombs,
+                rocket: rocketPlayed,
+                maxCombo,
+                thinkTime: humanHistory.length * 3500, // 估算每手3.5秒
+                decisions: humanHistory.length + (isLandlord ? 1 : 0),
+                callScore: isLandlord ? callScore : 0,
+                bigPlays,
+            });
+        } catch (e) {
+            // 牌风数据收集失败不应影响主流程
         }
 
         // 刷新统计面板

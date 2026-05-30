@@ -328,6 +328,7 @@ export const Storage = {
         localStorage.removeItem(PREFIX + 'records');
         localStorage.removeItem(PREFIX + 'full_games');
         localStorage.removeItem(PREFIX + 'achievement_progress');
+        localStorage.removeItem(PREFIX + 'playStyle');
     },
 
     // 清除所有数据
@@ -335,6 +336,13 @@ export const Storage = {
         Object.keys(localStorage)
             .filter(k => k.startsWith(PREFIX))
             .forEach(k => localStorage.removeItem(k));
+    },
+
+    // ===== 牌风分析数据 =====
+    getPlayStyleData() {
+        const raw = localStorage.getItem(PREFIX + 'playStyle');
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch { return null; }
     },
 
     // ========== 成就系统 ==========
