@@ -3168,17 +3168,8 @@ body[data-theme="purple"] {
 }
 
 .btn-replay-watch:hover {
-    transform: translateY(-2px);
+    transform: translateY(-2px) scale(1.05);
     box-shadow: 0 6px 18px rgba(240,192,64,0.3);
-}
-    color: #2a1a00;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-replay-watch:hover {
-    transform: scale(1.05);
 }
 
 /* 回放牌桌 */
@@ -5029,7 +5020,6 @@ body[data-motion="fancy"] .table-aura {
 .lan-container,
 .custom-container,
 #modal-content,
-.pause-content,
 .help-content {
     border: 1px solid rgba(255,255,255,0.10);
     box-shadow: var(--shadow-heavy);
@@ -5037,7 +5027,6 @@ body[data-motion="fancy"] .table-aura {
 
 .side-panel,
 .overlay-panel,
-.pause-content,
 .help-content {
     background-color: rgba(0,0,0,var(--ddz-panel-alpha, 0.8));
 }

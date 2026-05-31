@@ -669,6 +669,7 @@ class GameApp {
                 content.innerHTML = `<div class="play-style-empty"><div class="play-style-empty-icon">⚠️</div><p>数据加载失败</p><p class="play-style-empty-hint">请刷新页面重试</p></div>`;
             }
         }
+    }
 
     closePlayStyle() {
         const overlay = document.getElementById('play-style-overlay');
