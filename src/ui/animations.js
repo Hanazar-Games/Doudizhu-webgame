@@ -3,11 +3,44 @@
  * 纯 CSS / JS 实现的视觉特效集合，服务于斗地主游戏
  */
 
+const _originalTransformKey = Symbol('originalTransform');
+
 class Animations {
     constructor(container) {
         this.container = container || document.body;
+        this._activeRafs = new Set();
+        this._activeTimeouts = new Set();
     }
-    
+
+    _trackRaf(id) {
+        this._activeRafs.add(id);
+        return id;
+    }
+
+    _untrackRaf(id) {
+        this._activeRafs.delete(id);
+    }
+
+    _trackTimeout(id) {
+        this._activeTimeouts.add(id);
+        return id;
+    }
+
+    _untrackTimeout(id) {
+        this._activeTimeouts.delete(id);
+    }
+
+    cancelAll() {
+        for (const id of this._activeRafs) {
+            cancelAnimationFrame(id);
+        }
+        this._activeRafs.clear();
+        for (const id of this._activeTimeouts) {
+            clearTimeout(id);
+        }
+        this._activeTimeouts.clear();
+    }
+
     _createAnimElement(tag = 'div') {
         const el = document.createElement(tag);
         el.dataset.animFx = 'true';
@@ -191,16 +224,19 @@ class Animations {
                     this._shakeCount = 0;
                     this._shakeOriginalTransform = null;
                 }
+                this._untrackRaf(rafId);
                 return;
             }
             const decay = 1 - elapsed / duration;
             const dx = (Math.random() - 0.5) * 2 * intensity * decay;
             const dy = (Math.random() - 0.5) * 2 * intensity * decay;
             document.body.style.transform = `${this._shakeOriginalTransform} translate(${dx}px, ${dy}px)`.trim();
-            requestAnimationFrame(shake);
+            rafId = requestAnimationFrame(shake);
+            this._trackRaf(rafId);
         };
 
-        requestAnimationFrame(shake);
+        let rafId = requestAnimationFrame(shake);
+        this._trackRaf(rafId);
     }
 
     /**
@@ -247,8 +283,10 @@ class Animations {
 
         if (card instanceof HTMLElement) {
             el = card;
-            // 保存原始transform以便恢复
-            el._originalTransform = el.style.transform;
+            // 使用 Symbol 保存原始 transform，避免属性名冲突和覆盖
+            if (!el[_originalTransformKey]) {
+                el[_originalTransformKey] = el.style.transform;
+            }
         } else if (typeof card === 'string') {
             isTemp = true;
             el = this._createAnimElement('div');
@@ -294,9 +332,9 @@ class Animations {
                 if (isTemp) {
                     setTimeout(() => el.remove(), 0);
                 } else {
-                    // 恢复原始transform
-                    el.style.transform = el._originalTransform || '';
-                    delete el._originalTransform;
+                    // 恢复原始 transform
+                    el.style.transform = el[_originalTransformKey] || '';
+                    delete el[_originalTransformKey];
                 }
             }
         };

@@ -92,6 +92,7 @@ class Renderer {
         this.audio = null;
         this.mode = null;
         this.gameState = null;
+        this.anim?.cancelAll();
         this.anim = null;
         // 清理选牌状态
         this.selectedCards.clear();
@@ -155,6 +156,12 @@ class Renderer {
 
     _initLayout() {
         if (!this.container) return;
+        // 清理旧的拖拽监听器（document 上的全局事件）
+        const oldHand = this.container?.querySelector('#player-right .hand-front');
+        if (oldHand?._dragCleanup) {
+            oldHand._dragCleanup();
+            oldHand._dragCleanup = null;
+        }
         // 清理旧的事件监听器，防止 _initLayout 多次调用时累积
         if (this._controlListeners) {
             for (const { el, type, handler, options } of this._controlListeners) {
@@ -1322,7 +1329,7 @@ class Renderer {
     _shakeSelection() {
         const handContainer = this.container.querySelector('#player-right .hand-front');
         handContainer?.classList.add('shake');
-        setTimeout(() => {
+        this._setTimer(() => {
             if (this._destroyed) return;
             handContainer?.classList.remove('shake');
         }, 400);
@@ -1494,6 +1501,20 @@ class Renderer {
         if (!this.gameState) return;
         // 重新渲染前清除选择状态，避免 DOM 与 selectedCards 不一致
         this.clearSelection();
+        // 清理旧的手牌 click 监听器，防止 renderHands 多次调用时 _controlListeners 累积
+        if (this._controlListeners) {
+            const toRemove = [];
+            for (const item of this._controlListeners) {
+                if (item.el?.closest?.('.hand-front')) {
+                    try { item.el.removeEventListener(item.type, item.handler, item.options); } catch (e) {}
+                    toRemove.push(item);
+                }
+            }
+            for (const item of toRemove) {
+                const idx = this._controlListeners.indexOf(item);
+                if (idx >= 0) this._controlListeners.splice(idx, 1);
+            }
+        }
 
         // 底牌始终可见
         const bottomEl = this.container.querySelector('#bottom-cards');
@@ -2773,6 +2794,7 @@ class Renderer {
 
     showAchievementUnlock(achievements) {
         if (!this.container || !achievements?.length) return;
+        const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
         achievements.forEach((ach, i) => {
             this._setTimer(() => {
                 if (this._destroyed) return;
@@ -2780,11 +2802,11 @@ class Renderer {
                 el.className = 'achievement-toast';
                 el.dataset.animFx = 'true';
                 el.innerHTML = `
-                    <div class="ach-icon">${ach.icon}</div>
+                    <div class="ach-icon">${esc(ach.icon)}</div>
                     <div class="ach-body">
                         <div class="ach-title">成就解锁</div>
-                        <div class="ach-name">${ach.name}</div>
-                        <div class="ach-desc">${ach.desc}</div>
+                        <div class="ach-name">${esc(ach.name)}</div>
+                        <div class="ach-desc">${esc(ach.desc)}</div>
                     </div>
                 `;
                 this.container.appendChild(el);

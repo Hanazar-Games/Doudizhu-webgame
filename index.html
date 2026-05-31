@@ -113,7 +113,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.15</span>
+                <span class="version-info">v1.2.16</span>
             </footer>
         </div>
     </div>
@@ -1479,29 +1479,45 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.15</div>
-                    <h3>UI/UX/SFX/BGM 全面检查与改进</h3>
+                    <div class="changelog-version-badge">v1.2.16</div>
+                    <h3>全面深度 Bug 检查与修复</h3>
                     <ul>
-                        <li>🔧 <strong>渲染修复</strong>：修复结算弹窗 XSS 转义函数块级作用域 bug（非比赛模式报错）</li>
-                        <li>🔊 <strong>音频修复</strong>：renderer.destroy() 现在正确关闭 AudioContext，防止多局游戏后音频资源泄漏</li>
-                        <li>🎵 <strong>音效设置</strong>：补全缺失的 "call" 音效开关，用户可独立控制叫分音效</li>
-                        <li>🎯 <strong>面板清理</strong>：返回菜单/启动新游戏时自动关闭残留的每日挑战结果/历史面板</li>
-                        <li>✨ <strong>每日挑战 UX</strong>：结算弹窗显示 1.8s 后平滑关闭，再弹出挑战结果面板，避免双重弹窗重叠</li>
-                        <li>📐 <strong>层级优化</strong>：挑战结果/历史面板 z-index 提升至 250，确保始终覆盖在游戏弹窗之上</li>
-                    </ul>
-                </div>
-                <div class="changelog-version">
-                    <div class="changelog-version-badge">v1.2.14</div>
-                    <h4>全面深度修复 &amp; 规则引擎完善</h4>
-                    <ul>
-                        <li>🔧 <strong>牌风分析修复</strong>：修复50局后数据失真、成长建议崩溃、数据迁移与空数据防护</li>
-                        <li>🎙️ <strong>评论系统修复</strong>：修复destroy状态泄漏、队列冷却抖动、禁用后仍显示的问题</li>
-                        <li>🛡️ <strong>渲染器修复</strong>：修复timer泄漏、事件监听器泄漏、多次initLayout累积问题</li>
-                        <li>⚙️ <strong>主程序修复</strong>：修复公告版本号不匹配、面板关闭竞态、roundEnd重复监听、LAN renderer未清理</li>
-                        <li>📐 <strong>结构与样式修复</strong>：修复modal-overlay嵌套、toast z-index被遮挡等DOM/CSS问题</li>
+                        <li>🚨 <strong>严重修复</strong>：修复每日挑战结果面板永远弹不出的 bug（base-mode.js <code>onPhaseChange(ENDED)</code> 误清除 post-game 定时器）</li>
+                        <li>🚨 <strong>严重修复</strong>：修复连胜计算逻辑错误——今天输了仍算连胜的 bug</li>
+                        <li>🔧 <strong>数据修复</strong>：修复 getRecords 中缺失 timestamp 导致记录被静默丢弃；修复旧记录无 score 时无法更新最佳成绩；修复 30 天边界严格大于导致第 30 天记录被误删</li>
+                        <li>🔧 <strong>时区修复</strong>：getTodayString 固定使用 UTC+8，避免跨时区用户牌局/记录/连胜全部错乱</li>
+                        <li>🛡️ <strong>内存泄漏修复</strong>：renderHands() 多次调用导致 _controlListeners 累积；_bindDragSelection document 监听器泄漏；animations.js 新增 cancelAll() 统一清理</li>
+                        <li>🛡️ <strong>安全修复</strong>：showAchievementUnlock 使用 esc 转义成就名称/描述，消除 XSS 注入面</li>
+                        <li>🎵 <strong>音频修复</strong>：BGM 切换定时器被 ENDED 阶段清除导致胜利/失败音乐不播放</li>
+                        <li>🎯 <strong>UX 修复</strong>：closeChallengeResult timeout 未追踪导致快速操作时面板被误关；返回菜单后每日挑战徽章不刷新</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
+                    <summary>📚 历史版本</summary>
+                    <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.15</div>
+                            <h4>UI/UX/SFX/BGM 全面检查与改进</h4>
+                            <ul>
+                                <li>🔧 渲染修复：修复结算弹窗 XSS 转义函数块级作用域 bug（非比赛模式报错）</li>
+                                <li>🔊 音频修复：renderer.destroy() 现在正确关闭 AudioContext</li>
+                                <li>🎵 音效设置：补全缺失的 "call" 音效开关</li>
+                                <li>🎯 面板清理：返回菜单/启动新游戏时自动关闭残留面板</li>
+                                <li>✨ 每日挑战 UX：结算弹窗 1.8s 后自动关闭避免重叠</li>
+                                <li>📐 层级优化：挑战结果 z-index 提升至 250</li>
+                            </ul>
+                        </div>
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.14</div>
+                            <h4>全面深度修复 &amp; 规则引擎完善</h4>
+                            <ul>
+                                <li>🔧 <strong>牌风分析修复</strong>：修复50局后数据失真、成长建议崩溃、数据迁移与空数据防护</li>
+                                <li>🎙️ <strong>评论系统修复</strong>：修复destroy状态泄漏、队列冷却抖动、禁用后仍显示的问题</li>
+                                <li>🛡️ <strong>渲染器修复</strong>：修复timer泄漏、事件监听器泄漏、多次initLayout累积问题</li>
+                                <li>⚙️ <strong>主程序修复</strong>：修复公告版本号不匹配、面板关闭竞态、roundEnd重复监听、LAN renderer未清理</li>
+                                <li>📐 <strong>结构与样式修复</strong>：修复modal-overlay嵌套、toast z-index被遮挡等DOM/CSS问题</li>
+                            </ul>
+                        </div>
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
                         <div class="changelog-version">

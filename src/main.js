@@ -1417,6 +1417,8 @@ class GameApp {
         // 关闭可能残留的每日挑战面板
         this.closeChallengeResult();
         document.getElementById('challenge-history-overlay')?.classList.add('hidden');
+        // 刷新每日挑战徽章
+        this._updateDailyChallengeBadge();
 
         // 切换回菜单BGM
         this._playMenuBGM();
@@ -1838,6 +1840,11 @@ class GameApp {
         const btnHistory = document.getElementById('btn-challenge-history');
         const btnClose = document.getElementById('btn-challenge-close');
 
+        // 先清理旧的事件处理器，防止重复绑定
+        if (btnShare) btnShare.onclick = null;
+        if (btnHistory) btnHistory.onclick = null;
+        if (btnClose) btnClose.onclick = null;
+
         if (btnShare) {
             btnShare.onclick = () => {
                 this._playButtonClick();
@@ -1868,8 +1875,17 @@ class GameApp {
     closeChallengeResult() {
         const overlay = document.getElementById('challenge-result-overlay');
         if (!overlay) return;
+        if (this._challengeResultCloseTimer) {
+            clearTimeout(this._challengeResultCloseTimer);
+            this._challengeResultCloseTimer = null;
+        }
         overlay.style.opacity = '0';
-        setTimeout(() => overlay.classList.add('hidden'), 300);
+        this._challengeResultCloseTimer = setTimeout(() => {
+            this._challengeResultCloseTimer = null;
+            overlay.classList.add('hidden');
+        }, 300);
+        // 关闭后刷新主菜单徽章
+        this._updateDailyChallengeBadge();
     }
 
     _showChallengeHistory() {

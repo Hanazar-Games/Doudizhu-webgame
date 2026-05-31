@@ -171,7 +171,18 @@ npm run build
 
 ## 版本公告
 
-### v1.2.15 (当前版本) — UI/UX/SFX/BGM 全面检查与改进
+### v1.2.16 (当前版本) — 全面深度 Bug 检查与修复
+
+- **严重修复**：修复每日挑战结果面板永远弹不出的 bug（`onPhaseChange(ENDED)` 误清除 post-game 定时器）
+- **严重修复**：修复连胜计算逻辑——今天输了仍算连胜的 bug
+- **数据修复**：修复 `getRecords` 缺失 `timestamp` 导致记录静默丢弃；旧记录无 `score` 时无法更新；30 天边界严格大于导致第 30 天记录误删
+- **时区修复**：`getTodayString` 固定使用 UTC+8，避免跨时区数据错乱
+- **内存泄漏修复**：`renderHands()` `_controlListeners` 累积；`_bindDragSelection` document 监听器泄漏；`animations.js` 新增 `cancelAll()`
+- **安全修复**：`showAchievementUnlock` 使用 esc 转义，消除 XSS 注入面
+- **音频修复**：BGM 切换定时器被 ENDED 阶段清除导致胜利/失败音乐不播放
+- **UX 修复**：`closeChallengeResult` timeout 未追踪；返回菜单后徽章不刷新
+
+### v1.2.15 — UI/UX/SFX/BGM 全面检查与改进
 
 - **修复** `renderer.js` `showRoundResult` 中 `esc` 函数块级作用域 bug（非比赛模式结算弹窗报错）
 - **修复** `renderer.destroy()` 未关闭 AudioContext，导致多局游戏后音频资源泄漏

@@ -33,12 +33,15 @@ class SeededRandom {
 
 /**
  * 获取今日日期字符串 (YYYY-MM-DD)
+ * 固定使用中国时区 UTC+8，避免跨时区数据不一致
  */
 function getTodayString() {
     const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
+    // 转换为 UTC+8
+    const utc8 = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+    const y = utc8.getFullYear();
+    const m = String(utc8.getMonth() + 1).padStart(2, '0');
+    const d = String(utc8.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
 }
 
@@ -75,6 +78,9 @@ const DailyChallengeGenerator = {
      * 生成指定日期的挑战牌局
      */
     generate(dateStr = getTodayString()) {
+        if (typeof dateStr !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            throw new Error('Invalid dateStr format, expected YYYY-MM-DD');
+        }
         const seed = dateToSeed(dateStr);
         const rng = new SeededRandom(seed);
 
@@ -116,9 +122,13 @@ const DailyChallengeGenerator = {
  * @param {Object} roundData - onRoundEnd 数据
  * @param {number} humanIndex - 人类玩家索引
  * @param {number} bombCount - 人类玩家本局打出的炸弹数
- * @returns {number} 1-3
+ * @returns {number} 0-3
  */
 function calculateStars(roundData, humanIndex, bombCount = 0) {
+    if (typeof roundData?.winnerIndex !== 'number' || typeof roundData?.landlordIndex !== 'number') {
+        console.warn('calculateStars: invalid roundData');
+        return 0;
+    }
     const isHumanWin = roundData.winnerIndex === humanIndex ||
         (roundData.winnerIndex !== roundData.landlordIndex && humanIndex !== roundData.landlordIndex);
 
@@ -167,9 +177,24 @@ const ChallengeRecordManager = {
             if (!raw) return [];
             const parsed = JSON.parse(raw);
             if (!Array.isArray(parsed)) return [];
-            // 只保留最近30天
+            // 只保留最近30天（包含第30天）
             const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-            return parsed.filter(r => r.timestamp > cutoff);
+            const valid = parsed.filter(r => {
+                if (!r || typeof r.timestamp !== 'number') {
+                    console.warn('Invalid daily challenge record found, skipping:', r);
+                    return false;
+                }
+                return r.timestamp >= cutoff;
+            });
+            // 如果过滤掉了脏数据，写回清理后的记录
+            if (valid.length !== parsed.length) {
+                try {
+                    localStorage.setItem(this._key, JSON.stringify(valid));
+                } catch (e) {
+                    console.warn('Prune daily challenge records failed:', e);
+                }
+            }
+            return valid;
         } catch {
             return [];
         }
@@ -181,15 +206,16 @@ const ChallengeRecordManager = {
         const existingIndex = records.findIndex(r => r.date === result.date);
         if (existingIndex >= 0) {
             const existing = records[existingIndex];
+            const existingScore = typeof existing.score === 'number' ? existing.score : -Infinity;
             if (result.stars > existing.stars ||
-                (result.stars === existing.stars && result.score > existing.score)) {
+                (result.stars === existing.stars && result.score > existingScore)) {
                 records[existingIndex] = result;
             }
         } else {
             records.push(result);
         }
         // 按时间倒序
-        records.sort((a, b) => b.timestamp - a.timestamp);
+        records.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         try {
             localStorage.setItem(this._key, JSON.stringify(records));
         } catch (e) {
@@ -225,7 +251,7 @@ const ChallengeRecordManager = {
             const rec = records.find(r => r.date === ds);
             if (rec && rec.isWin) {
                 streak++;
-            } else if (i === 0) {
+            } else if (i === 0 && !rec) {
                 // 今天还没玩不算断
                 continue;
             } else {
@@ -236,7 +262,11 @@ const ChallengeRecordManager = {
     },
 
     clear() {
-        localStorage.removeItem(this._key);
+        try {
+            localStorage.removeItem(this._key);
+        } catch (e) {
+            console.warn('Clear daily challenge records failed:', e);
+        }
     },
 };
 

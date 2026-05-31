@@ -578,11 +578,9 @@ class BaseMode {
         }
         else if (data.phase === PHASE.ENDED) {
             this._stopCountdown();
-            for (const t of this._pendingTimers) {
-                clearTimeout(t.id ?? t);
-                try { t.resolve?.(); } catch (e) {}
-            }
-            this._pendingTimers = [];
+            // NOTE: 不清除 _pendingTimers，因为 onRoundEnd 中注册的 BGM 切换
+            // 和子类（如 DailyMode）的挑战结果定时器需要在此阶段存活。
+            // destroy() 会统一清理所有残留定时器。
             this._isProcessingCalling = false;
             this._isProcessingPlay = false;
         }
