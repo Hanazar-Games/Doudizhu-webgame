@@ -13,7 +13,9 @@
     "preview": "vite preview",
     "start": "npm run server",
     "test": "node test/core.test.mjs",
+    "test:core": "node test/core.test.mjs",
     "test:lan": "node test/run-lan-test.mjs",
+    "test:ui": "node test/ui-browser.mjs",
     "test:all": "node test/core.test.mjs && node test/run-lan-test.mjs"
   },
   "keywords": [

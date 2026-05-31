@@ -1624,6 +1624,8 @@ class GameApp {
             console.error('启动 AI 模式失败:', err);
             this._showFallbackToast('游戏启动失败，请返回菜单重试');
             this.showMenu();
+        } finally {
+            this._modeStarting = false;
         }
     }
 

@@ -107,6 +107,27 @@ docker-compose up -d
     └── core.test.mjs         # 核心逻辑单元测试
 ```
 
+## 测试
+
+```bash
+# 核心逻辑单元测试（GameState、AI、规则引擎）
+npm run test:core      # 55 项
+
+# LAN 联机端到端测试（WebSocket、房间、数据同步）
+npm run test:lan       # 12 项
+
+# Playwright UI 回归测试（菜单/设置/游戏/暂停/移动端截图）
+npm run test:ui        # 14 张截图 + 严格断言
+
+# 一次跑完核心 + LAN（CI 默认）
+npm run test:all       # 67 项
+
+# 生产构建
+npm run build
+```
+
+> `test:ui` 依赖 Playwright（已列入 devDependencies），首次运行前会自动下载浏览器二进制文件。截图输出到 `test/ui-screenshots/`（已在 `.gitignore` 中）。
+
 ## 后端 API
 
 | 接口 | 说明 |
