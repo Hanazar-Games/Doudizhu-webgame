@@ -161,7 +161,7 @@ npm run build
 
 ## 版本公告
 
-### v1.2.11 (当前版本) — 全站 Bug 深度修复（第三轮）
+### v1.2.14 (当前版本) — 全面深度修复 & 规则引擎完善
 
 **🔴 严重 Bug 修复**
 - **暂停时 AI Promise 永远挂起（游戏卡死）**：`pauseGame()` `clearTimeout` 后 `_delay` 的 Promise 永不 resolve，`_isProcessingPlay` 永远为 `true`，恢复后游戏彻底卡死 — `_pendingTimers` 改为存储 `{ id, resolve }`，pause 时手动 `resolve()` 释放；所有 `await _delay()` 处包裹 `try/catch` + `if (!this.isRunning) return`
