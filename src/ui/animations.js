@@ -202,6 +202,7 @@ class Animations {
      * @param {number} duration - 持续时间（ms）
      */
     screenShake(intensity = 5, duration = 400) {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         duration = Math.max(duration, 1);
         // 使用引用计数安全地修改 body transform
         if (!this._shakeCount) this._shakeCount = 0;
@@ -245,6 +246,7 @@ class Animations {
      * @param {number} duration - 持续时间（ms）
      */
     flashScreen(color = 'rgba(255,255,255,0.3)', duration = 200) {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         const overlay = this._createAnimElement('div');
         overlay.style.position = 'fixed';
         overlay.style.inset = '0';

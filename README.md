@@ -171,7 +171,16 @@ npm run build
 
 ## 版本公告
 
-### v1.2.16 (当前版本) — 全面深度 Bug 检查与修复
+### v1.2.17 (当前版本) — UI/UX/SFX/BGM 全面检查与改进
+
+- **致命修复**：修复 `startDailyMode()` 每日挑战完全无法启动——错误传入 DOM 对象给 Renderer、调用不存在的 `renderer.showGame()`、缺失 `setGameState/setMode/_bindRoundEndListener`
+- **音频修复**：`stopBGM()` 未清理 `_bgmGain/_masterCompressor` 导致重建 Context 后无声；toggleBGM 不再重播一次性 win/lose BGM；核心音效（炸弹/火箭/胜利/失败）增加节流防止音爆重叠
+- **交互改进**：出牌按钮根据选牌状态动态启用/禁用；涟漪效果仅在无拖拽意图时触发
+- **无障碍**：`screenShake` 与 `flashScreen` 现在尊重 `prefers-reduced-motion: reduce`
+- **面板 UX**：挑战结果→历史记录切换等待关闭动画；历史面板添加淡入淡出；分享失败 fallback 从 `alert()` 改为 toast
+- **徽章改进**：每日挑战徽章使用 `.daily-badge` CSS 类，已完成/三星有独立视觉样式
+
+### v1.2.16 — 全面深度 Bug 检查与修复
 
 - **严重修复**：修复每日挑战结果面板永远弹不出的 bug（`onPhaseChange(ENDED)` 误清除 post-game 定时器）
 - **严重修复**：修复连胜计算逻辑——今天输了仍算连胜的 bug

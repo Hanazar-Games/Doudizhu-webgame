@@ -181,6 +181,14 @@ class AudioManager {
             clearTimeout(this._callTimeout);
             this._callTimeout = null;
         }
+        // 若 context 已关闭，跳过精细淡出，直接清理引用
+        if (this.ctx && (this.ctx.state === 'closed' || this.ctx.state === 'closing')) {
+            this._bgmNodes = [];
+            this._bgmGeneration++;
+            this._bgmGain = null;
+            this._masterCompressor = null;
+            return;
+        }
         const now = this.ctx ? this.ctx.currentTime : 0;
         this._bgmNodes.forEach(n => {
             try {
@@ -196,6 +204,15 @@ class AudioManager {
         });
         this._bgmNodes = [];
         this._bgmGeneration++;
+        // 切断与旧 context 的引用，防止重建后连接死节点
+        if (this._bgmGain) {
+            try { this._bgmGain.disconnect(); } catch (e) {}
+            this._bgmGain = null;
+        }
+        if (this._masterCompressor) {
+            try { this._masterCompressor.disconnect(); } catch (e) {}
+            this._masterCompressor = null;
+        }
         // 保留 _currentBGM 以便 toggleBGM 恢复播放
     }
 
@@ -351,6 +368,7 @@ class AudioManager {
 
     playDeal() {
         if (!this._isSfxEnabled('deal')) return;
+        if (!this._shouldPlaySfx('deal', 300)) return;
         // 发牌：更丰富的快速连音
         this._sequence([
             { freq: 700, dur: 0.04 },
@@ -444,6 +462,7 @@ class AudioManager {
     async playBomb() {
         if (!this.sfxEnabled) return;
         if (!this._isSfxEnabled('bomb')) return;
+        if (!this._shouldPlaySfx('bomb', 600)) return;
         if (!(await this._ensureContext())) return;
         const duration = 0.7;
         const bufferSize = this.ctx.sampleRate * duration;
@@ -488,6 +507,7 @@ class AudioManager {
     async playRocket() {
         if (!this.sfxEnabled) return;
         if (!this._isSfxEnabled('play')) return;
+        if (!this._shouldPlaySfx('rocket', 600)) return;
         if (!(await this._ensureContext())) return;
         const osc = this.ctx.createOscillator();
         osc.type = 'sine';
@@ -508,6 +528,7 @@ class AudioManager {
 
     playWin() {
         if (!this._isSfxEnabled('win')) return;
+        if (!this._shouldPlaySfx('win', 800)) return;
         // 胜利：更丰富的上行和弦
         this._sequence([
             { freq: 523, dur: 0.12 },
@@ -528,6 +549,7 @@ class AudioManager {
     playLose() {
         if (!this.sfxEnabled) return;
         if (!this._isSfxEnabled('win')) return;
+        if (!this._shouldPlaySfx('lose', 800)) return;
         this._sequence([
             { freq: 392, dur: 0.18, type: 'triangle' },
             { freq: 349, dur: 0.18, type: 'triangle' },
@@ -539,6 +561,7 @@ class AudioManager {
     playSpring() {
         if (!this.sfxEnabled) return;
         if (!this._isSfxEnabled('win')) return;
+        if (!this._shouldPlaySfx('spring', 800)) return;
         // 春天：更清脆的铃铛声
         this._sequence([
             { freq: 880, dur: 0.08 },
@@ -610,6 +633,7 @@ class AudioManager {
     }
 
     playNewRound() {
+        if (!this._shouldPlaySfx('newRound', 300)) return;
         // 新一轮开始：提示音
         this._tone(523, 0.1, 'sine', 0.1);
         setTimeout(() => this._tone(659, 0.1, 'sine', 0.1), 100);
@@ -656,6 +680,7 @@ class AudioManager {
     }
 
     playMatchEnd() {
+        if (!this._shouldPlaySfx('matchEnd', 800)) return;
         // 比赛结束：号角
         this._sequence([
             { freq: 523, dur: 0.2, vol: 0.12 },
@@ -739,11 +764,8 @@ class AudioManager {
             this.playMenuBGM();
         } else if (this._currentBGM === 'game') {
             this.playGameBGM();
-        } else if (this._currentBGM === 'win') {
-            this.playWinBGM();
-        } else if (this._currentBGM === 'lose') {
-            this.playLoseBGM();
         }
+        // win/lose 是一次性结算音效，toggle 恢复时不应重播，保持静音即可
         return this.bgmEnabled;
     }
 

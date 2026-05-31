@@ -271,12 +271,21 @@ class Renderer {
 
     _bindRipple(btn) {
         if (!btn) return;
-        const addRipple = (e) => {
+        let downX = 0, downY = 0;
+        const onDown = (e) => {
+            downX = e.clientX;
+            downY = e.clientY;
+        };
+        const onUp = (e) => {
+            const dx = e.clientX - downX;
+            const dy = e.clientY - downY;
+            // 移动超过 4px 视为拖拽/滚动意图，不触发涟漪
+            if (Math.abs(dx) > 4 || Math.abs(dy) > 4) return;
             this.anim.ripple(e.clientX, e.clientY, 'rgba(240,192,64,0.3)');
         };
         const pressAnim = () => this.anim.buttonPress(btn);
-        // 使用 pointerdown 统一处理鼠标和触摸，避免 ghost click 双重触发
-        this._addControlListener(btn, 'pointerdown', addRipple);
+        this._addControlListener(btn, 'pointerdown', onDown);
+        this._addControlListener(btn, 'pointerup', onUp);
         this._addControlListener(btn, 'pointerdown', pressAnim);
     }
 
@@ -1072,12 +1081,14 @@ class Renderer {
             hintEl.textContent = '';
             hintEl.className = 'hand-hint';
             this._renderSmartSelection(null);
+            this._updatePlayButtonState();
             return;
         }
         if (this.gameState?.phase !== PHASE.PLAYING) {
             hintEl.textContent = '先完成叫地主';
             hintEl.className = 'hand-hint info';
             this._renderSmartSelection(null);
+            this._updatePlayButtonState();
             return;
         }
         const pattern = Rules.analyze(cards);
@@ -1099,6 +1110,19 @@ class Renderer {
                 this._renderSmartSelection(null);
             }
         }
+        this._updatePlayButtonState();
+    }
+
+    _updatePlayButtonState() {
+        const btnPlay = this.container?.querySelector('#btn-play');
+        if (!btnPlay) return;
+        const cards = this._getSelectedCards();
+        const pattern = Rules.analyze(cards);
+        const allowed = this.gameState?._isPatternAllowed?.(pattern, cards) ?? pattern.isValid();
+        const canPlay = cards.length > 0 && pattern.isValid() && allowed;
+        btnPlay.disabled = !canPlay;
+        btnPlay.style.opacity = canPlay ? '1' : '0.45';
+        btnPlay.style.cursor = canPlay ? 'pointer' : 'not-allowed';
     }
 
     /**
@@ -2067,6 +2091,9 @@ class Renderer {
                            (this.gameState?.lastPlay?.playerIndex === playerIndex);
         const btnPass = panel.querySelector('#btn-pass');
         if (btnPass) btnPass.disabled = isNewRound && this.gameState?.allowPassOnFirst !== true;
+
+        // 根据当前选牌状态动态启用/禁用出牌按钮
+        this._updatePlayButtonState();
 
         // 上家牌型提示已移除，改为桌面中央倒计时显示
 

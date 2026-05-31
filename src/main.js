@@ -1756,32 +1756,26 @@ class GameApp {
             this.renderer = null;
             this.closeChallengeResult();
             document.getElementById('challenge-history-overlay')?.classList.add('hidden');
-            this._playMenuBGM(0);
 
             const dailyMode = new DailyMode();
             await dailyMode.init();
             this.currentMode = dailyMode;
             this.currentMode.speedFactor = Math.max(0.3, Math.min(5.0, this.settings.gameSpeed || 1.0));
-
-            const gameScreen = document.getElementById('game-screen');
-            if (gameScreen) {
-                gameScreen.classList.remove('hidden');
-                const menuScreen = document.getElementById('menu-screen');
-                if (menuScreen) menuScreen.classList.add('hidden');
-            }
-
-            // 初始化 Renderer
-            const container = document.getElementById('game-screen');
-            this.renderer = new Renderer(container, this.currentMode);
-            this.renderer.audio = this._getActiveAudio();
-            this._configureRendererAudio(this.renderer);
-            this.currentMode.setRenderer(this.renderer);
-            this.renderer.showGame();
-
-            document.getElementById('mode-display').textContent = `每日挑战 · ${dailyMode.getChallengeInfo().difficultyLabel}`;
+            // 应用自定义玩家名称
             const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
             if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
+            document.getElementById('mode-display').textContent = `每日挑战 · ${dailyMode.getChallengeInfo().difficultyLabel}`;
 
+            this.renderer = new Renderer('game-table');
+            this.renderer.setGameState(this.currentMode.gameState);
+            this.renderer.setMode(this.currentMode);
+            this._configureRendererAudio(this.renderer);
+            this.currentMode.setRenderer(this.renderer);
+
+            this._roundEndBound = false;
+            this._bindRoundEndListener();
+
+            this.showGame();
             this._lockGameRuleSettings(true);
             await this.currentMode.startGame();
         } catch (err) {
@@ -1852,7 +1846,7 @@ class GameApp {
                 navigator.clipboard?.writeText?.(shareText).then(() => {
                     this.renderer?.showToast?.('成绩已复制到剪贴板', 'success');
                 }).catch(() => {
-                    alert(shareText);
+                    this._showFallbackToast('复制失败，请手动复制成绩', 'error');
                 });
             };
         }
@@ -1860,7 +1854,8 @@ class GameApp {
             btnHistory.onclick = () => {
                 this._playButtonClick();
                 this.closeChallengeResult();
-                this._showChallengeHistory();
+                // 等待结果面板关闭动画完成后再打开历史面板，避免闪烁
+                setTimeout(() => this._showChallengeHistory(), 320);
             };
         }
         if (btnClose) {
@@ -1892,6 +1887,11 @@ class GameApp {
         const overlay = document.getElementById('challenge-history-overlay');
         if (!overlay) return;
         overlay.classList.remove('hidden');
+        overlay.style.opacity = '0';
+        requestAnimationFrame(() => {
+            overlay.style.transition = 'opacity 0.3s ease';
+            overlay.style.opacity = '1';
+        });
 
         const content = document.getElementById('challenge-history-content');
         const records = ChallengeRecordManager.getRecords();
@@ -1901,7 +1901,10 @@ class GameApp {
             } else {
                 const rows = records.map(r => {
                     const date = new Date(r.timestamp);
-                    const dateStr = `${date.getMonth() + 1}月${date.getDate()}日`;
+                    const y = date.getFullYear();
+                    const m = date.getMonth() + 1;
+                    const d = date.getDate();
+                    const dateStr = `${y}年${m}月${d}日`;
                     const scoreClass = r.score >= 0 ? '' : 'negative';
                     return `
                         <div class="challenge-history-item">
@@ -1915,22 +1918,35 @@ class GameApp {
             }
         }
 
-        document.getElementById('btn-close-challenge-history')?.addEventListener('click', () => {
-            this._playButtonClick();
-            overlay.classList.add('hidden');
-        }, { once: true });
+        const btnClose = document.getElementById('btn-close-challenge-history');
+        if (btnClose) {
+            // 移除旧监听器防止重复（虽然 {once:true} 理论上足够，但快速开关时可能有问题）
+            const newBtn = btnClose.cloneNode(true);
+            btnClose.parentNode?.replaceChild(newBtn, btnClose);
+            newBtn.addEventListener('click', () => {
+                this._playButtonClick();
+                overlay.style.opacity = '0';
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+            });
+        }
     }
 
     _updateDailyChallengeBadge() {
         const desc = document.getElementById('daily-challenge-desc');
         if (!desc) return;
         const best = ChallengeRecordManager.getTodayBest();
+        desc.classList.remove('daily-badge', 'daily-badge-completed', 'daily-badge-three-star');
         if (!best) {
             desc.textContent = '今日牌局已就绪';
+            desc.classList.add('daily-badge');
             return;
         }
         const stars = '⭐'.repeat(best.stars);
         desc.innerHTML = `${stars} 最佳 ${best.score > 0 ? '+' : ''}${best.score}分`;
+        desc.classList.add('daily-badge', 'daily-badge-completed');
+        if (best.stars === 3) {
+            desc.classList.add('daily-badge-three-star');
+        }
     }
 }
 

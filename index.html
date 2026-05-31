@@ -113,7 +113,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.16</span>
+                <span class="version-info">v1.2.17</span>
             </footer>
         </div>
     </div>
@@ -1479,22 +1479,34 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.16</div>
-                    <h3>全面深度 Bug 检查与修复</h3>
+                    <div class="changelog-version-badge">v1.2.17</div>
+                    <h3>UI/UX/SFX/BGM 全面检查与改进</h3>
                     <ul>
-                        <li>🚨 <strong>严重修复</strong>：修复每日挑战结果面板永远弹不出的 bug（base-mode.js <code>onPhaseChange(ENDED)</code> 误清除 post-game 定时器）</li>
-                        <li>🚨 <strong>严重修复</strong>：修复连胜计算逻辑错误——今天输了仍算连胜的 bug</li>
-                        <li>🔧 <strong>数据修复</strong>：修复 getRecords 中缺失 timestamp 导致记录被静默丢弃；修复旧记录无 score 时无法更新最佳成绩；修复 30 天边界严格大于导致第 30 天记录被误删</li>
-                        <li>🔧 <strong>时区修复</strong>：getTodayString 固定使用 UTC+8，避免跨时区用户牌局/记录/连胜全部错乱</li>
-                        <li>🛡️ <strong>内存泄漏修复</strong>：renderHands() 多次调用导致 _controlListeners 累积；_bindDragSelection document 监听器泄漏；animations.js 新增 cancelAll() 统一清理</li>
-                        <li>🛡️ <strong>安全修复</strong>：showAchievementUnlock 使用 esc 转义成就名称/描述，消除 XSS 注入面</li>
-                        <li>🎵 <strong>音频修复</strong>：BGM 切换定时器被 ENDED 阶段清除导致胜利/失败音乐不播放</li>
-                        <li>🎯 <strong>UX 修复</strong>：closeChallengeResult timeout 未追踪导致快速操作时面板被误关；返回菜单后每日挑战徽章不刷新</li>
+                        <li>🚨 <strong>致命修复</strong>：修复 <code>startDailyMode()</code> 每日挑战完全无法启动——错误传入 DOM 对象给 Renderer、调用不存在的 <code>renderer.showGame()</code>、缺失 <code>setGameState/setMode/_bindRoundEndListener</code></li>
+                        <li>🎵 <strong>音频修复</strong>：<code>stopBGM()</code> 未清理 <code>_bgmGain/_masterCompressor</code> 导致重建 Context 后无声；toggleBGM 不再重播一次性 win/lose BGM；核心音效（炸弹/火箭/胜利/失败）增加节流防止音爆重叠</li>
+                        <li>🎯 <strong>交互改进</strong>：出牌按钮根据选牌状态动态启用/禁用（空选或非法牌型时自动变灰）；涟漪效果仅在无拖拽意图时触发，避免滚动误反馈</li>
+                        <li>♿ <strong>无障碍</strong>：<code>screenShake</code> 与 <code>flashScreen</code> 现在尊重 <code>prefers-reduced-motion: reduce</code> 系统偏好</li>
+                        <li>✨ <strong>面板 UX</strong>：挑战结果→历史记录切换等待关闭动画完成，避免闪烁；历史面板添加淡入淡出动画；分享失败 fallback 从 <code>alert()</code> 改为游戏内 toast</li>
+                        <li>🏷️ <strong>徽章改进</strong>：每日挑战徽章现在使用 CSS <code>.daily-badge</code> 类，已完成/三星有独立视觉样式</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.16</div>
+                            <h4>全面深度 Bug 检查与修复</h4>
+                            <ul>
+                                <li>🚨 严重修复：修复每日挑战结果面板永远弹不出的 bug</li>
+                                <li>🚨 严重修复：修复连胜计算逻辑错误——今天输了仍算连胜</li>
+                                <li>🔧 数据修复：getRecords 缺失 timestamp 导致记录静默丢弃</li>
+                                <li>🔧 时区修复：getTodayString 固定使用 UTC+8</li>
+                                <li>🛡️ 内存泄漏修复：renderHands _controlListeners 累积等</li>
+                                <li>🛡️ 安全修复：showAchievementUnlock 使用 esc 转义</li>
+                                <li>🎵 音频修复：BGM 切换定时器被 ENDED 阶段清除</li>
+                                <li>🎯 UX 修复：closeChallengeResult timeout 未追踪</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.15</div>
                             <h4>UI/UX/SFX/BGM 全面检查与改进</h4>
