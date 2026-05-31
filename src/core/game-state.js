@@ -348,31 +348,27 @@ class GameState {
     playCards(playerIndex, cards, pattern) {
         if (this.phase !== PHASE.PLAYING) return { success: false, error: '不在出牌阶段' };
         if (playerIndex !== this.currentTurn) return { success: false, error: '不是您的回合' };
-        
+
         const player = this.players[playerIndex];
         if (!player) return { success: false, error: '玩家不存在' };
-        
+
         // 验证玩家手牌中包含这些牌
         if (!player.hasCards(cards)) {
             return { success: false, error: '手牌中没有这些牌' };
         }
-        
+
         // 验证牌型（pattern应已由外部计算好）
         if (!pattern || pattern.type === 'INVALID') {
             return { success: false, error: '非法牌型' };
         }
-        
+
         // 验证能否打过上一手
-        
-        // 如果这人是上一轮出牌者，或上一个人pass了（passCount==2则清空了lastPlay），则可以任意出
-        const isNewRound = (this.lastPlay.playerIndex === playerIndex) || 
-                           (this.lastPlay.playerIndex === -1) || 
+        const isNewRound = (this.lastPlay.playerIndex === playerIndex) ||
+                           (this.lastPlay.playerIndex === -1) ||
                            (this.passCount >= 2);
-        
+
         if (!isNewRound) {
-            // 需要能打过上一手
             let canBeat = Rules.canBeat(this.lastPlay.pattern, pattern);
-            // bombAsRocket: 炸弹可打火箭
             if (!canBeat && this.bombAsRocket && pattern.type === HAND_TYPE.BOMB && this.lastPlay.pattern?.type === HAND_TYPE.ROCKET) {
                 canBeat = true;
             }
@@ -380,42 +376,28 @@ class GameState {
                 return { success: false, error: '打不过上一手牌' };
             }
         }
-        
-        // 规则开关检查
-        if (pattern.type === HAND_TYPE.TRIPLE_WITH_SINGLE && this.allowTripleWithSingle === false) {
-            return { success: false, error: '规则：禁止三带一' };
-        }
-        if (pattern.type === HAND_TYPE.TRIPLE_WITH_PAIR && this.allowTripleWithPair === false) {
-            return { success: false, error: '规则：禁止三带二' };
-        }
-        if ((pattern.type === HAND_TYPE.TRIPLE_STRAIGHT_WITH_SINGLES || pattern.type === HAND_TYPE.TRIPLE_STRAIGHT_WITH_PAIRS) && this.allowAirplaneWithWings === false) {
-            return { success: false, error: '规则：禁止飞机带翼' };
-        }
-        if (this.strictRules) {
-            // 严格模式下禁用四带二
-            if (pattern.type === HAND_TYPE.FOUR_WITH_TWO || pattern.type === HAND_TYPE.FOUR_WITH_TWO_PAIRS) {
+
+        // 统一规则检查（与 _isPatternAllowed 保持同步，但保留具体错误文案）
+        if (!this._isPatternAllowed(pattern, cards)) {
+            if (pattern.type === HAND_TYPE.TRIPLE_WITH_SINGLE && this.allowTripleWithSingle === false) {
+                return { success: false, error: '规则：禁止三带一' };
+            }
+            if (pattern.type === HAND_TYPE.TRIPLE_WITH_PAIR && this.allowTripleWithPair === false) {
+                return { success: false, error: '规则：禁止三带二' };
+            }
+            if ((pattern.type === HAND_TYPE.TRIPLE_STRAIGHT_WITH_SINGLES || pattern.type === HAND_TYPE.TRIPLE_STRAIGHT_WITH_PAIRS) && this.allowAirplaneWithWings === false) {
+                return { success: false, error: '规则：禁止飞机带翼' };
+            }
+            if (this.strictRules && (pattern.type === HAND_TYPE.FOUR_WITH_TWO || pattern.type === HAND_TYPE.FOUR_WITH_TWO_PAIRS)) {
                 return { success: false, error: '严格规则：禁止四带二' };
             }
-        }
-        
-        // 大小王规则
-        if (this.jokerRule === 'disabled') {
-            if (pattern.type === HAND_TYPE.ROCKET) {
+            if (this.jokerRule === 'disabled' && (pattern.type === HAND_TYPE.ROCKET || cards.some(c => c.value === 16 || c.value === 17))) {
                 return { success: false, error: '规则：禁用大小王' };
             }
-            if (cards.some(c => c.value === 16 || c.value === 17)) {
-                return { success: false, error: '规则：禁用大小王' };
-            }
-        }
-        
-        // 炸弹规则
-        if (this.bombRule === 'strict') {
-            if (pattern.type === HAND_TYPE.BOMB && cards.length !== 4) {
+            if (this.bombRule === 'strict' && pattern.type === HAND_TYPE.BOMB && cards.length !== 4) {
                 return { success: false, error: '规则：严格炸弹（仅限4张）' };
             }
-        }
-        if (this.bombRule === 'soft') {
-            // 软炸弹模式下允许炸弹带牌，已在 analyze 中支持
+            return { success: false, error: '该牌型被当前规则禁用' };
         }
         
         // 执行出牌（存储副本防止外部修改）
@@ -464,8 +446,14 @@ class GameState {
     hasValidPlays(playerIndex) {
         const player = this.players[playerIndex];
         if (!player || player.hand.length === 0) return false;
-        const beats = Rules.findAllBeats(player.hand, this.lastPlay?.pattern);
-        for (const cards of beats) {
+        const lastPattern = this.lastPlay?.pattern;
+        const isNewRound = !lastPattern || !lastPattern.isValid() ||
+                           (this.lastPlay.playerIndex === playerIndex) ||
+                           (this.passCount >= 2);
+        const candidates = isNewRound
+            ? Rules.findAllLegalPlays(player.hand).map(p => p.cards)
+            : Rules.findAllBeats(player.hand, lastPattern);
+        for (const cards of candidates) {
             if (this._isPatternAllowed(Rules.analyze(cards), cards)) return true;
         }
         return false;

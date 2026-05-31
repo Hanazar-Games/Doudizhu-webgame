@@ -107,24 +107,25 @@ class AIPlayer extends Player {
 
     // 出牌决策
     async decidePlay(gameState, lastPattern) {
-        const isNewRound = !lastPattern || 
+        const isNewRound = !lastPattern ||
                            !lastPattern.isValid() ||
                            (gameState.lastPlay?.playerIndex === this.index) ||
                            (gameState.passCount >= 2);
 
+        const ruleFilter = gameState?._isPatternAllowed
+            ? (cards) => gameState._isPatternAllowed(Rules.analyze(cards), cards)
+            : null;
+
         let cards;
         if (isNewRound) {
-            cards = this._chooseLeadPlay();
+            cards = this._chooseLeadPlay(ruleFilter);
         } else {
-            cards = this._chooseResponsePlay(lastPattern);
+            cards = this._chooseResponsePlay(lastPattern, ruleFilter);
         }
-        // 规则门：过滤禁用牌型，不合法时回退到 getHint
-        if (cards.length > 0 && gameState?._isPatternAllowed) {
-            const p = Rules.analyze(cards);
-            if (!gameState._isPatternAllowed(p, cards)) {
-                const fallback = this.getHint(this.hand, lastPattern, isNewRound, gameState);
-                cards = fallback || [];
-            }
+        // 兜底规则门：如果首出/跟牌逻辑返回了禁用牌型，回退到 getHint
+        if (cards.length > 0 && ruleFilter && !ruleFilter(cards)) {
+            const fallback = this.getHint(this.hand, lastPattern, isNewRound, gameState);
+            cards = fallback || [];
         }
         return cards;
     }
@@ -179,59 +180,66 @@ class AIPlayer extends Player {
     }
 
     // 首出：选择最优的出牌策略
-    _chooseLeadPlay() {
+    // ruleFilter 可选：传入 gameState._isPatternAllowed 包装器，过滤禁用牌型
+    _chooseLeadPlay(ruleFilter = null) {
         const hand = this.hand;
         const groups = Rules.groupByValue(hand);
         const entries = [...groups.entries()];
 
         // 策略1：如果能一次出完，直接出完
-        // 策略1：如果能一次出完，直接出完
         const fullPattern = Rules.analyze(hand);
-        if (fullPattern.isValid()) return hand;
+        if (fullPattern.isValid() && (!ruleFilter || ruleFilter(hand))) return hand;
 
         // 分析手牌结构
         const structure = this._analyzeHandStructure(hand);
-        
+
         // 策略2：如果手牌很好（顺子/连对/飞机多），优先出长牌型
         if (structure.longPatterns.length > 0) {
-            // 选最小的长牌型
-            const best = structure.longPatterns[0];
-            // 如果是飞机，尝试带翅膀
-            if (best.type === 'TRIPLE_STRAIGHT') {
-                const withWings = this._addWingsToPlane(best.cards, hand);
-                if (withWings) return withWings;
+            for (const best of structure.longPatterns) {
+                if (ruleFilter && !ruleFilter(best.cards)) continue;
+                // 如果是飞机，尝试带翅膀
+                if (best.type === 'TRIPLE_STRAIGHT') {
+                    const withWings = this._addWingsToPlane(best.cards, hand);
+                    if (withWings && (!ruleFilter || ruleFilter(withWings))) return withWings;
+                }
+                return best.cards;
             }
-            return best.cards;
         }
-        
+
         // 策略3：如果有三带，优先出三带（消耗更多牌）
         if (structure.triplePlays.length > 0) {
-            const tp = structure.triplePlays[0];
-            // 尝试带对子（优先，因为保留单张大牌）
-            const withPair = this._findKickerForTriple(tp, hand, 2);
-            if (withPair) return withPair;
-            const withSingle = this._findKickerForTriple(tp, hand, 1);
-            if (withSingle) return withSingle;
-            return tp.slice(0, 3);
+            for (const tp of structure.triplePlays) {
+                const withPair = this._findKickerForTriple(tp, hand, 2);
+                if (withPair && (!ruleFilter || ruleFilter(withPair))) return withPair;
+                const withSingle = this._findKickerForTriple(tp, hand, 1);
+                if (withSingle && (!ruleFilter || ruleFilter(withSingle))) return withSingle;
+                const triple = tp.slice(0, 3);
+                if (!ruleFilter || ruleFilter(triple)) return triple;
+            }
         }
 
         // 策略4：出最小的对子（只选真正的对子，不拆炸弹/三张）
         const pairs = entries.filter(([v, g]) => g.length === 2 && v <= 14);
-        if (pairs.length > 0) {
-            return pairs[0][1].slice(0, 2);
+        for (const [v, grp] of pairs) {
+            const cards = grp.slice(0, 2);
+            if (!ruleFilter || ruleFilter(cards)) return cards;
         }
 
-        // 策略5：出最小的单张（保留大牌）
+        // 策略5：出最小的单张（保留大牌，跳过被禁用的 joker）
         const singles = hand.filter(c => {
             const g = groups.get(c.value);
             return g.length === 1 && c.value <= 14;
         });
-        if (singles.length > 0) {
-            return [singles[0]];
+        for (const c of singles) {
+            if (!ruleFilter || ruleFilter([c])) return [c];
         }
 
-        // 策略6：只剩大牌了，出最小的
-        return hand.length > 0 ? [hand[0]] : [];
+        // 策略6：只剩大牌了，出最小的（jokerRule=disabled 时会自动跳过大小王）
+        for (const c of hand) {
+            if (!ruleFilter || ruleFilter([c])) return [c];
+        }
+
+        return [];
     }
 
     // 辅助：从连续值数组中提取最大长度连续子序列，避免冗余子模式
@@ -349,16 +357,21 @@ class AIPlayer extends Player {
     }
 
     // 跟牌：选择最小能压过的牌
-    _chooseResponsePlay(lastPattern) {
-        const candidates = Rules.findAllBeats(this.hand, lastPattern);
-        
+    _chooseResponsePlay(lastPattern, ruleFilter = null) {
+        let candidates = Rules.findAllBeats(this.hand, lastPattern);
+
         if (!candidates || candidates.length === 0) {
             return []; // pass
         }
 
+        // 先应用规则过滤
+        if (ruleFilter) {
+            candidates = candidates.filter(c => ruleFilter(c));
+        }
+        if (candidates.length === 0) return [];
+
         // 难度影响：easy会倾向于不出炸弹，hard会更积极
         if (this.difficulty === 'easy') {
-            // 优先不用炸弹
             const nonBomb = candidates.filter(c => {
                 const p = Rules.analyze(c);
                 return p.type !== 'BOMB' && p.type !== 'ROCKET';
@@ -369,7 +382,7 @@ class AIPlayer extends Player {
             }
         }
 
-        // normal/hard: 按代价最小化排序（预计算避免 O(n log n) 重复 analyze）
+        // normal/hard: 按代价最小化排序
         const scored = candidates.map(c => {
             const p = Rules.analyze(c);
             const isBomb = p.type === 'BOMB' || p.type === 'ROCKET';
@@ -379,7 +392,7 @@ class AIPlayer extends Player {
             if (a.isBomb && !b.isBomb) return 1;
             if (!a.isBomb && b.isBomb) return -1;
             if (a.len !== b.len) return a.len - b.len;
-            return a.mainValue - b.mainValue; // 稳定排序：主牌值小的优先
+            return a.mainValue - b.mainValue;
         });
 
         return scored[0]?.cards || [];

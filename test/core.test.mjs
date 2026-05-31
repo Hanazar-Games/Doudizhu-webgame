@@ -816,6 +816,132 @@ test('GameState noShuffle preserves deck order', () => {
     assert(JSON.stringify(p0Values) === JSON.stringify(expectedP0), 'P0 hand should contain first 17 cards');
 });
 
+// ===== hasValidPlays new-round fix =====
+test('GameState hasValidPlays works on new round (findAllLegalPlays fallback)', () => {
+    const gs = new GameState();
+    const p0 = new Player('P0');
+    gs.setPlayer(0, p0);
+    p0.setHand(makeCards(['3', '4', '5', '6', '7']));
+    gs.phase = PHASE.PLAYING;
+    gs.currentTurn = 0;
+    // 新轮次：lastPlay 无效
+    gs.lastPlay = { playerIndex: -1, cards: [], pattern: null };
+    gs.passCount = 0;
+    assert(gs.hasValidPlays(0) === true, 'Expected hasValidPlays=true on new round with valid cards');
+});
+
+// ===== AI respects jokerRule=disabled =====
+test('AIPlayer decidePlay respects jokerRule=disabled on new round', async () => {
+    const ai = new AIPlayer('AI', 'hard');
+    ai.setHand(makeCards(['JOKER_SMALL', 'JOKER_BIG', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', '3', '4']));
+    ai.index = 0;
+    const gs = new GameState();
+    gs.jokerRule = 'disabled';
+    gs.phase = PHASE.PLAYING;
+    gs.lastPlay = { playerIndex: -1, cards: [], pattern: null };
+    gs.passCount = 0;
+    const cards = await ai.decidePlay(gs, null);
+    assert(cards.length > 0, 'AI should find a playable card');
+    assert(!cards.some(c => c.value === 16 || c.value === 17), 'AI should not play jokers when jokerRule=disabled');
+});
+
+test('AIPlayer getHint respects jokerRule=disabled on new round', () => {
+    const ai = new AIPlayer('AI');
+    const hand = makeCards(['JOKER_SMALL', 'JOKER_BIG', '3', '4', '5', '6', '7']);
+    ai.setHand(hand);
+    const gs = new GameState();
+    gs.jokerRule = 'disabled';
+    const hint = ai.getHint(hand, null, true, gs);
+    assert(hint.length > 0, 'Hint should suggest some cards');
+    assert(!hint.some(c => c.value === 16 || c.value === 17), 'Hint should not suggest jokers when jokerRule=disabled');
+});
+
+test('AIPlayer getHint respects jokerRule=disabled when responding', () => {
+    const ai = new AIPlayer('AI');
+    const hand = makeCards(['JOKER_SMALL', 'JOKER_BIG', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', '3', '4']);
+    ai.setHand(hand);
+    const gs = new GameState();
+    gs.jokerRule = 'disabled';
+    const lastPattern = Rules.analyze(makeCards(['K']));
+    const hint = ai.getHint(hand, lastPattern, false, gs);
+    assert(!hint.some(c => c.value === 16 || c.value === 17), 'Hint should not suggest jokers when jokerRule=disabled');
+});
+
+// ===== AI respects strictRules (no four-with-two) =====
+test('AIPlayer decidePlay respects strictRules on new round', async () => {
+    const ai = new AIPlayer('AI', 'hard');
+    // 手牌包含四带二的诱惑（3333+4+5）
+    ai.setHand(makeCards(['3', '3', '3', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', '2']));
+    ai.index = 0;
+    const gs = new GameState();
+    gs.strictRules = true;
+    gs.phase = PHASE.PLAYING;
+    gs.lastPlay = { playerIndex: -1, cards: [], pattern: null };
+    gs.passCount = 0;
+    const cards = await ai.decidePlay(gs, null);
+    assert(cards.length > 0, 'AI should find a playable card');
+    const p = Rules.analyze(cards);
+    assert(p.type !== HAND_TYPE.FOUR_WITH_TWO && p.type !== HAND_TYPE.FOUR_WITH_TWO_PAIRS,
+        `AI should not play four-with-two under strictRules, got ${p.type}`);
+});
+
+test('AIPlayer getHint respects strictRules', () => {
+    const ai = new AIPlayer('AI');
+    const hand = makeCards(['3', '3', '3', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', '2']);
+    ai.setHand(hand);
+    const gs = new GameState();
+    gs.strictRules = true;
+    const hint = ai.getHint(hand, null, true, gs);
+    const p = Rules.analyze(hint);
+    assert(p.type !== HAND_TYPE.FOUR_WITH_TWO && p.type !== HAND_TYPE.FOUR_WITH_TWO_PAIRS,
+        `Hint should not suggest four-with-two under strictRules, got ${p.type}`);
+});
+
+// ===== AI respects allowTripleWithSingle / allowAirplaneWithWings =====
+test('AIPlayer getHint respects allowTripleWithSingle=false', () => {
+    const ai = new AIPlayer('AI');
+    const hand = makeCards(['3', '3', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', '2', '2']);
+    ai.setHand(hand);
+    const gs = new GameState();
+    gs.allowTripleWithSingle = false;
+    gs.allowTripleWithPair = true;
+    const hint = ai.getHint(hand, null, true, gs);
+    const p = Rules.analyze(hint);
+    assert(p.type !== HAND_TYPE.TRIPLE_WITH_SINGLE,
+        `Hint should not suggest triple-with-single when disabled, got ${p.type}`);
+});
+
+test('AIPlayer getHint respects allowAirplaneWithWings=false', () => {
+    const ai = new AIPlayer('AI');
+    const hand = makeCards(['3', '3', '3', '4', '4', '4', '5', '5', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']);
+    ai.setHand(hand);
+    const gs = new GameState();
+    gs.allowAirplaneWithWings = false;
+    const hint = ai.getHint(hand, null, true, gs);
+    const p = Rules.analyze(hint);
+    assert(p.type !== HAND_TYPE.TRIPLE_STRAIGHT_WITH_SINGLES && p.type !== HAND_TYPE.TRIPLE_STRAIGHT_WITH_PAIRS,
+        `Hint should not suggest airplane-with-wings when disabled, got ${p.type}`);
+});
+
+// ===== mustPlay + hasValidPlays edge cases =====
+test('GameState mustPlay blocks pass on new round when hasValidPlays=true', () => {
+    const gs = new GameState();
+    const p0 = new Player('P0');
+    gs.setPlayer(0, p0);
+    // P0 有顺子可出
+    p0.setHand(makeCards(['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', '2', '2', '3', '4']));
+    gs.phase = PHASE.PLAYING;
+    gs.currentTurn = 0;
+    gs.mustPlay = true;
+    gs.allowPassOnFirst = true;
+    // 新轮次
+    gs.lastPlay = { playerIndex: -1, cards: [], pattern: null };
+    gs.passCount = 0;
+    assert(gs.hasValidPlays(0) === true, 'Expected hasValidPlays=true on new round');
+    const result = gs.pass(0);
+    assert(result === false, 'Expected pass to be blocked under mustPlay on new round when cards exist');
+});
+
 // ===== Summary =====
 console.log(`\n====================`);
 console.log(`Total: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);
