@@ -108,6 +108,13 @@ class CustomMode extends BaseMode {
         this.gameState.rocketDoubles = settings.rocketDoubles !== false;
         this.gameState.jokerRule = settings.jokerRule || 'standard';
         this.gameState.bombRule = settings.bombRule || 'standard';
+        // 先手规则
+        const firstPlayerSetting = settings.firstPlayer || 'random';
+        if (firstPlayerSetting === 'winner' && this._lastWinnerIndex >= 0) {
+            this.gameState.dealerIndex = this._lastWinnerIndex;
+        } else if (firstPlayerSetting === 'landlord' && this._lastLandlordIndex >= 0) {
+            this.gameState.dealerIndex = this._lastLandlordIndex;
+        }
         
         let deck, bottom;
         

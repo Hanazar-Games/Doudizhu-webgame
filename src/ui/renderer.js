@@ -88,6 +88,7 @@ class Renderer {
                 btn._roundClickHandler = null;
             }
         });
+        this.audio?.destroy();
         this.audio = null;
         this.mode = null;
         this.gameState = null;
@@ -2506,11 +2507,13 @@ class Renderer {
         let nextButtonText = '再来一局';
         let isMatchEnd = false;
 
+        // XSS 转义工具函数
+        const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
+
         if (matchStatus?.isMatchMode) {
             matchText = `<div class="match-round">第 ${matchStatus.currentRound} / ${matchStatus.totalRounds} 局</div>`;
 
             // 累计比分
-            const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
             const sorted = (matchStatus.matchScores || []).map((s, i) => ({ score: s, index: i, name: this.gameState.players[i]?.name }))
                 .sort((a, b) => b.score - a.score);
             matchScoreText = `
@@ -2535,7 +2538,6 @@ class Renderer {
             }
         }
 
-        // esc 复用上方已声明的函数
         content.innerHTML = `
             <h2>${resultText}</h2>
             ${matchText}
@@ -2718,6 +2720,13 @@ class Renderer {
             });
         } else {
             this.showToast('浏览器不支持复制', 'error');
+        }
+    }
+
+    // 显示每日挑战结果（委托给 GameApp）
+    showChallengeResult(result, roundData, stats) {
+        if (window.gameApp?.openChallengeResult) {
+            window.gameApp.openChallengeResult(result, roundData, stats);
         }
     }
 

@@ -61,6 +61,17 @@
                             </button>
                         </div>
 
+                        <div class="mode-card-row">
+                            <button id="btn-daily-challenge" class="mode-card mode-card--accent">
+                                <div class="mode-card__icon">📅</div>
+                                <div class="mode-card__content">
+                                    <div class="mode-card__title">每日挑战</div>
+                                    <div class="mode-card__desc" id="daily-challenge-desc">今日牌局已就绪</div>
+                                </div>
+                                <div class="mode-card__arrow">→</div>
+                            </button>
+                        </div>
+
                         <div class="mode-card-row mode-card-row--small">
                             <button id="btn-replay" class="mode-card mode-card--ghost">
                                 <div class="mode-card__icon">📹</div>
@@ -102,7 +113,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.14</span>
+                <span class="version-info">v1.2.15</span>
             </footer>
         </div>
     </div>
@@ -1468,8 +1479,20 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
+                    <div class="changelog-version-badge">v1.2.15</div>
+                    <h3>UI/UX/SFX/BGM 全面检查与改进</h3>
+                    <ul>
+                        <li>🔧 <strong>渲染修复</strong>：修复结算弹窗 XSS 转义函数块级作用域 bug（非比赛模式报错）</li>
+                        <li>🔊 <strong>音频修复</strong>：renderer.destroy() 现在正确关闭 AudioContext，防止多局游戏后音频资源泄漏</li>
+                        <li>🎵 <strong>音效设置</strong>：补全缺失的 "call" 音效开关，用户可独立控制叫分音效</li>
+                        <li>🎯 <strong>面板清理</strong>：返回菜单/启动新游戏时自动关闭残留的每日挑战结果/历史面板</li>
+                        <li>✨ <strong>每日挑战 UX</strong>：结算弹窗显示 1.8s 后平滑关闭，再弹出挑战结果面板，避免双重弹窗重叠</li>
+                        <li>📐 <strong>层级优化</strong>：挑战结果/历史面板 z-index 提升至 250，确保始终覆盖在游戏弹窗之上</li>
+                    </ul>
+                </div>
+                <div class="changelog-version">
                     <div class="changelog-version-badge">v1.2.14</div>
-                    <h3>全面深度修复</h3>
+                    <h4>全面深度修复 &amp; 规则引擎完善</h4>
                     <ul>
                         <li>🔧 <strong>牌风分析修复</strong>：修复50局后数据失真、成长建议崩溃、数据迁移与空数据防护</li>
                         <li>🎙️ <strong>评论系统修复</strong>：修复destroy状态泄漏、队列冷却抖动、禁用后仍显示的问题</li>
@@ -1554,6 +1577,36 @@
                 <button id="btn-close-play-style" class="btn-close" aria-label="关闭">✕</button>
             </div>
             <div class="play-style-body" id="play-style-content">
+                <!-- JS 动态渲染 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 每日挑战结果面板 -->
+    <div id="challenge-result-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="challenge-result-title">
+        <div class="challenge-result-modal">
+            <div class="challenge-result-header">
+                <h2 id="challenge-result-title">📅 每日挑战结果</h2>
+            </div>
+            <div class="challenge-result-body" id="challenge-result-content">
+                <!-- JS 动态渲染 -->
+            </div>
+            <div class="challenge-result-footer">
+                <button id="btn-challenge-share" class="btn-primary">📋 复制成绩</button>
+                <button id="btn-challenge-history" class="btn-secondary">📜 历史记录</button>
+                <button id="btn-challenge-close" class="btn-secondary">返回菜单</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 每日挑战历史面板 -->
+    <div id="challenge-history-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="challenge-history-title">
+        <div class="challenge-history-modal">
+            <div class="challenge-history-header">
+                <h2 id="challenge-history-title">📜 挑战历史</h2>
+                <button id="btn-close-challenge-history" class="btn-close" aria-label="关闭">✕</button>
+            </div>
+            <div class="challenge-history-body" id="challenge-history-content">
                 <!-- JS 动态渲染 -->
             </div>
         </div>

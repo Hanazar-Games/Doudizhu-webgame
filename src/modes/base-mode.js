@@ -661,9 +661,9 @@ class BaseMode {
         // 累计比赛分数
         if (this.matchConfig.isMatchMode) {
             this.matchConfig.currentRound++;
-            // GameState.resetRound() 每局开始时清零 scores，此处需累加
+            // data.scores 是 GameState 的跨局累加值，直接赋值即可
             for (let i = 0; i < 3; i++) {
-                this.matchConfig.matchScores[i] += data.scores[i];
+                this.matchConfig.matchScores[i] = data.scores[i];
             }
         }
         // BGM切换为胜利/失败（观战模式下humanIndex=-1，按旁观处理）

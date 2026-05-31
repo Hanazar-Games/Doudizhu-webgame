@@ -42,8 +42,8 @@ class AIPlayer extends Player {
         // 评估手牌强度
         const groups = Rules.groupByValue(hand);
         
-        // 有王炸/炸弹加分
-        if (groups.has(16) && groups.has(17)) strength += 5;
+        // 有王炸/炸弹加分（jokerRule=disabled 时大小王不加分）
+        if (groups.has(16) && groups.has(17) && gameState?.jokerRule !== 'disabled') strength += 5;
         for (const [val, grp] of groups) {
             if (grp.length === 4) strength += 3;
             if (val >= 15) strength += 1; // 2牌加分

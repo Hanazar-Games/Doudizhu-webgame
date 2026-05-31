@@ -142,7 +142,7 @@ async function run() {
         await screenshot(page, '01-menu-desktop');
         await checkConsoleErrors(page, '主菜单');
 
-        const menuBtns = ['btn-ai-mode', 'btn-lan-mode', 'btn-custom-mode', 'btn-replay', 'btn-achievements', 'btn-tutorial', 'btn-settings', 'btn-play-style', 'btn-changelog'];
+        const menuBtns = ['btn-ai-mode', 'btn-daily-challenge', 'btn-lan-mode', 'btn-custom-mode', 'btn-replay', 'btn-achievements', 'btn-tutorial', 'btn-settings', 'btn-play-style', 'btn-changelog'];
         for (const id of menuBtns) {
             await assertExists(page, `#${id}`, '主菜单按钮检查');
         }

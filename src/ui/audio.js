@@ -36,6 +36,7 @@ class AudioManager {
             this._sfxSettings = {
                 deal: s.enableDealSound !== false,
                 play: s.enablePlaySound !== false,
+                call: s.enableCallSound !== false,
                 bomb: s.enableBombSound !== false,
                 win: s.enableWinSound !== false,
                 tick: s.enableTickSound !== false,

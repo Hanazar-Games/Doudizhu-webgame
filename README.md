@@ -33,6 +33,13 @@ docker-compose up -d
 
 ## 三种游戏模式
 
+### 📅 每日挑战
+- 每天生成一局**固定牌局**，所有玩家手牌相同
+- 基于日期的确定性发牌，同日期永远相同
+- 难度随日期轮换（简单/普通/困难循环）
+- **星级评分**：⭐获胜 / ⭐⭐春天获胜 / ⭐⭐⭐春天获胜且零炸弹
+- 保存最近30天挑战记录，支持连胜追踪和成绩分享
+
 ### 🤖 人机对战
 - 1名玩家 vs 2个AI
 - AI支持 3 档难度（简单 / 普通 / 困难）
@@ -111,7 +118,10 @@ docker-compose up -d
 
 ```bash
 # 核心逻辑单元测试（GameState、AI、规则引擎）
-npm run test:core      # 55 项
+npm run test:core      # 64 项
+
+# 每日挑战测试（确定性随机、星级评分、记录管理）
+npm run test:daily     # 21 项
 
 # LAN 联机端到端测试（WebSocket、房间、数据同步）
 npm run test:lan       # 12 项
@@ -119,8 +129,8 @@ npm run test:lan       # 12 项
 # Playwright UI 回归测试（菜单/设置/游戏/暂停/移动端截图）
 npm run test:ui        # 14 张截图 + 严格断言
 
-# 一次跑完核心 + LAN（CI 默认）
-npm run test:all       # 67 项
+# 一次跑完核心 + 每日挑战 + LAN + UI（CI 默认）
+npm run test:all       # 111 项
 
 # 生产构建
 npm run build
@@ -161,7 +171,16 @@ npm run build
 
 ## 版本公告
 
-### v1.2.14 (当前版本) — 全面深度修复 & 规则引擎完善
+### v1.2.15 (当前版本) — UI/UX/SFX/BGM 全面检查与改进
+
+- **修复** `renderer.js` `showRoundResult` 中 `esc` 函数块级作用域 bug（非比赛模式结算弹窗报错）
+- **修复** `renderer.destroy()` 未关闭 AudioContext，导致多局游戏后音频资源泄漏
+- **修复** `showMenu()` / `startDailyMode()` 未关闭可能残留的每日挑战结果/历史面板
+- **修复** `audio.js` `_sfxSettings` 缺少 `call` 键，用户无法单独关闭叫分音效
+- **优化** 每日挑战模式结算流程：普通结算弹窗显示 1.8s 后自动关闭，再弹出挑战结果面板，避免双重弹窗重叠
+- **优化** 挑战结果/历史面板 `z-index` 提升至 250，确保覆盖在游戏结算弹窗之上
+
+### v1.2.14 — 全面深度修复 & 规则引擎完善
 
 **🔴 严重 Bug 修复**
 - **暂停时 AI Promise 永远挂起（游戏卡死）**：`pauseGame()` `clearTimeout` 后 `_delay` 的 Promise 永不 resolve，`_isProcessingPlay` 永远为 `true`，恢复后游戏彻底卡死 — `_pendingTimers` 改为存储 `{ id, resolve }`，pause 时手动 `resolve()` 释放；所有 `await _delay()` 处包裹 `try/catch` + `if (!this.isRunning) return`

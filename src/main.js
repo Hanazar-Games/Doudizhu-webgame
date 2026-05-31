@@ -6,6 +6,8 @@
 import { AIMode } from './modes/ai-mode.js';
 import { LANMode } from './modes/lan-mode.js';
 import { CustomMode } from './modes/custom-mode.js';
+import { DailyMode } from './modes/daily-mode.js';
+import { ChallengeRecordManager, getTodayString } from './utils/daily-challenge.js';
 import { Renderer } from './ui/renderer.js';
 import { AudioManager } from './ui/audio.js';
 import { Storage } from './utils/storage.js';
@@ -29,6 +31,7 @@ class GameApp {
 
     _syncVersionDisplay() {
         const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '';
+        this._version = version;
         if (version) {
             document.querySelectorAll('.version-info').forEach(el => {
                 el.textContent = 'v' + version;
@@ -48,6 +51,7 @@ class GameApp {
         // 绑定菜单按钮（带点击音效）
         const menuBtns = [
             { id: 'btn-ai-mode', action: () => this.startAIMode() },
+            { id: 'btn-daily-challenge', action: () => this.startDailyMode() },
             { id: 'btn-lan-mode', action: () => this.startLANMode() },
             { id: 'btn-custom-mode', action: () => this.startCustomMode() },
             { id: 'btn-replay', action: () => this.showReplayList() },
@@ -255,6 +259,8 @@ class GameApp {
 
         // 首次加载：延迟检查是否需要自动弹出公告
         setTimeout(() => this._checkAutoShowChangelog(), 1200);
+        // 更新每日挑战徽章
+        this._updateDailyChallengeBadge();
     }
 
     _getActiveAudio() {
@@ -1408,6 +1414,10 @@ class GameApp {
 
         if (this._gameBgmTimer) { clearTimeout(this._gameBgmTimer); this._gameBgmTimer = null; }
 
+        // 关闭可能残留的每日挑战面板
+        this.closeChallengeResult();
+        document.getElementById('challenge-history-overlay')?.classList.add('hidden');
+
         // 切换回菜单BGM
         this._playMenuBGM();
 
@@ -1730,6 +1740,181 @@ class GameApp {
         } finally {
             this._modeStarting = false;
         }
+    }
+
+    async startDailyMode() {
+        if (this._modeStarting) return;
+        this._modeStarting = true;
+        try {
+            if (this.currentMode) {
+                this.currentMode.isRunning = false;
+                this.currentMode.destroy?.();
+            }
+            this.renderer?.destroy?.();
+            this.renderer = null;
+            this.closeChallengeResult();
+            document.getElementById('challenge-history-overlay')?.classList.add('hidden');
+            this._playMenuBGM(0);
+
+            const dailyMode = new DailyMode();
+            await dailyMode.init();
+            this.currentMode = dailyMode;
+            this.currentMode.speedFactor = Math.max(0.3, Math.min(5.0, this.settings.gameSpeed || 1.0));
+
+            const gameScreen = document.getElementById('game-screen');
+            if (gameScreen) {
+                gameScreen.classList.remove('hidden');
+                const menuScreen = document.getElementById('menu-screen');
+                if (menuScreen) menuScreen.classList.add('hidden');
+            }
+
+            // 初始化 Renderer
+            const container = document.getElementById('game-screen');
+            this.renderer = new Renderer(container, this.currentMode);
+            this.renderer.audio = this._getActiveAudio();
+            this._configureRendererAudio(this.renderer);
+            this.currentMode.setRenderer(this.renderer);
+            this.renderer.showGame();
+
+            document.getElementById('mode-display').textContent = `每日挑战 · ${dailyMode.getChallengeInfo().difficultyLabel}`;
+            const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
+            if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
+
+            this._lockGameRuleSettings(true);
+            await this.currentMode.startGame();
+        } catch (err) {
+            console.error('启动每日挑战失败:', err);
+            this._showFallbackToast('挑战启动失败，请返回菜单重试');
+            this.showMenu();
+        } finally {
+            this._modeStarting = false;
+        }
+    }
+
+    // ===== 每日挑战结果面板 =====
+    openChallengeResult(result, roundData, stats) {
+        const overlay = document.getElementById('challenge-result-overlay');
+        if (!overlay) return;
+        overlay.classList.remove('hidden');
+        overlay.style.opacity = '0';
+        requestAnimationFrame(() => {
+            overlay.style.transition = 'opacity 0.3s ease';
+            overlay.style.opacity = '1';
+        });
+
+        const content = document.getElementById('challenge-result-content');
+        if (content) {
+            const starChar = '⭐';
+            const starsHtml = starChar.repeat(result.stars) + '<span class="star-empty">' + starChar.repeat(3 - result.stars) + '</span>';
+            const scoreClass = result.score >= 0 ? '' : 'negative';
+            const springText = result.springType === 'spring' ? '春天' : result.springType === 'anti_spring' ? '反春天' : '—';
+            const winText = result.isWin ? '挑战成功' : '挑战失败';
+            const winColor = result.isWin ? '#4caf50' : '#ff6b6b';
+
+            content.innerHTML = `
+                <div class="challenge-result-date">${result.date} · ${winText}</div>
+                <div class="challenge-stars">${starsHtml}</div>
+                <div class="challenge-result-score ${scoreClass}">${result.score > 0 ? '+' : ''}${result.score}</div>
+                <div class="challenge-result-label">本局得分</div>
+                <div class="challenge-result-detail">
+                    <div class="challenge-detail-cell">
+                        <div class="detail-value">${springText}</div>
+                        <div class="detail-label">春天/反春</div>
+                    </div>
+                    <div class="challenge-detail-cell">
+                        <div class="detail-value">${result.bombCount}</div>
+                        <div class="detail-label">炸弹数</div>
+                    </div>
+                    <div class="challenge-detail-cell">
+                        <div class="detail-value">${stats.streak}</div>
+                        <div class="detail-label">连胜天数</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 绑定按钮
+        const btnShare = document.getElementById('btn-challenge-share');
+        const btnHistory = document.getElementById('btn-challenge-history');
+        const btnClose = document.getElementById('btn-challenge-close');
+
+        if (btnShare) {
+            btnShare.onclick = () => {
+                this._playButtonClick();
+                const shareText = `📅 斗地主每日挑战 ${result.date}\n${'⭐'.repeat(result.stars)} ${result.isWin ? '挑战成功' : '挑战失败'}\n得分: ${result.score > 0 ? '+' : ''}${result.score}\n连胜: ${stats.streak}天`;
+                navigator.clipboard?.writeText?.(shareText).then(() => {
+                    this.renderer?.showToast?.('成绩已复制到剪贴板', 'success');
+                }).catch(() => {
+                    alert(shareText);
+                });
+            };
+        }
+        if (btnHistory) {
+            btnHistory.onclick = () => {
+                this._playButtonClick();
+                this.closeChallengeResult();
+                this._showChallengeHistory();
+            };
+        }
+        if (btnClose) {
+            btnClose.onclick = () => {
+                this._playButtonClick();
+                this.closeChallengeResult();
+                this.showMenu();
+            };
+        }
+    }
+
+    closeChallengeResult() {
+        const overlay = document.getElementById('challenge-result-overlay');
+        if (!overlay) return;
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.classList.add('hidden'), 300);
+    }
+
+    _showChallengeHistory() {
+        const overlay = document.getElementById('challenge-history-overlay');
+        if (!overlay) return;
+        overlay.classList.remove('hidden');
+
+        const content = document.getElementById('challenge-history-content');
+        const records = ChallengeRecordManager.getRecords();
+        if (content) {
+            if (records.length === 0) {
+                content.innerHTML = '<div class="challenge-history-empty">暂无挑战记录<br>完成每日挑战后将自动保存</div>';
+            } else {
+                const rows = records.map(r => {
+                    const date = new Date(r.timestamp);
+                    const dateStr = `${date.getMonth() + 1}月${date.getDate()}日`;
+                    const scoreClass = r.score >= 0 ? '' : 'negative';
+                    return `
+                        <div class="challenge-history-item">
+                            <div class="hist-date">${dateStr}</div>
+                            <div class="hist-stars">${'⭐'.repeat(r.stars)}${r.stars < 3 ? '<span class="star-empty">' + '⭐'.repeat(3 - r.stars) + '</span>' : ''}</div>
+                            <div class="hist-score ${scoreClass}">${r.score > 0 ? '+' : ''}${r.score}</div>
+                        </div>
+                    `;
+                }).join('');
+                content.innerHTML = `<div class="challenge-history-list">${rows}</div>`;
+            }
+        }
+
+        document.getElementById('btn-close-challenge-history')?.addEventListener('click', () => {
+            this._playButtonClick();
+            overlay.classList.add('hidden');
+        }, { once: true });
+    }
+
+    _updateDailyChallengeBadge() {
+        const desc = document.getElementById('daily-challenge-desc');
+        if (!desc) return;
+        const best = ChallengeRecordManager.getTodayBest();
+        if (!best) {
+            desc.textContent = '今日牌局已就绪';
+            return;
+        }
+        const stars = '⭐'.repeat(best.stars);
+        desc.innerHTML = `${stars} 最佳 ${best.score > 0 ? '+' : ''}${best.score}分`;
     }
 }
 
