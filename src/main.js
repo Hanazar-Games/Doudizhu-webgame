@@ -1292,6 +1292,7 @@ class GameApp {
             this.renderer.setMode(this.currentMode);
             this._configureRendererAudio(this.renderer);
             this.currentMode.setRenderer(this.renderer);
+            this._roundEndBound = false;
             this._bindRoundEndListener();
             this._stopMenuAudio();
 
@@ -1383,6 +1384,7 @@ class GameApp {
             this.currentMode.setRenderer(this.renderer);
             this._stopMenuAudio();
 
+            this._roundEndBound = false;
             this._bindRoundEndListener();
 
             document.getElementById('custom-screen')?.classList.add('hidden');
@@ -1402,6 +1404,14 @@ class GameApp {
         // 停止回放管理器
         this._replayManager?.stop?.();
 
+        // 关闭所有可能打开的面板
+        this.closeSettings();
+        this.closeChangelog();
+        this.closePlayStyle();
+        this.closeChallengeResult();
+        document.getElementById('challenge-history-overlay')?.classList.add('hidden');
+        document.getElementById('achievement-panel')?.classList.add('hidden');
+
         // 停止当前游戏循环并清理 renderer
         if (this.currentMode) {
             this.currentMode.isRunning = false;
@@ -1414,9 +1424,6 @@ class GameApp {
 
         if (this._gameBgmTimer) { clearTimeout(this._gameBgmTimer); this._gameBgmTimer = null; }
 
-        // 关闭可能残留的每日挑战面板
-        this.closeChallengeResult();
-        document.getElementById('challenge-history-overlay')?.classList.add('hidden');
         // 刷新每日挑战徽章
         this._updateDailyChallengeBadge();
 
@@ -1627,6 +1634,7 @@ class GameApp {
             this._configureRendererAudio(this.renderer);
             this.currentMode.setRenderer(this.renderer);
 
+            this._roundEndBound = false;
             this._bindRoundEndListener();
 
             this.showGame();

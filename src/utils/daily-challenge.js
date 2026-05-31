@@ -242,10 +242,12 @@ const ChallengeRecordManager = {
 
     _calcStreak(records) {
         // 计算连续获胜天数（从今天往前数）
-        const today = new Date();
+        // 统一使用 UTC+8，与 getTodayString / 记录保存保持一致
+        const now = new Date();
+        const utc8 = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
         let streak = 0;
         for (let i = 0; i < 30; i++) {
-            const d = new Date(today);
+            const d = new Date(utc8);
             d.setDate(d.getDate() - i);
             const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             const rec = records.find(r => r.date === ds);

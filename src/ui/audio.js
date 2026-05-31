@@ -28,6 +28,18 @@ class AudioManager {
         // 读取细粒度音效开关
         this._loadSfxSettings();
         this._init();
+        // 监听页面可见性变化，后台时暂停 BGM 防止叠音
+        this._visHandler = () => {
+            if (document.hidden) {
+                this._wasPlayingBGM = !!this._currentBGM;
+                this.stopBGM();
+            } else if (this._wasPlayingBGM && this.bgmEnabled) {
+                this._wasPlayingBGM = false;
+                if (this._currentBGM === 'menu') this.playMenuBGM();
+                else if (this._currentBGM === 'game') this.playGameBGM();
+            }
+        };
+        document.addEventListener('visibilitychange', this._visHandler);
     }
 
     _loadSfxSettings() {
@@ -82,6 +94,8 @@ class AudioManager {
             } catch (e) {
                 return false;
             }
+            // resume() 可能 resolve 但 state 仍是 suspended（如用户未交互）
+            if (this.ctx.state !== 'running') return false;
         }
         return true;
     }
@@ -294,6 +308,7 @@ class AudioManager {
             // 使用精确的 AudioContext 时间调度 loop，消除 200ms 间隙
             const loopDelay = Math.max(0, totalDuration - 0.05);
             this._bgmTimer = setTimeout(() => {
+                if (!this.enabled || !this.bgmEnabled) return;
                 if (this._currentBGM && gen === this._bgmGeneration) {
                     this._playBGMSequence(notes, tempoBPM, waveform, true);
                 }
@@ -690,6 +705,8 @@ class AudioManager {
     }
 
     playGrabLandlord() {
+        if (!this.sfxEnabled) return;
+        if (!this._shouldPlaySfx('grabLandlord', 300)) return;
         // 抢地主：紧张感
         this._tone(440, 0.1, 'square', 0.07);
         setTimeout(() => this._tone(550, 0.1, 'square', 0.08), 80);
@@ -779,7 +796,7 @@ class AudioManager {
         this._bgmNodes.forEach(n => {
             try {
                 if (n.gain) n.gain.disconnect();
-                if (n.osc) n.osc.disconnect();
+                if (n.osc) { n.osc.stop(); n.osc.disconnect(); }
             } catch (e) {}
         });
         this._bgmNodes = [];
@@ -790,6 +807,11 @@ class AudioManager {
         }
         this.ctx = null;
         this.enabled = false;
+        this._currentBGM = null;
+        if (this._visHandler) {
+            document.removeEventListener('visibilitychange', this._visHandler);
+            this._visHandler = null;
+        }
     }
 }
 

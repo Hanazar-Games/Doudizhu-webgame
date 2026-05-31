@@ -171,7 +171,17 @@ npm run build
 
 ## 版本公告
 
-### v1.2.17 (当前版本) — UI/UX/SFX/BGM 全面检查与改进
+### v1.2.18 (当前版本) — 全面深度 Bug 检查与修复（第三轮）
+
+- **致命修复**：修复 `startDailyMode()` 每日挑战完全无法启动（错误传入 DOM 对象、调用不存在方法、缺失关键初始化）
+- **致命修复**：修复 "再来一局" 时旧挑战结果面板覆盖新游戏的定时器泄漏；修复 `_roundEndBound` 未重置导致统计/成就/回放全部丢失
+- **严重修复**：修复 `BaseMode.destroy()` 不 resolve Promise 定时器导致异步流程永久挂起、内存泄漏
+- **音频修复**：`stopBGM()` 清理 `_bgmGain/_masterCompressor`；`_ensureContext()` resume 后验证 state；监听 `visibilitychange` 防止后台 BGM 叠音；核心音效增加节流
+- **交互修复**：一键出牌取消选中时清除 timeout 防止错误触发；分数滚动动画保存 RAF id 避免幽灵动画；拖拽选牌时节流 `_updateHandHint` 调用
+- **动画修复**：`cancelAll()` 恢复 body transform 并重置 `_shakeCount`；`screenShake` 修复 `_activeRafs` 帧级泄漏
+- **主程序修复**：`showMenu()` 现在关闭所有面板（设置/公告/牌风/成就）；`_calcStreak` 统一使用 UTC+8
+
+### v1.2.17 — UI/UX/SFX/BGM 全面检查与改进
 
 - **致命修复**：修复 `startDailyMode()` 每日挑战完全无法启动——错误传入 DOM 对象给 Renderer、调用不存在的 `renderer.showGame()`、缺失 `setGameState/setMode/_bindRoundEndListener`
 - **音频修复**：`stopBGM()` 未清理 `_bgmGain/_masterCompressor` 导致重建 Context 后无声；toggleBGM 不再重播一次性 win/lose BGM；核心音效（炸弹/火箭/胜利/失败）增加节流防止音爆重叠

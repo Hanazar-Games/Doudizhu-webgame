@@ -108,6 +108,11 @@ class Renderer {
             try { el.remove(); } catch (e) {}
         });
         this._comboData = null;
+        // 取消分数滚动 RAF
+        if (this._scoreRafs) {
+            for (const id of this._scoreRafs) cancelAnimationFrame(id);
+            this._scoreRafs = [];
+        }
         // 清理倒计时 timer
         this.container?.querySelectorAll('.countdown-timer').forEach(cd => {
             if (cd._hideTimeout) clearTimeout(cd._hideTimeout);
@@ -1476,8 +1481,9 @@ class Renderer {
                     handContainer.classList.add('range-selecting');
                     e.preventDefault();
                     applyRangeSelection(idx);
+                    // 只在实际改变选牌后更新提示，避免拖拽过程中频繁解析牌型
+                    this._updateHandHint(this._getSelectedCards());
                 }
-                this._updateHandHint(this._getSelectedCards());
             }
         };
 
@@ -1775,18 +1781,22 @@ class Renderer {
             this.anim.cardDeselect(el);
         }
 
-        // 一键出牌：选牌后若牌型合法，自动打出（仅在选中时触发，取消选中不触发）
-        if (shouldSelect) {
-            const settings = Storage.getSettings();
-            if (settings.oneClickPlay === true && this._isHumanPlayTurn()) {
-                const selection = this._getPlayableSelection(this._getSelectedCards());
-                if (selection.pattern?.isValid?.() && selection.cards.length > 0) {
-                    // 短暂延迟让用户看到选中效果
-                    if (this._oneClickTimeout) clearTimeout(this._oneClickTimeout);
-                    this._oneClickTimeout = setTimeout(() => {
-                        this._oneClickTimeout = null;
-                        this._doPlay();
-                    }, 180);
+        // 一键出牌：选牌后若牌型合法，自动打出
+        const settings = Storage.getSettings();
+        if (settings.oneClickPlay === true && this._isHumanPlayTurn()) {
+            const selection = this._getPlayableSelection(this._getSelectedCards());
+            if (selection.pattern?.isValid?.() && selection.cards.length > 0) {
+                // 短暂延迟让用户看到选中效果
+                if (this._oneClickTimeout) clearTimeout(this._oneClickTimeout);
+                this._oneClickTimeout = setTimeout(() => {
+                    this._oneClickTimeout = null;
+                    this._doPlay();
+                }, 180);
+            } else {
+                // 选牌变化后不再满足一键出牌条件，清除旧的 timeout
+                if (this._oneClickTimeout) {
+                    clearTimeout(this._oneClickTimeout);
+                    this._oneClickTimeout = null;
                 }
             }
         }
@@ -2515,6 +2525,11 @@ class Renderer {
             overlay.removeEventListener('click', this._modalOverlayClick);
             this._modalOverlayClick = null;
         }
+        // 取消可能正在运行的分数滚动动画
+        if (this._scoreRafs) {
+            for (const id of this._scoreRafs) cancelAnimationFrame(id);
+            this._scoreRafs = [];
+        }
         content?.classList.add('modal-exit');
         overlay.classList.add('modal-exit');
         overlay._modalCloseTimeout = this._setTimer(() => {
@@ -2643,11 +2658,13 @@ class Renderer {
 
         // 得分数字滚动动画
         const scoreEls = content.querySelectorAll('.score-value');
+        this._scoreRafs = [];
         for (const el of scoreEls) {
             const target = parseInt(el.dataset.target, 10);
             const sign = el.dataset.sign || '';
             const duration = 800;
             const startTime = performance.now();
+            let rafId;
             const animate = (now) => {
                 if (this._destroyed) return;
                 const elapsed = now - startTime;
@@ -2655,9 +2672,15 @@ class Renderer {
                 const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
                 const current = Math.round(target * eased);
                 el.textContent = sign + current;
-                if (progress < 1) requestAnimationFrame(animate);
+                if (progress < 1) {
+                    rafId = requestAnimationFrame(animate);
+                } else {
+                    const idx = this._scoreRafs?.indexOf(rafId);
+                    if (idx >= 0) this._scoreRafs.splice(idx, 1);
+                }
             };
-            requestAnimationFrame(animate);
+            rafId = requestAnimationFrame(animate);
+            this._scoreRafs.push(rafId);
         }
 
         // 胜利/失败庆祝动画

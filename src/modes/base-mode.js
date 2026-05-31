@@ -45,6 +45,8 @@ class BaseMode {
         this._stopCountdown();
         for (const t of this._pendingTimers) {
             clearTimeout(t.id);
+            // resolve 所有 pending 的 Promise，避免异步流程永久挂起导致内存泄漏
+            try { t.resolve?.(new Error('Mode destroyed')); } catch (e) {}
         }
         this._pendingTimers = [];
     }
@@ -143,6 +145,12 @@ class BaseMode {
 
     // 开始一局
     async startGame() {
+        // 清理上一局遗留的定时器，防止旧定时器干扰新局
+        for (const t of this._pendingTimers) {
+            clearTimeout(t.id);
+            try { t.resolve?.(new Error('New game started')); } catch (e) {}
+        }
+        this._pendingTimers = [];
         this.isRunning = true;
         this._applyGameRules();
 
@@ -532,13 +540,15 @@ class BaseMode {
     }
 
     _delay(ms) {
-        return new Promise((resolve) => {
-            const id = setTimeout(() => {
-                this._removePendingTimer(id);
+        let timerId;
+        const p = new Promise((resolve, reject) => {
+            timerId = setTimeout(() => {
+                this._removePendingTimer(timerId);
                 resolve();
             }, ms / Math.max(0.3, this.speedFactor));
-            this._pendingTimers.push({ id, resolve });
+            this._pendingTimers.push({ id: timerId, resolve, reject });
         });
+        return p;
     }
 
     // ---- 倒计时相关 ----

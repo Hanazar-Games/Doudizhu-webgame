@@ -39,6 +39,12 @@ class Animations {
             clearTimeout(id);
         }
         this._activeTimeouts.clear();
+        // 恢复可能被 screenShake 修改的 body transform
+        if (this._shakeOriginalTransform !== undefined) {
+            document.body.style.transform = this._shakeOriginalTransform || '';
+        }
+        this._shakeCount = 0;
+        this._shakeOriginalTransform = null;
     }
 
     _createAnimElement(tag = 'div') {
@@ -215,6 +221,7 @@ class Animations {
         this._shakeCount++;
 
         const startTime = performance.now();
+        let rafId = null;
 
         const shake = (now) => {
             const elapsed = now - startTime;
@@ -225,18 +232,23 @@ class Animations {
                     this._shakeCount = 0;
                     this._shakeOriginalTransform = null;
                 }
-                this._untrackRaf(rafId);
+                if (rafId !== null) {
+                    this._untrackRaf(rafId);
+                    rafId = null;
+                }
                 return;
             }
             const decay = 1 - elapsed / duration;
             const dx = (Math.random() - 0.5) * 2 * intensity * decay;
             const dy = (Math.random() - 0.5) * 2 * intensity * decay;
             document.body.style.transform = `${this._shakeOriginalTransform} translate(${dx}px, ${dy}px)`.trim();
+            // 先移除旧 id 再注册新 id，防止 _activeRafs 无限膨胀
+            if (rafId !== null) this._untrackRaf(rafId);
             rafId = requestAnimationFrame(shake);
             this._trackRaf(rafId);
         };
 
-        let rafId = requestAnimationFrame(shake);
+        rafId = requestAnimationFrame(shake);
         this._trackRaf(rafId);
     }
 

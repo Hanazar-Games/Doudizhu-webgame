@@ -36,6 +36,11 @@ class DailyMode extends BaseMode {
 
     // 覆盖 startGame 以使用固定牌局
     async startGame() {
+        // 清理上一局遗留的定时器，防止旧挑战结果面板覆盖新游戏
+        for (const t of this._pendingTimers) {
+            clearTimeout(t.id);
+        }
+        this._pendingTimers = [];
         this.isRunning = true;
         this._applyGameRules();
         this.humanBombCount = 0;
@@ -90,6 +95,7 @@ class DailyMode extends BaseMode {
         // 显示挑战结果面板（先关闭普通结算弹窗，避免重叠）
         if (this.renderer) {
             this._setTimer(() => {
+                if (!this.isRunning) return;
                 const overlay = this.renderer.container?.querySelector('#modal-overlay');
                 const content = this.renderer.container?.querySelector('#modal-content');
                 if (overlay && !overlay.classList.contains('hidden')) {
