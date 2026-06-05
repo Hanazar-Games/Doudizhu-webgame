@@ -9,7 +9,9 @@
  *   npm run dev         (同时启动前端vite + 后端)
  */
 
-import express from 'express';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const express = require('express');
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { networkInterfaces } from 'os';
@@ -166,7 +168,7 @@ function handleMessage(ws, msg) {
                 type: 'room_created',
                 roomId: room.id,
                 peerId,
-                playerCount: 1,
+                playerCount: room.players.size,
             });
             console.log(`[Room ${room.id}] created by ${peerId}`);
             break;
@@ -261,6 +263,7 @@ function handleMessage(ws, msg) {
 
         case 'player_action':
         case 'game_state_sync':
+        case 'request_state_sync':
         case 'chat': {
             roomManager.relayMessage(ws, msg);
             break;

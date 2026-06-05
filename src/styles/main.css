@@ -831,6 +831,381 @@ body[data-theme="purple"] {
     margin: 0;
 }
 
+/* ===== 赛季任务面板 ===== */
+#season-quest-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.season-quest-modal {
+    background: var(--panel-bg);
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    width: 100%;
+    max-width: 520px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.season-quest-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.season-quest-header h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.season-quest-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+}
+
+.season-quest-footer {
+    padding: 12px 20px 16px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+/* 赛季任务标签页 */
+.sq-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.sq-tab {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.03);
+    color: rgba(255,255,255,0.6);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.sq-tab:hover {
+    background: rgba(255,255,255,0.06);
+}
+
+.sq-tab.active {
+    background: var(--accent-gradient);
+    color: #1a1a1a;
+    border-color: transparent;
+}
+
+/* 赛季概览 */
+.sq-overview {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.04);
+    margin-bottom: 14px;
+}
+
+.sq-exp-circle {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--accent-gradient);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #1a1a1a;
+    font-weight: 800;
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+.sq-exp-circle small {
+    font-size: 0.6rem;
+    font-weight: 600;
+    opacity: 0.8;
+}
+
+.sq-overview-info {
+    flex: 1;
+}
+
+.sq-overview-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.sq-overview-desc {
+    font-size: 0.75rem;
+    opacity: 0.55;
+}
+
+/* 任务项 */
+.sq-quest-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sq-quest-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    transition: all 0.2s ease;
+}
+
+.sq-quest-item:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.sq-quest-item.completed {
+    border-color: rgba(76,175,80,0.2);
+}
+
+.sq-quest-item.claimed {
+    opacity: 0.5;
+}
+
+.sq-quest-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+
+.sq-quest-item.completed .sq-quest-icon {
+    background: rgba(76,175,80,0.15);
+}
+
+.sq-quest-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.sq-quest-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sq-quest-desc {
+    font-size: 0.72rem;
+    opacity: 0.55;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sq-quest-progress-wrap {
+    margin-top: 6px;
+}
+
+.sq-quest-progress-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.06);
+    overflow: hidden;
+}
+
+.sq-quest-progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--accent-gradient);
+    transition: width 0.4s ease;
+    min-width: 0;
+}
+
+.sq-quest-progress-text {
+    font-size: 0.7rem;
+    opacity: 0.5;
+    margin-top: 2px;
+    text-align: right;
+}
+
+.sq-quest-reward {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: var(--accent-color);
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.sq-quest-action {
+    flex-shrink: 0;
+}
+
+.sq-quest-action button {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sq-btn-claim {
+    background: var(--accent-gradient);
+    color: #1a1a1a;
+}
+
+.sq-btn-claim:hover {
+    transform: scale(1.05);
+}
+
+.sq-btn-claimed {
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.4);
+    cursor: default;
+}
+
+/* 任务完成提示 toast */
+.quest-toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    z-index: 500;
+    background: rgba(30,30,30,0.92);
+    border: 1px solid rgba(240,192,64,0.3);
+    border-radius: 16px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    animation: questToastIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    min-width: 260px;
+    max-width: 90vw;
+}
+
+@keyframes questToastIn {
+    to { transform: translateX(-50%) translateY(0); }
+}
+
+.quest-toast-exit {
+    animation: questToastOut 0.4s ease-in forwards;
+}
+
+@keyframes questToastOut {
+    to {
+        transform: translateX(-50%) translateY(-30px);
+        opacity: 0;
+    }
+}
+
+.quest-toast-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.quest-toast-body {
+    flex: 1;
+}
+
+.quest-toast-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent-color);
+    margin-bottom: 2px;
+}
+
+.quest-toast-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.quest-toast-reward {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+/* 菜单上的小红点 */
+.quest-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff4444;
+    box-shadow: 0 0 0 2px var(--bg-gradient);
+    animation: questBadgePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes questBadgePulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.8; }
+}
+
+/* 徽章展示 */
+.sq-badges-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.sq-badge-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    font-size: 0.8rem;
+}
+
+.sq-badge-emoji {
+    font-size: 1.1rem;
+}
+
+.sq-badge-name {
+    font-weight: 600;
+}
+
 .achievement-list {
     overflow-y: auto;
     display: flex;
@@ -3021,6 +3396,387 @@ body[data-theme="purple"] {
     border-radius: 6px;
 }
 
+/* ===== 锦标赛每局中间信息 ===== */
+.tour-round-info {
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(0,0,0,0.15);
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+.tour-round-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    opacity: 0.9;
+}
+
+.tour-deltas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.tour-delta {
+    font-size: 0.78rem;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.05);
+}
+
+.tour-delta.positive {
+    color: #4caf50;
+    background: rgba(76,175,80,0.1);
+}
+
+.tour-delta.negative {
+    color: #ef5350;
+    background: rgba(239,83,80,0.1);
+}
+
+.tour-ranks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.tour-rank {
+    font-size: 0.78rem;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.05);
+}
+
+.tour-rank.up {
+    color: #4caf50;
+}
+
+.tour-rank.down {
+    color: #ef5350;
+}
+
+.tour-rank.same {
+    opacity: 0.6;
+}
+
+.tour-mvp {
+    font-size: 0.85rem;
+    color: #f0c040;
+    font-weight: 600;
+    padding: 4px 0;
+}
+
+/* ===== 锦标赛结算面板 ===== */
+.tour-podium {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 12px;
+    margin: 16px 0 20px;
+    padding: 12px;
+    background: rgba(0,0,0,0.15);
+    border-radius: 12px;
+}
+
+.tour-podium-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    min-width: 80px;
+    text-align: center;
+}
+
+.tour-podium-item.rank-1 {
+    background: linear-gradient(135deg, rgba(240,192,64,0.2), rgba(212,160,23,0.15));
+    border: 1px solid rgba(240,192,64,0.3);
+    transform: scale(1.08);
+    padding: 14px 18px;
+}
+
+.tour-podium-item.rank-2 {
+    background: rgba(192,192,192,0.1);
+    border: 1px solid rgba(192,192,192,0.2);
+}
+
+.tour-podium-item.rank-3 {
+    background: rgba(205,127,50,0.1);
+    border: 1px solid rgba(205,127,50,0.2);
+}
+
+.tour-podium-item.is-human {
+    box-shadow: 0 0 12px rgba(240,192,64,0.2);
+}
+
+.tour-podium-rank {
+    font-size: 1.6rem;
+    margin-bottom: 4px;
+}
+
+.tour-podium-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.tour-podium-score {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.tour-player-summary {
+    margin: 12px 0;
+    padding: 14px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+.tour-summary-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.tour-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.tour-summary-grid > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px;
+    background: rgba(0,0,0,0.1);
+    border-radius: 8px;
+}
+
+.tour-summary-grid > div span {
+    font-size: 0.72rem;
+    opacity: 0.7;
+}
+
+.tour-summary-grid > div strong {
+    font-size: 1rem;
+    color: #f0c040;
+    margin-top: 2px;
+}
+
+.tour-history {
+    margin: 12px 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.tour-history-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    opacity: 0.9;
+}
+
+.tour-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tour-history-round {
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    font-size: 0.8rem;
+}
+
+.tour-history-header {
+    font-weight: 600;
+    margin-bottom: 4px;
+    font-size: 0.82rem;
+}
+
+.tour-history-scores {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 2px;
+}
+
+.tour-history-scores .human {
+    color: #f0c040;
+    font-weight: 600;
+}
+
+.tour-history-meta {
+    font-size: 0.75rem;
+    opacity: 0.7;
+    display: flex;
+    gap: 10px;
+}
+
+/* ===== 锦标赛配置面板 ===== */
+#tournament-setup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.25s ease;
+}
+
+#tournament-setup-overlay.hidden {
+    display: none;
+}
+
+.tournament-setup-modal {
+    background: linear-gradient(145deg, rgba(30,45,38,0.96), rgba(16,28,22,0.98));
+    padding: 28px;
+    border-radius: 20px;
+    max-width: 420px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    border: 1px solid rgba(255,255,255,0.1);
+    animation: modalScaleIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.tournament-setup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.tournament-setup-header h2 {
+    font-size: 1.15rem;
+    margin: 0;
+}
+
+.tour-config-group {
+    margin-bottom: 18px;
+}
+
+.tour-config-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    opacity: 0.85;
+}
+
+.tour-round-options {
+    display: flex;
+    gap: 8px;
+}
+
+.tour-round-btn {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+.tour-round-btn:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.tour-round-btn.active {
+    background: linear-gradient(135deg, rgba(240,192,64,0.3), rgba(212,160,23,0.3));
+    border-color: rgba(240,192,64,0.4);
+    font-weight: 600;
+}
+
+.tour-custom-rounds {
+    margin-top: 10px;
+    font-size: 0.82rem;
+    opacity: 0.8;
+}
+
+.tour-custom-rounds input {
+    width: 60px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(0,0,0,0.2);
+    color: #fff;
+    text-align: center;
+    font-size: 0.85rem;
+}
+
+.tour-select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.2);
+    color: #fff;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.tour-desc-text {
+    font-size: 0.78rem;
+    line-height: 1.6;
+    opacity: 0.7;
+    padding: 10px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+}
+
+.tour-stats-preview {
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 10px;
+    font-size: 0.8rem;
+}
+
+.tour-stats-preview-title {
+    font-weight: 600;
+    margin-bottom: 6px;
+    opacity: 0.9;
+}
+
+.tour-stats-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+}
+
+.tour-stats-preview-grid > div {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 6px;
+    background: rgba(0,0,0,0.1);
+    border-radius: 6px;
+}
+
+.tournament-setup-footer {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.tournament-setup-footer .btn-primary {
+    padding: 12px 32px;
+    font-size: 1rem;
+    border-radius: 12px;
+}
+
 /* ===== 回放界面 ===== */
 #replay-screen {
     overflow-y: auto;
@@ -3400,6 +4156,107 @@ body[data-theme="purple"] {
     font-size: 0.8rem !important;
     font-weight: 600;
     min-width: 40px;
+}
+
+/* 回放 meta 栏 */
+.replay-meta-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.15);
+    border-radius: 10px;
+}
+
+#replay-copy-report {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(76,175,80,0.2);
+    color: #81c784;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+#replay-copy-report:hover {
+    background: rgba(76,175,80,0.35);
+}
+
+.replay-key-moments {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.replay-key-moments span {
+    font-size: 0.8rem;
+    opacity: 0.6;
+}
+
+.replay-moment-btn {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+
+.replay-moment-btn:hover {
+    background: rgba(255,255,255,0.2);
+    transform: scale(1.1);
+}
+
+.replay-shortcut-hint {
+    text-align: center;
+    font-size: 0.75rem;
+    opacity: 0.35;
+    padding: 4px 0;
+}
+
+/* 回放中的癞子标记 */
+.replay-card.laizi {
+    border: 2px solid #ff9800 !important;
+    box-shadow: 0 0 8px rgba(255,152,0,0.3);
+}
+
+.laizi-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    font-size: 0.6rem;
+    background: #ff9800;
+    color: #000;
+    padding: 1px 4px;
+    border-radius: 4px;
+    font-weight: 700;
+    z-index: 2;
+}
+
+/* 回放中的炸弹/王炸标记 */
+.replay-bomb-badge {
+    font-size: 1.2rem;
+    margin-left: 6px;
+}
+
+/* 春天/反春天标记 */
+.replay-spring-badge {
+    background: rgba(129,199,132,0.15);
+    color: #81c784;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.replay-spring-badge.anti {
+    background: rgba(239,83,80,0.15);
+    color: #ef5350;
 }
 
 /* ===== 响应式 ===== */
@@ -10100,4 +10957,311 @@ body[data-commentary="false"] .commentary-bubble {
     .challenge-detail-cell {
         padding: 8px 4px;
     }
+}
+
+
+/* ===== 残局训练 ===== */
+
+/* 残局训练界面 */
+#endgame-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: clamp(20px, 4vh, 40px) clamp(16px, 4vw, 40px);
+    overflow-y: auto;
+}
+
+.endgame-container {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 720px;
+    width: 100%;
+}
+
+.endgame-progress-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.endgame-progress-track {
+    flex: 1;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.endgame-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #f0c040, #ffd700);
+    border-radius: 5px;
+    transition: width 0.5s ease;
+    width: 0%;
+}
+
+.endgame-progress-text {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #f0c040;
+    min-width: 36px;
+    text-align: right;
+}
+
+.endgame-levels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+}
+
+.endgame-level-card {
+    position: relative;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 18px 16px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+}
+
+.endgame-level-card:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(240, 192, 64, 0.3);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.endgame-level-card.locked {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(0.8);
+}
+
+.endgame-level-card.locked:hover {
+    transform: none;
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.endgame-level-card.completed {
+    background: rgba(240, 192, 64, 0.08);
+    border-color: rgba(240, 192, 64, 0.2);
+}
+
+.endgame-level-id {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    font-size: 1.4rem;
+    font-weight: 900;
+    opacity: 0.15;
+    line-height: 1;
+}
+
+.endgame-level-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.endgame-level-desc {
+    font-size: 0.78rem;
+    opacity: 0.55;
+    line-height: 1.4;
+}
+
+.endgame-level-stars {
+    font-size: 1rem;
+    margin-top: 4px;
+}
+
+.endgame-level-steps {
+    font-size: 0.72rem;
+    color: #f0c040;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+.endgame-level-lock {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2rem;
+    opacity: 0.6;
+}
+
+.endgame-actions {
+    display: flex;
+    justify-content: center;
+    padding-top: 8px;
+}
+
+/* 残局游戏内信息栏 */
+.endgame-info-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    background: rgba(240, 192, 64, 0.12);
+    border: 1px solid rgba(240, 192, 64, 0.2);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.endgame-info-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #f0c040;
+}
+
+.endgame-info-obj {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    flex: 1;
+}
+
+.endgame-info-hint-btn {
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(240, 192, 64, 0.3);
+    background: rgba(240, 192, 64, 0.15);
+    color: #f0c040;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.endgame-info-hint-btn:hover {
+    background: rgba(240, 192, 64, 0.3);
+}
+
+/* 残局结果面板 */
+.endgame-result-level {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 6px 0;
+}
+
+.endgame-result-steps {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin: 4px 0;
+}
+
+.endgame-result-progress {
+    font-size: 0.85rem;
+    opacity: 0.6;
+    margin: 8px 0 14px;
+}
+
+/* 响应式 */
+@media (max-width: 560px) {
+    .endgame-levels-grid {
+        grid-template-columns: 1fr;
+    }
+    .endgame-info-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+}
+
+/* ===== AI 教练复盘 ===== */
+.coach-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 12px 0 20px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.05);
+}
+.coach-score-value {
+    font-size: 2.4rem;
+    font-weight: 800;
+    line-height: 1;
+}
+.coach-score-label {
+    font-size: 0.85rem;
+    opacity: 0.7;
+    margin-top: 4px;
+}
+.coach-score.score-good .coach-score-value { color: #4ade80; }
+.coach-score.score-mid .coach-score-value { color: #facc15; }
+.coach-score.score-bad .coach-score-value { color: #f87171; }
+
+.coach-suggestions {
+    max-height: 320px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+    padding-right: 4px;
+}
+.coach-suggestion {
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-left: 4px solid transparent;
+    text-align: left;
+}
+.coach-suggestion.severity-high { border-left-color: #f87171; background: rgba(248,113,113,0.06); }
+.coach-suggestion.severity-medium { border-left-color: #facc15; background: rgba(250,204,21,0.06); }
+.coach-suggestion.severity-low { border-left-color: #4ade80; background: rgba(74,222,128,0.06); }
+
+.coach-suggestion-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+.coach-suggestion-icon {
+    flex-shrink: 0;
+    font-size: 1.1rem;
+    margin-top: 1px;
+}
+.coach-suggestion-title {
+    flex: 1;
+}
+.coach-suggestion-detail {
+    font-size: 0.8rem;
+    opacity: 0.65;
+    margin-top: 6px;
+    margin-left: 28px;
+}
+.coach-jump-btn {
+    display: inline-block;
+    margin-top: 8px;
+    margin-left: 28px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    background: rgba(100,150,255,0.15);
+    border: 1px solid rgba(100,150,255,0.3);
+    border-radius: 6px;
+    color: #93c5fd;
+    cursor: pointer;
+}
+.coach-jump-btn:hover {
+    background: rgba(100,150,255,0.25);
+}
+#btn-coach-review {
+    background: linear-gradient(135deg, rgba(100,80,200,0.8), rgba(80,60,180,0.9));
+    border: 1px solid rgba(150,130,255,0.4);
+}
+#btn-coach-review:hover {
+    background: linear-gradient(135deg, rgba(120,100,220,0.9), rgba(100,80,200,1));
 }

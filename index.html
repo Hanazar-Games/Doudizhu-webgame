@@ -44,6 +44,15 @@
                             <div class="mode-card__arrow">→</div>
                         </button>
 
+                        <button id="btn-tournament-mode" class="mode-card mode-card--primary" style="background: linear-gradient(135deg, rgba(212,80,80,0.95) 0%, rgba(180,40,40,0.95) 100%); color: #fff; margin-top: 8px;">
+                            <div class="mode-card__icon">🏆</div>
+                            <div class="mode-card__content">
+                                <div class="mode-card__title">锦标赛</div>
+                                <div class="mode-card__desc">多轮角逐，争夺冠军</div>
+                            </div>
+                            <div class="mode-card__arrow">→</div>
+                        </button>
+
                         <div class="mode-card-row">
                             <button id="btn-lan-mode" class="mode-card mode-card--secondary">
                                 <div class="mode-card__icon">🌐</div>
@@ -72,6 +81,17 @@
                             </button>
                         </div>
 
+                        <div class="mode-card-row">
+                            <button id="btn-endgame-mode" class="mode-card mode-card--accent">
+                                <div class="mode-card__icon">🧩</div>
+                                <div class="mode-card__content">
+                                    <div class="mode-card__title">残局训练</div>
+                                    <div class="mode-card__desc" id="endgame-desc">挑战5个经典残局</div>
+                                </div>
+                                <div class="mode-card__arrow">→</div>
+                            </button>
+                        </div>
+
                         <div class="mode-card-row mode-card-row--small">
                             <button id="btn-replay" class="mode-card mode-card--ghost">
                                 <div class="mode-card__icon">📹</div>
@@ -80,6 +100,11 @@
                             <button id="btn-achievements" class="mode-card mode-card--ghost">
                                 <div class="mode-card__icon">🏆</div>
                                 <div class="mode-card__title">成就系统</div>
+                            </button>
+                            <button id="btn-season-quests" class="mode-card mode-card--ghost">
+                                <div class="mode-card__icon">🎯</div>
+                                <div class="mode-card__title">赛季任务</div>
+                                <span class="quest-badge hidden" id="season-quest-badge"></span>
                             </button>
                             <button id="btn-play-style" class="mode-card mode-card--ghost">
                                 <div class="mode-card__icon">📊</div>
@@ -113,7 +138,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.18</span>
+                <span class="version-info">v1.2.19</span>
             </footer>
         </div>
     </div>
@@ -1388,10 +1413,99 @@
         </div>
     </div>
 
+    <!-- 残局训练界面 -->
+    <div id="endgame-screen" class="screen hidden">
+        <div class="screen-bg-decoration"></div>
+        <div class="endgame-container">
+            <header class="screen-header">
+                <div class="screen-header__icon">🧩</div>
+                <h2 class="screen-header__title">残局训练</h2>
+                <p class="screen-header__subtitle">固定牌局，磨练牌技</p>
+            </header>
+            <div class="endgame-progress-bar">
+                <div class="endgame-progress-track">
+                    <div class="endgame-progress-fill" id="endgame-progress-fill"></div>
+                </div>
+                <span class="endgame-progress-text" id="endgame-progress-text">0/5</span>
+            </div>
+            <div class="endgame-levels-grid" id="endgame-levels-grid">
+                <!-- JS 动态渲染关卡卡片 -->
+            </div>
+            <div class="endgame-actions">
+                <button id="btn-back-endgame" class="screen-btn screen-btn--ghost screen-btn--back">
+                    <span>←</span>
+                    <span>返回菜单</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- 回放界面 -->
     <div id="replay-screen" class="screen hidden">
         <div class="replay-container" id="replay-container"></div>
         <button id="btn-back-replay" class="btn-small btn-back btn-back--fixed">← 返回</button>
+    </div>
+
+    <!-- 赛季任务面板 -->
+    <div id="season-quest-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="season-quest-title">
+        <div class="season-quest-modal">
+            <div class="season-quest-header">
+                <h2 id="season-quest-title">🎯 赛季任务</h2>
+                <button id="btn-close-season-quests" class="btn-close" aria-label="关闭">✕</button>
+            </div>
+            <div class="season-quest-body" id="season-quest-content">
+                <!-- JS 动态渲染 -->
+            </div>
+            <div class="season-quest-footer">
+                <button id="btn-claim-all-quests" class="btn-primary">🎁 一键领取</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 锦标赛配置面板 -->
+    <div id="tournament-setup-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="tournament-setup-title">
+        <div class="tournament-setup-modal">
+            <div class="tournament-setup-header">
+                <h2 id="tournament-setup-title">🏆 锦标赛</h2>
+                <button id="btn-close-tournament-setup" class="btn-close" aria-label="关闭">✕</button>
+            </div>
+            <div class="tournament-setup-body">
+                <div class="tour-config-group">
+                    <label class="tour-config-label">赛制局数</label>
+                    <div class="tour-round-options">
+                        <button class="tour-round-btn active" data-rounds="3">3 局</button>
+                        <button class="tour-round-btn" data-rounds="5">5 局</button>
+                        <button class="tour-round-btn" data-rounds="10">10 局</button>
+                    </div>
+                    <div class="tour-custom-rounds">
+                        <label>自定义: <input type="number" id="tour-custom-rounds-input" min="2" max="50" value="3"> 局</label>
+                    </div>
+                </div>
+                <div class="tour-config-group">
+                    <label class="tour-config-label">AI 难度</label>
+                    <select id="tour-difficulty" class="tour-select">
+                        <option value="easy">简单</option>
+                        <option value="normal" selected>普通</option>
+                        <option value="hard">困难</option>
+                        <option value="expert">专家</option>
+                    </select>
+                </div>
+                <div class="tour-config-group">
+                    <label class="tour-config-label">说明</label>
+                    <div class="tour-desc-text">
+                        锦标赛采用积分制，每局结束后按斗地主规则计分。<br>
+                        全部对局结束后按累计总分排名。<br>
+                        锦标赛记录将自动保存到本地。
+                    </div>
+                </div>
+                <div class="tour-stats-preview" id="tour-stats-preview">
+                    <!-- JS 动态渲染历史统计 -->
+                </div>
+            </div>
+            <div class="tournament-setup-footer">
+                <button id="btn-start-tournament" class="btn-primary">🚀 开始锦标赛</button>
+            </div>
+        </div>
     </div>
 
     <!-- 成就面板 -->
@@ -1479,21 +1593,35 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.18</div>
-                    <h3>全面深度 Bug 检查与修复（第三轮）</h3>
+                    <div class="changelog-version-badge">v1.2.19</div>
+                    <h3>全面深度 Bug 检查与修复（第四轮）</h3>
                     <ul>
-                        <li>🚨 <strong>致命修复</strong>：修复 <code>startDailyMode()</code> 每日挑战完全无法启动（错误传入 DOM 对象、调用不存在方法、缺失关键初始化）</li>
-                        <li>🚨 <strong>致命修复</strong>：修复 "再来一局" 时旧挑战结果面板覆盖新游戏的定时器泄漏；修复 <code>_roundEndBound</code> 未重置导致统计/成就/回放全部丢失</li>
-                        <li>🚨 <strong>严重修复</strong>：修复 <code>BaseMode.destroy()</code> 不 resolve Promise 定时器导致异步流程永久挂起、内存泄漏</li>
-                        <li>🎵 <strong>音频修复</strong>：<code>stopBGM()</code> 清理 <code>_bgmGain/_masterCompressor</code>；<code>_ensureContext()</code> resume 后验证 state；监听 <code>visibilitychange</code> 防止后台 BGM 叠音；核心音效增加节流</li>
-                        <li>🎯 <strong>交互修复</strong>：一键出牌取消选中时清除 timeout 防止错误触发；分数滚动动画保存 RAF id 避免幽灵动画；拖拽选牌时节流 <code>_updateHandHint</code> 调用</li>
-                        <li>🛡️ <strong>动画修复</strong>：<code>cancelAll()</code> 恢复 body transform 并重置 <code>_shakeCount</code>；<code>screenShake</code> 修复 <code>_activeRafs</code> 帧级泄漏</li>
-                        <li>📐 <strong>主程序修复</strong>：<code>showMenu()</code> 现在关闭所有面板（设置/公告/牌风/成就）；<code>_calcStreak</code> 统一使用 UTC+8</li>
+                        <li>🛡️ <strong>动画系统修复</strong>：<code>Animations.cancelAll()</code> 现在真正取消全部 30+ 处 <code>setTimeout</code> 和 <code>requestAnimationFrame</code>；庆祝状态锁在销毁时正确复位</li>
+                        <li>🃏 <strong>规则引擎修复</strong>：修复 <code>_tryStraightWithLaizi</code> 癞子顺子误判 bug——含额外牌时不再错误识别为顺子</li>
+                        <li>🎵 <strong>音频系统修复</strong>：所有 SFX <code>setTimeout</code> 纳入 <code>_sfxTimeouts</code> 统一管理；<code>destroy()</code> 时全部清理；音效细粒度设置支持热更新；<code>_wasPlayingBGM</code> 标志在手动关闭/切换时正确重置；M 键静音同步保存到全局设置</li>
+                        <li>📊 <strong>游戏状态修复</strong>：<code>pass</code> 存入 history 的 pattern 改为 <code>HandPattern</code> 实例；<code>playCards</code> 中 <code>lastPlay.pattern.cards</code> 与 <code>lastPlay.cards</code> 引用一致；<code>startRound</code> 增加牌组长度校验</li>
+                        <li>🌐 <strong>LAN 联机修复</strong>：非 Host 客户端正确维护 <code>playerMapping</code>；<code>_destroyRoom</code> 只关闭仍属于该房间的连接，避免误关已重连玩家</li>
+                        <li>⚙️ <strong>主程序修复</strong>：<code>_bindUXSettings()</code> 添加防重复绑定保护；设置变更时自动热重载 SFX 设置</li>
+                        <li>🌍 <strong>时区修复</strong>：<code>getTodayString</code> / <code>getWeekStartString</code> 改用 UTC 方法计算，避免跨时区日期漂移</li>
+                        <li>📹 <strong>回放修复</strong>：回放列表过滤脏数据后再渲染，避免索引错位和计数不准确</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.18</div>
+                            <h4>全面深度 Bug 检查与修复（第三轮）</h4>
+                            <ul>
+                                <li>🚨 致命修复：修复 <code>startDailyMode()</code> 每日挑战完全无法启动（错误传入 DOM 对象、调用不存在方法、缺失关键初始化）</li>
+                                <li>🚨 致命修复：修复 "再来一局" 时旧挑战结果面板覆盖新游戏的定时器泄漏；修复 <code>_roundEndBound</code> 未重置导致统计/成就/回放全部丢失</li>
+                                <li>🚨 严重修复：修复 <code>BaseMode.destroy()</code> 不 resolve Promise 定时器导致异步流程永久挂起、内存泄漏</li>
+                                <li>🎵 音频修复：<code>stopBGM()</code> 清理 <code>_bgmGain/_masterCompressor</code>；<code>_ensureContext()</code> resume 后验证 state；监听 <code>visibilitychange</code> 防止后台 BGM 叠音；核心音效增加节流</li>
+                                <li>🎯 交互修复：一键出牌取消选中时清除 timeout 防止错误触发；分数滚动动画保存 RAF id 避免幽灵动画；拖拽选牌时节流 <code>_updateHandHint</code> 调用</li>
+                                <li>🛡️ 动画修复：<code>cancelAll()</code> 恢复 body transform 并重置 <code>_shakeCount</code>；<code>screenShake</code> 修复 <code>_activeRafs</code> 帧级泄漏</li>
+                                <li>📐 主程序修复：<code>showMenu()</code> 现在关闭所有面板（设置/公告/牌风/成就）；<code>_calcStreak</code> 统一使用 UTC+8</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.16</div>
                             <h4>全面深度 Bug 检查与修复</h4>

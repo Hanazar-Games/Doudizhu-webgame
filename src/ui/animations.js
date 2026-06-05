@@ -45,6 +45,8 @@ class Animations {
         }
         this._shakeCount = 0;
         this._shakeOriginalTransform = null;
+        this._isSpringCelebrating = false;
+        this._isWinCelebrating = false;
     }
 
     _createAnimElement(tag = 'div') {
@@ -87,7 +89,7 @@ class Animations {
             particle.style.setProperty('--ty', ty + 'px');
 
             this.container.appendChild(particle);
-            setTimeout(() => particle.remove(), 800);
+            this._trackTimeout(setTimeout(() => particle.remove(), 800));
         }
 
         // 冲击波
@@ -103,7 +105,7 @@ class Animations {
         shockwave.style.pointerEvents = 'none';
         shockwave.style.zIndex = '9998';
         this.container.appendChild(shockwave);
-        setTimeout(() => shockwave.remove(), 600);
+        this._trackTimeout(setTimeout(() => shockwave.remove(), 600));
 
         if (flash) {
             this.flashScreen('rgba(255, 200, 100, 0.25)', 300);
@@ -131,11 +133,11 @@ class Animations {
         rocket.style.setProperty('--end-y', (endY - startY) + 'px');
 
         this.container.appendChild(rocket);
-        setTimeout(() => rocket.remove(), 1000);
+        this._trackTimeout(setTimeout(() => rocket.remove(), 1000));
 
         // 尾焰粒子
         for (let i = 0; i < 10; i++) {
-            setTimeout(() => {
+            this._trackTimeout(setTimeout(() => {
                 const flame = this._createAnimElement('div');
                 flame.className = 'flame-particle';
                 flame.style.position = 'absolute';
@@ -149,8 +151,8 @@ class Animations {
                 flame.style.pointerEvents = 'none';
                 flame.style.zIndex = '9998';
                 this.container.appendChild(flame);
-                setTimeout(() => flame.remove(), 400);
-            }, i * 60);
+                this._trackTimeout(setTimeout(() => flame.remove(), 400));
+            }, i * 60));
         }
     }
 
@@ -177,7 +179,7 @@ class Animations {
         el.style.setProperty('--float-y', '-50px');
 
         this.container.appendChild(el);
-        setTimeout(() => el.remove(), 1200);
+        this._trackTimeout(setTimeout(() => el.remove(), 1200));
     }
 
     /**
@@ -197,7 +199,7 @@ class Animations {
         crown.style.zIndex = '9999';
 
         this.container.appendChild(crown);
-        setTimeout(() => crown.remove(), 2000);
+        this._trackTimeout(setTimeout(() => crown.remove(), 2000));
     }
 
     // ==================== 全新特效方法 ====================
@@ -271,13 +273,13 @@ class Animations {
         this.container.appendChild(overlay);
 
         // 强制重绘后淡出
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
+        this._trackRaf(requestAnimationFrame(() => {
+            this._trackRaf(requestAnimationFrame(() => {
                 overlay.style.opacity = '0';
-            });
-        });
+            }));
+        }));
 
-        setTimeout(() => overlay.remove(), duration + 50);
+        this._trackTimeout(setTimeout(() => overlay.remove(), duration + 50));
     }
 
     /**
@@ -327,6 +329,7 @@ class Animations {
         const midX = (fromX + toX) / 2;
         const midY = Math.min(fromY, toY) - 100; // 弧线顶点
 
+        let rafId = null;
         const animate = (now) => {
             const t = Math.min((now - startTime) / duration, 1);
             // 二次贝塞尔曲线插值
@@ -340,11 +343,17 @@ class Animations {
             el.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
 
             if (t < 1) {
-                requestAnimationFrame(animate);
+                if (rafId !== null) this._untrackRaf(rafId);
+                rafId = requestAnimationFrame(animate);
+                this._trackRaf(rafId);
             } else {
+                if (rafId !== null) {
+                    this._untrackRaf(rafId);
+                    rafId = null;
+                }
                 if (onComplete) onComplete();
                 if (isTemp) {
-                    setTimeout(() => el.remove(), 0);
+                    this._trackTimeout(setTimeout(() => el.remove(), 0));
                 } else {
                     // 恢复原始 transform
                     el.style.transform = el[_originalTransformKey] || '';
@@ -353,7 +362,8 @@ class Animations {
             }
         };
 
-        requestAnimationFrame(animate);
+        rafId = requestAnimationFrame(animate);
+        this._trackRaf(rafId);
     }
 
     /**
@@ -367,7 +377,7 @@ class Animations {
         targets.forEach((target, idx) => {
             for (let i = 0; i < count; i++) {
                 const delay = (idx * count + i) * 40;
-                setTimeout(() => {
+                this._trackTimeout(setTimeout(() => {
                     const card = this._createAnimElement('div');
                     card.className = 'deal-fly-card';
                     card.style.position = 'absolute';
@@ -380,7 +390,7 @@ class Animations {
                     this.cardFly(centerX, centerY, target.x, target.y, card, 300, () => {
                         card.remove();
                     });
-                }, delay);
+                }, delay));
             }
         });
     }
@@ -397,16 +407,16 @@ class Animations {
         element.style.transform = 'scale(0)';
         element.style.transition = `transform ${duration}ms cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity ${duration}ms ease-out`;
 
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
+        this._trackRaf(requestAnimationFrame(() => {
+            this._trackRaf(requestAnimationFrame(() => {
                 element.style.opacity = '1';
                 element.style.transform = 'scale(1.2)';
-                setTimeout(() => {
+                this._trackTimeout(setTimeout(() => {
                     element.style.transition = `transform ${duration * 0.4}ms ease-out`;
                     element.style.transform = 'scale(1)';
-                }, duration);
-            });
-        });
+                }, duration));
+            }));
+        }));
     }
 
     /**
@@ -419,9 +429,9 @@ class Animations {
         element.style.transition = `transform ${duration}ms ease-in, opacity ${duration}ms ease-in`;
         element.style.transform = 'scale(0)';
         element.style.opacity = '0';
-        setTimeout(() => {
+        this._trackTimeout(setTimeout(() => {
             element.style.display = 'none';
-        }, duration);
+        }, duration));
     }
 
     /**
@@ -448,15 +458,15 @@ class Animations {
 
         this.container.appendChild(ring);
 
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
+        this._trackRaf(requestAnimationFrame(() => {
+            this._trackRaf(requestAnimationFrame(() => {
                 ring.style.width = size + 'px';
                 ring.style.height = size + 'px';
                 ring.style.opacity = '0';
-            });
-        });
+            }));
+        }));
 
-        setTimeout(() => ring.remove(), 650);
+        this._trackTimeout(setTimeout(() => ring.remove(), 650));
     }
 
     /**
@@ -487,9 +497,14 @@ class Animations {
             const startTime = performance.now();
             const duration = 1000 + Math.random() * 1000;
 
+            let rafId = null;
             const animate = (now) => {
                 const t = (now - startTime) / duration;
                 if (t >= 1) {
+                    if (rafId !== null) {
+                        this._untrackRaf(rafId);
+                        rafId = null;
+                    }
                     piece.remove();
                     return;
                 }
@@ -499,11 +514,14 @@ class Animations {
                 // 使用 translate3d 避免 layout 触发
                 piece.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
                 piece.style.opacity = String(1 - t);
-                requestAnimationFrame(animate);
+                if (rafId !== null) this._untrackRaf(rafId);
+                rafId = requestAnimationFrame(animate);
+                this._trackRaf(rafId);
             };
 
             this.container.appendChild(piece);
-            requestAnimationFrame(animate);
+            rafId = requestAnimationFrame(animate);
+            this._trackRaf(rafId);
         }
     }
 
@@ -533,19 +551,27 @@ class Animations {
             const startTime = performance.now();
             const duration = 500 + Math.random() * 400;
 
+            let rafId = null;
             const animate = (now) => {
                 const t = Math.min((now - startTime) / duration, 1);
                 star.style.transform = `translate(${tx * t}px, ${ty * t}px) scale(${1 - t})`;
                 star.style.opacity = String(1 - t);
                 if (t < 1) {
-                    requestAnimationFrame(animate);
+                    if (rafId !== null) this._untrackRaf(rafId);
+                    rafId = requestAnimationFrame(animate);
+                    this._trackRaf(rafId);
                 } else {
+                    if (rafId !== null) {
+                        this._untrackRaf(rafId);
+                        rafId = null;
+                    }
                     star.remove();
                 }
             };
 
             this.container.appendChild(star);
-            requestAnimationFrame(animate);
+            rafId = requestAnimationFrame(animate);
+            this._trackRaf(rafId);
         }
     }
 
@@ -571,15 +597,15 @@ class Animations {
 
         this.container.appendChild(glow);
 
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
+        this._trackRaf(requestAnimationFrame(() => {
+            this._trackRaf(requestAnimationFrame(() => {
                 glow.style.width = '200px';
                 glow.style.height = '200px';
                 glow.style.opacity = '0';
-            });
-        });
+            }));
+        }));
 
-        setTimeout(() => glow.remove(), 550);
+        this._trackTimeout(setTimeout(() => glow.remove(), 550));
     }
 
     /**
@@ -605,13 +631,13 @@ class Animations {
 
         this.container.appendChild(dot);
 
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
+        this._trackRaf(requestAnimationFrame(() => {
+            this._trackRaf(requestAnimationFrame(() => {
                 dot.style.opacity = '0';
-            });
-        });
+            }));
+        }));
 
-        setTimeout(() => dot.remove(), 350);
+        this._trackTimeout(setTimeout(() => dot.remove(), 350));
     }
 
     /**
@@ -627,6 +653,7 @@ class Animations {
         const startTime = performance.now();
         const diff = to - from;
 
+        let rafId = null;
         const update = (now) => {
             const t = Math.min((now - startTime) / duration, 1);
             // easeOutQuad
@@ -634,11 +661,19 @@ class Animations {
             const current = Math.round(from + diff * ease);
             element.textContent = String(current);
             if (t < 1) {
-                requestAnimationFrame(update);
+                if (rafId !== null) this._untrackRaf(rafId);
+                rafId = requestAnimationFrame(update);
+                this._trackRaf(rafId);
+            } else {
+                if (rafId !== null) {
+                    this._untrackRaf(rafId);
+                    rafId = null;
+                }
             }
         };
 
-        requestAnimationFrame(update);
+        rafId = requestAnimationFrame(update);
+        this._trackRaf(rafId);
     }
 
     /**
@@ -651,15 +686,15 @@ class Animations {
         element.style.transition = 'transform 400ms ease-in-out';
         element.style.transformStyle = 'preserve-3d';
 
-        requestAnimationFrame(() => {
+        this._trackRaf(requestAnimationFrame(() => {
             element.style.transform = 'rotateY(90deg)';
-            setTimeout(() => {
+            this._trackTimeout(setTimeout(() => {
                 element.style.transform = 'rotateY(0deg)';
-                setTimeout(() => {
+                this._trackTimeout(setTimeout(() => {
                     if (onComplete) onComplete();
-                }, 400);
-            }, 200);
-        });
+                }, 400));
+            }, 200));
+        }));
     }
 
     /**
@@ -687,19 +722,19 @@ class Animations {
 
         this.container.appendChild(el);
 
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
+        this._trackRaf(requestAnimationFrame(() => {
+            this._trackRaf(requestAnimationFrame(() => {
                 el.style.opacity = '1';
                 el.style.transform = 'scale(1.1) translateY(0)';
-                setTimeout(() => {
+                this._trackTimeout(setTimeout(() => {
                     el.style.transition = 'transform 800ms ease-out, opacity 800ms ease-in';
                     el.style.transform = 'scale(1) translateY(-60px)';
                     el.style.opacity = '0';
-                }, 400);
-            });
-        });
+                }, 400));
+            }));
+        }));
 
-        setTimeout(() => el.remove(), 1300);
+        this._trackTimeout(setTimeout(() => el.remove(), 1300));
     }
 
     /**
@@ -722,12 +757,12 @@ class Animations {
         element.style.transform = `translate(${tx}px, ${ty}px)`;
         element.style.transition = `transform ${duration}ms ease-out, opacity ${duration}ms ease-out`;
 
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
+        this._trackRaf(requestAnimationFrame(() => {
+            this._trackRaf(requestAnimationFrame(() => {
                 element.style.opacity = '1';
                 element.style.transform = 'translate(0, 0)';
-            });
-        });
+            }));
+        }));
     }
 
     /**
@@ -740,9 +775,9 @@ class Animations {
         element.style.transition = `transform ${duration}ms ease-in, opacity ${duration}ms ease-in`;
         element.style.transform = 'rotate(180deg) scale(0.5)';
         element.style.opacity = '0';
-        setTimeout(() => {
+        this._trackTimeout(setTimeout(() => {
             element.style.display = 'none';
-        }, duration);
+        }, duration));
     }
 
     /**
@@ -767,9 +802,14 @@ class Animations {
 
         const startTime = performance.now();
 
+        let rafId = null;
         const animate = (now) => {
             const t = (now - startTime) / duration;
             if (t >= 1) {
+                if (rafId !== null) {
+                    this._untrackRaf(rafId);
+                    rafId = null;
+                }
                 el.remove();
                 return;
             }
@@ -778,10 +818,13 @@ class Animations {
             const dy = Math.sin(angle) * radius;
             // 使用 translate3d 避免 layout 触发，保留居中偏移
             el.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-            requestAnimationFrame(animate);
+            if (rafId !== null) this._untrackRaf(rafId);
+            rafId = requestAnimationFrame(animate);
+            this._trackRaf(rafId);
         };
 
-        requestAnimationFrame(animate);
+        rafId = requestAnimationFrame(animate);
+        this._trackRaf(rafId);
     }
 
     /**
@@ -806,15 +849,15 @@ class Animations {
 
         this.container.appendChild(ripple);
 
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
+        this._trackRaf(requestAnimationFrame(() => {
+            this._trackRaf(requestAnimationFrame(() => {
                 ripple.style.width = '150px';
                 ripple.style.height = '150px';
                 ripple.style.opacity = '0';
-            });
-        });
+            }));
+        }));
 
-        setTimeout(() => ripple.remove(), 650);
+        this._trackTimeout(setTimeout(() => ripple.remove(), 650));
     }
 
     /**
@@ -823,15 +866,15 @@ class Animations {
     springCelebrate() {
         if (this._isSpringCelebrating) return;
         this._isSpringCelebrating = true;
-        setTimeout(() => { this._isSpringCelebrating = false; }, 3000);
+        this._trackTimeout(setTimeout(() => { this._isSpringCelebrating = false; }, 3000));
         const w = window.innerWidth;
         const h = window.innerHeight;
 
         // 彩纸
         for (let i = 0; i < 60; i++) {
-            setTimeout(() => {
+            this._trackTimeout(setTimeout(() => {
                 this.confetti(w / 2, h / 2, 1);
-            }, i * 30);
+            }, i * 30));
         }
 
         // 花瓣飘落
@@ -854,9 +897,14 @@ class Animations {
             const sway = 30 + Math.random() * 50;
 
             const startX = parseFloat(petal.style.left);
+            let fallRafId = null;
             const fall = (now) => {
                 const t = (now - startTime) / duration;
                 if (t >= 1) {
+                    if (fallRafId !== null) {
+                        this._untrackRaf(fallRafId);
+                        fallRafId = null;
+                    }
                     petal.remove();
                     return;
                 }
@@ -865,10 +913,15 @@ class Animations {
                 const rot = t * 360;
                 // 使用 translate3d 避免 layout 触发
                 petal.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
-                requestAnimationFrame(fall);
+                if (fallRafId !== null) this._untrackRaf(fallRafId);
+                fallRafId = requestAnimationFrame(fall);
+                this._trackRaf(fallRafId);
             };
 
-            setTimeout(() => requestAnimationFrame(fall), i * 150);
+            this._trackTimeout(setTimeout(() => {
+                fallRafId = requestAnimationFrame(fall);
+                this._trackRaf(fallRafId);
+            }, i * 150));
         }
 
         this.bounceText(w / 2, h / 3, '🎉 春天！', '#ffeb3b');
@@ -882,7 +935,7 @@ class Animations {
     winCelebrate(isLandlordWin, winnerIndex) {
         if (this._isWinCelebrating) return;
         this._isWinCelebrating = true;
-        setTimeout(() => { this._isWinCelebrating = false; }, 4000);
+        this._trackTimeout(setTimeout(() => { this._isWinCelebrating = false; }, 4000));
         
         const w = window.innerWidth;
         const h = window.innerHeight;
@@ -901,9 +954,9 @@ class Animations {
             { x: w * 0.8, y: h * 0.3 },
         ];
         burstPoints.forEach((pt, idx) => {
-            setTimeout(() => {
+            this._trackTimeout(setTimeout(() => {
                 this.confetti(pt.x, pt.y, 25);
-            }, idx * 200);
+            }, idx * 200));
         });
 
         // 胜利文字
@@ -912,14 +965,14 @@ class Animations {
         this.bounceText(w / 2, h / 2 - 40, text, color);
 
         // 光环脉冲
-        setTimeout(() => {
+        this._trackTimeout(setTimeout(() => {
             this.pulseRing(w / 2, h / 2, color, 300);
-        }, 300);
+        }, 300));
 
         // 星星爆发
-        setTimeout(() => {
+        this._trackTimeout(setTimeout(() => {
             this.sparkleBurst(w / 2, h / 2, 30);
-        }, 500);
+        }, 500));
     }
 
     // ==================== v1.1.7 全局动画增强 ====================
@@ -943,7 +996,7 @@ class Animations {
             dot.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
             dot.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
             this.container.appendChild(dot);
-            setTimeout(() => dot.remove(), 500);
+            this._trackTimeout(setTimeout(() => dot.remove(), 500));
         }
     }
 
@@ -960,7 +1013,7 @@ class Animations {
         glow.style.width = rect.width + 'px';
         glow.style.height = rect.height + 'px';
         this.container.appendChild(glow);
-        setTimeout(() => glow.remove(), 700);
+        this._trackTimeout(setTimeout(() => glow.remove(), 700));
     }
 
     /**
@@ -975,7 +1028,7 @@ class Animations {
         glow.style.left = (rect.left + rect.width / 2) + 'px';
         glow.style.top = (rect.top + rect.height / 2) + 'px';
         this.container.appendChild(glow);
-        setTimeout(() => glow.remove(), 800);
+        this._trackTimeout(setTimeout(() => glow.remove(), 800));
     }
 
     /**
@@ -1005,7 +1058,7 @@ class Animations {
     buttonPress(btnEl) {
         if (!btnEl) return;
         btnEl.classList.add('btn-press-anim');
-        setTimeout(() => btnEl.classList.remove('btn-press-anim'), 200);
+        this._trackTimeout(setTimeout(() => btnEl.classList.remove('btn-press-anim'), 200));
     }
 
     /**
@@ -1024,7 +1077,7 @@ class Animations {
         el.style.left = x + 'px';
         el.style.top = y + 'px';
         this.container.appendChild(el);
-        setTimeout(() => el.remove(), 1500);
+        this._trackTimeout(setTimeout(() => el.remove(), 1500));
 
         // 光环
         this.pulseRing(x, y, '#ff9800', 80 + comboCount * 20);
@@ -1042,14 +1095,14 @@ class Animations {
         cardEls.forEach((el, i) => {
             el.style.opacity = '0';
             el.style.transform = 'translateY(30px) scale(0.8)';
-            setTimeout(() => {
+            this._trackTimeout(setTimeout(() => {
                 el.style.transition = 'all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
                 el.style.opacity = '1';
                 el.style.transform = 'translateY(0) scale(1)';
-                setTimeout(() => {
+                this._trackTimeout(setTimeout(() => {
                     el.style.transition = '';
-                }, 300);
-            }, i * baseDelay);
+                }, 300));
+            }, i * baseDelay));
         });
     }
 
@@ -1068,7 +1121,7 @@ class Animations {
         el.style.top = y + 'px';
         el.style.color = isPositive ? '#4caf50' : '#f44336';
         this.container.appendChild(el);
-        setTimeout(() => el.remove(), 1200);
+        this._trackTimeout(setTimeout(() => el.remove(), 1200));
     }
 
     /**
@@ -1102,7 +1155,7 @@ class Animations {
     modalContentSwitch(contentEl) {
         if (!contentEl) return;
         contentEl.style.animation = 'modalContentSwitch 0.3s ease';
-        setTimeout(() => { contentEl.style.animation = ''; }, 300);
+        this._trackTimeout(setTimeout(() => { contentEl.style.animation = ''; }, 300));
     }
 
     /**
@@ -1112,7 +1165,7 @@ class Animations {
     avatarPulse(avatarEl) {
         if (!avatarEl) return;
         avatarEl.classList.add('avatar-pulse-anim');
-        setTimeout(() => avatarEl.classList.remove('avatar-pulse-anim'), 600);
+        this._trackTimeout(setTimeout(() => avatarEl.classList.remove('avatar-pulse-anim'), 600));
     }
 
     /**
@@ -1122,7 +1175,7 @@ class Animations {
     cardDeselect(cardEl) {
         if (!cardEl) return;
         cardEl.classList.add('card-deselect-anim');
-        setTimeout(() => cardEl.classList.remove('card-deselect-anim'), 200);
+        this._trackTimeout(setTimeout(() => cardEl.classList.remove('card-deselect-anim'), 200));
     }
 
     /**
@@ -1136,10 +1189,10 @@ class Animations {
             panelEl.style.opacity = '0';
             panelEl.style.transform = 'translateY(20px)';
             panelEl.style.transition = 'all 0.3s ease-out';
-            requestAnimationFrame(() => {
+            this._trackRaf(requestAnimationFrame(() => {
                 panelEl.style.opacity = '1';
                 panelEl.style.transform = 'translateY(0)';
-            });
+            }));
         } else {
             panelEl.style.transition = 'all 0.2s ease-in';
             panelEl.style.opacity = '0';
@@ -1163,7 +1216,7 @@ class Animations {
         el.style.setProperty('--to-x', (toX - fromX) + 'px');
         el.style.setProperty('--to-y', (toY - fromY) + 'px');
         this.container.appendChild(el);
-        setTimeout(() => el.remove(), 600);
+        this._trackTimeout(setTimeout(() => el.remove(), 600));
     }
 
     /**
@@ -1173,7 +1226,7 @@ class Animations {
     badgeBounce(badgeEl) {
         if (!badgeEl) return;
         badgeEl.classList.add('badge-bounce-anim');
-        setTimeout(() => badgeEl.classList.remove('badge-bounce-anim'), 400);
+        this._trackTimeout(setTimeout(() => badgeEl.classList.remove('badge-bounce-anim'), 400));
     }
 
     /**
@@ -1183,19 +1236,19 @@ class Animations {
      */
     bottomCardReveal(cardEl, delay = 0) {
         if (!cardEl) return;
-        setTimeout(() => {
+        this._trackTimeout(setTimeout(() => {
             cardEl.style.transition = 'transform 0.5s ease-in-out';
             cardEl.style.transformStyle = 'preserve-3d';
             cardEl.style.transform = 'rotateY(90deg) scale(1.1)';
-            setTimeout(() => {
+            this._trackTimeout(setTimeout(() => {
                 cardEl.style.transform = 'rotateY(0deg) scale(1)';
                 this.sparkleBurst(
                     cardEl.getBoundingClientRect().left + cardEl.offsetWidth / 2,
                     cardEl.getBoundingClientRect().top + cardEl.offsetHeight / 2,
                     5
                 );
-            }, 250);
-        }, delay);
+            }, 250));
+        }, delay));
     }
 
     /**
@@ -1211,7 +1264,7 @@ class Animations {
         pulse.style.left = (rect.left + rect.width / 2) + 'px';
         pulse.style.top = (rect.top + rect.height / 2) + 'px';
         this.container.appendChild(pulse);
-        setTimeout(() => pulse.remove(), 700);
+        this._trackTimeout(setTimeout(() => pulse.remove(), 700));
     }
 
     /**
@@ -1231,7 +1284,7 @@ class Animations {
             drop.style.animationDelay = Math.random() * 2 + 's';
             drop.style.animationDuration = (1.5 + Math.random() * 2) + 's';
             this.container.appendChild(drop);
-            setTimeout(() => drop.remove(), duration);
+            this._trackTimeout(setTimeout(() => drop.remove(), duration));
         }
     }
 
@@ -1244,10 +1297,10 @@ class Animations {
         cardEls.forEach((el, i) => {
             el.style.transition = 'transform 0.3s ease';
             el.style.transform = `translateX(${(Math.random() - 0.5) * 20}px) rotate(${(Math.random() - 0.5) * 10}deg)`;
-            setTimeout(() => {
+            this._trackTimeout(setTimeout(() => {
                 el.style.transform = 'translateX(0) rotate(0)';
-                setTimeout(() => { el.style.transition = ''; }, 300);
-            }, 200 + i * 20);
+                this._trackTimeout(setTimeout(() => { el.style.transition = ''; }, 300));
+            }, 200 + i * 20));
         });
     }
 
@@ -1260,7 +1313,7 @@ class Animations {
         el.className = 'new-record-banner';
         el.textContent = '🏆 ' + text;
         this.container.appendChild(el);
-        setTimeout(() => el.remove(), 2500);
+        this._trackTimeout(setTimeout(() => el.remove(), 2500));
     }
 }
 

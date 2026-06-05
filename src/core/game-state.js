@@ -3,7 +3,7 @@
  * 负责：游戏阶段流转、玩家轮转、得分判定、胜负结算
  */
 
-import { Rules, HAND_TYPE } from './rules.js';
+import { Rules, HandPattern, HAND_TYPE } from './rules.js';
 
 const PHASE = {
     IDLE: 'IDLE',               // 空闲/准备中
@@ -157,6 +157,10 @@ class GameState {
     // 开始一局
     startRound(deck, bottomCards) {
         if (!Array.isArray(bottomCards)) bottomCards = [];
+        if (deck.length !== 51 || bottomCards.length !== 3) {
+            console.error('[GameState] startRound: 非法牌组长度', deck.length, bottomCards.length);
+            return false;
+        }
         this.resetRound();
         // 清除所有牌的癞子标记（防止自定义模式重用 Card 对象时残留）
         for (const card of deck) {
@@ -176,9 +180,9 @@ class GameState {
             if (this.players[i]) {
                 this.players[i].setHand(hand);
             }
-            this.initialHands[i] = hand.map(c => ({ value: c.value, suit: c.suit?.name, rank: c.rankKey, displayName: c.displayName }));
+            this.initialHands[i] = hand.map(c => ({ value: c.value, suit: c.suit?.name, rank: c.rankKey, displayName: c.displayName, isLaizi: c.isLaizi }));
         }
-        this.initialBottom = bottomCards.map(c => ({ value: c.value, suit: c.suit?.name, rank: c.rankKey, displayName: c.displayName }));
+        this.initialBottom = bottomCards.map(c => ({ value: c.value, suit: c.suit?.name, rank: c.rankKey, displayName: c.displayName, isLaizi: c.isLaizi }));
         
         // 确定癞子（如果启用）
         if (this.laiziEnabled && bottomCards.length > 0) {
@@ -403,10 +407,11 @@ class GameState {
         // 执行出牌（存储副本防止外部修改）
         const cardsCopy = [...cards];
         player.removeCards(cardsCopy);
-        this.lastPlay = { playerIndex, cards: cardsCopy, pattern };
+        const patternCopy = pattern ? new HandPattern(pattern.type, cardsCopy, pattern.mainValue, pattern.length, pattern.hasLaizi) : null;
+        this.lastPlay = { playerIndex, cards: cardsCopy, pattern: patternCopy };
         this.passCount = 0;
         this.playCounts[playerIndex]++;
-        this.history.push({ playerIndex, cards: cardsCopy, pattern, timestamp: Date.now() });
+        this.history.push({ playerIndex, cards: cardsCopy, pattern: patternCopy, timestamp: Date.now() });
         
         this.emit('playerPlay', { playerIndex, cards, pattern, remaining: player.hand.length });
         
@@ -476,8 +481,15 @@ class GameState {
         }
         
         this.passCount++;
+        // 记录 pass 到 history（用于回放）
+        this.history.push({
+            playerIndex,
+            cards: [],
+            pattern: new HandPattern('PASS', [], 0, 0),
+            timestamp: Date.now(),
+        });
         this.emit('playerPass', { playerIndex });
-        
+
         if (this.passCount >= 2) {
             // 两人pass，新一轮，lastPlay归当前出牌者（即上一家）
             // 这里lastPlay保留，但下一家出牌时可以任意出（由isNewRound判断）

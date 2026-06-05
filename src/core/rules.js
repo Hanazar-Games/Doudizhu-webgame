@@ -357,7 +357,7 @@ class Rules {
                     }
                 }
                 
-                if (needLaizi === laiziCount && len === n) {
+                if (needLaizi === laiziCount && len === n && usedValues.size === values.length) {
                     return new HandPattern(HAND_TYPE.STRAIGHT, allCards, start + len - 1, n, laiziCount > 0);
                 }
             }

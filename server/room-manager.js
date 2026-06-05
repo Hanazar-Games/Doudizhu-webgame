@@ -1,6 +1,6 @@
 /**
  * RoomManager - 游戏房间管理器
- * 管理房间生命周期、玩家连接、消息广播、自动清理
+ * 管理房间生命周期、玩家连接、消息广播、自动清理、断线重连
  */
 
 import { WebSocket } from 'ws';
@@ -15,17 +15,37 @@ class RoomManager {
     }
 
     createRoom(hostWs, hostPeerId) {
+        // 如果该 hostPeerId 已有房间，视为重连
+        const existingRoom = this.rooms.get(hostPeerId);
+        if (existingRoom) {
+            existingRoom.hostWs = hostWs;
+            const hostPlayer = existingRoom.players.get(hostPeerId);
+            if (hostPlayer) {
+                this.playerToRoom.delete(hostPlayer.ws);
+                hostPlayer.ws = hostWs;
+                hostPlayer.connected = true;
+            }
+            this.playerToRoom.set(hostWs, hostPeerId);
+            // 取消可能存在的解散定时器
+            if (existingRoom._hostLeaveTimer) {
+                clearTimeout(existingRoom._hostLeaveTimer);
+                existingRoom._hostLeaveTimer = null;
+            }
+            return existingRoom;
+        }
+
         const roomId = hostPeerId;
         const room = {
             id: roomId,
             hostId: hostPeerId,
             hostWs,
-            players: new Map(), // peerId -> { ws, peerId, seatIndex, name }
+            players: new Map(), // peerId -> { ws, peerId, seatIndex, name, connected }
             createdAt: Date.now(),
             gameStarted: false,
             lastActivity: Date.now(),
+            _hostLeaveTimer: null,
         };
-        room.players.set(hostPeerId, { ws: hostWs, peerId: hostPeerId, seatIndex: 0, name: '房主' });
+        room.players.set(hostPeerId, { ws: hostWs, peerId: hostPeerId, seatIndex: 0, name: '房主', connected: true });
         this.rooms.set(roomId, room);
         this.playerToRoom.set(hostWs, roomId);
         return room;
@@ -35,9 +55,82 @@ class RoomManager {
         if (!ws || typeof ws.send !== 'function') return { success: false, error: 'Invalid connection' };
         const room = this.rooms.get(roomId);
         if (!room) return { success: false, error: '房间不存在' };
-        if (room.gameStarted) return { success: false, error: '游戏已开始' };
+
+        const existingPlayer = room.players.get(peerId);
+
+        // === 已开始房间 ===
+        if (room.gameStarted) {
+            if (existingPlayer) {
+                // 原玩家重连
+                const oldWs = existingPlayer.ws;
+                this.playerToRoom.delete(oldWs);
+                existingPlayer.ws = ws;
+                existingPlayer.connected = true;
+                this.playerToRoom.set(ws, roomId);
+                room.lastActivity = Date.now();
+
+                this.sendToPeer(ws, {
+                    type: 'seat_assigned',
+                    seatIndex: existingPlayer.seatIndex,
+                    roomId,
+                    playerCount: room.players.size,
+                    reconnected: true,
+                });
+
+                const playerList = [...room.players.values()].map(p => ({
+                    peerId: p.peerId,
+                    name: p.name,
+                    seatIndex: p.seatIndex,
+                    connected: p.connected,
+                }));
+                this.broadcastToRoom(room, { type: 'player_list_update', players: playerList });
+
+                // 请求 host 发送状态同步
+                this.sendToPeer(room.hostWs, {
+                    type: 'request_state_sync',
+                    targetPeerId: room.hostId,
+                    peerId,
+                });
+
+                return { success: true, room, seatIndex: existingPlayer.seatIndex, reconnected: true };
+            }
+            return { success: false, error: '游戏已开始' };
+        }
+
+        // === 未开始房间 ===
+        if (existingPlayer) {
+            // 同一 peerId 再次加入：检查旧连接是否还活着
+            if (existingPlayer.connected && existingPlayer.ws && existingPlayer.ws.readyState === WebSocket.OPEN) {
+                return { success: false, error: 'Peer ID already in room' };
+            }
+            // 旧连接已断开，替换 ws（重连）
+            const oldWs = existingPlayer.ws;
+            this.playerToRoom.delete(oldWs);
+            existingPlayer.ws = ws;
+            existingPlayer.connected = true;
+            this.playerToRoom.set(ws, roomId);
+            room.lastActivity = Date.now();
+
+            this.sendToPeer(ws, {
+                type: 'seat_assigned',
+                seatIndex: existingPlayer.seatIndex,
+                roomId,
+                playerCount: room.players.size,
+                reconnected: true,
+            });
+
+            const playerList = [...room.players.values()].map(p => ({
+                peerId: p.peerId,
+                name: p.name,
+                seatIndex: p.seatIndex,
+            }));
+            this.broadcastToRoom(room, { type: 'player_list_update', players: playerList });
+
+            return { success: true, room, seatIndex: existingPlayer.seatIndex, reconnected: true };
+        }
+
         if (room.players.size >= 3) return { success: false, error: '房间已满' };
-        if (room.players.has(peerId)) return { success: false, error: 'Peer ID already in room' };
+
         // 防止一个 ws 同时在多个房间
         this.leaveRoom(ws);
 
@@ -46,7 +139,7 @@ class RoomManager {
         let seatIndex = 1;
         while (usedSeats.has(seatIndex)) seatIndex++;
 
-        const player = { ws, peerId, seatIndex, name: `玩家${seatIndex + 1}` };
+        const player = { ws, peerId, seatIndex, name: `玩家${seatIndex + 1}`, connected: true };
         room.players.set(peerId, player);
         this.playerToRoom.set(ws, roomId);
         room.lastActivity = Date.now();
@@ -60,7 +153,7 @@ class RoomManager {
             playerCount: room.players.size,
         });
 
-        // 通知新玩家座位信息
+        // 通知新玩家
         this.sendToPeer(ws, {
             type: 'seat_assigned',
             seatIndex,
@@ -68,18 +161,14 @@ class RoomManager {
             playerCount: room.players.size,
         });
 
-        // 广播玩家列表更新给所有已有玩家
-        const playerList = [...room.players.values()].map(p => ({ peerId: p.peerId, name: p.name, seatIndex: p.seatIndex }));
-        this.broadcastToRoom(room, {
-            type: 'player_list_update',
-            players: playerList,
-        }, peerId);
-
-        // 单独给新玩家发送完整玩家列表（包含自己）
-        this.sendToPeer(ws, {
-            type: 'player_list_update',
-            players: playerList,
-        });
+        // 广播玩家列表
+        const playerList = [...room.players.values()].map(p => ({
+            peerId: p.peerId,
+            name: p.name,
+            seatIndex: p.seatIndex,
+        }));
+        this.broadcastToRoom(room, { type: 'player_list_update', players: playerList }, peerId);
+        this.sendToPeer(ws, { type: 'player_list_update', players: playerList });
 
         return { success: true, room, seatIndex };
     }
@@ -103,28 +192,60 @@ class RoomManager {
         }
 
         if (leavingPeerId) {
-            room.players.delete(leavingPeerId);
-            
-            // 如果房主离开，解散房间
-            if (leavingPeerId === room.hostId) {
-                this.broadcastToRoom(room, { type: 'room_closed', reason: '房主已离开' });
-                this._destroyRoom(roomId);
-            } else {
+            if (room.gameStarted) {
+                // 已开始游戏：标记离线，不删除
+                leavingPlayer.connected = false;
                 this.broadcastToRoom(room, {
                     type: 'player_left',
                     peerId: leavingPeerId,
                     name: leavingPlayer?.name,
                     playerCount: room.players.size,
+                    disconnected: true,
                 });
-                // 广播更新后的玩家列表
-                if (room.players.size > 0) {
-                    this.broadcastToRoom(room, {
-                        type: 'player_list_update',
-                        players: [...room.players.values()].map(p => ({ peerId: p.peerId, name: p.name, seatIndex: p.seatIndex })),
-                    });
+
+                // host 离线：设置延迟解散定时器（30秒）
+                if (leavingPeerId === room.hostId) {
+                    room._hostLeaveTimer = setTimeout(() => {
+                        if (this.rooms.has(roomId)) {
+                            this.broadcastToRoom(room, { type: 'room_closed', reason: '房主已离开' });
+                            this._destroyRoom(roomId);
+                        }
+                    }, 30000);
                 }
-                if (room.players.size === 0) {
+
+                // 如果所有玩家都离线，立即销毁
+                const allOffline = [...room.players.values()].every(p => !p.connected);
+                if (allOffline) {
+                    if (room._hostLeaveTimer) {
+                        clearTimeout(room._hostLeaveTimer);
+                        room._hostLeaveTimer = null;
+                    }
                     this._destroyRoom(roomId);
+                }
+            } else {
+                // 未开始游戏：直接删除玩家
+                room.players.delete(leavingPeerId);
+                if (leavingPeerId === room.hostId) {
+                    this.broadcastToRoom(room, { type: 'room_closed', reason: '房主已离开' });
+                    this._destroyRoom(roomId);
+                } else {
+                    this.broadcastToRoom(room, {
+                        type: 'player_left',
+                        peerId: leavingPeerId,
+                        name: leavingPlayer?.name,
+                        playerCount: room.players.size,
+                    });
+                    if (room.players.size > 0) {
+                        const playerList = [...room.players.values()].map(p => ({
+                            peerId: p.peerId,
+                            name: p.name,
+                            seatIndex: p.seatIndex,
+                        }));
+                        this.broadcastToRoom(room, { type: 'player_list_update', players: playerList });
+                    }
+                    if (room.players.size === 0) {
+                        this._destroyRoom(roomId);
+                    }
                 }
             }
         }
@@ -136,10 +257,16 @@ class RoomManager {
         const room = this.rooms.get(roomId);
         if (!room) return;
         
-        // 关闭剩余玩家的 socket
+        if (room._hostLeaveTimer) {
+            clearTimeout(room._hostLeaveTimer);
+            room._hostLeaveTimer = null;
+        }
+        
+        // 关闭剩余玩家的 socket（只关闭仍属于该房间的连接）
         for (const [pid, p] of room.players) {
             try {
-                if (p.ws && p.ws.readyState === WebSocket.OPEN) {
+                // 只关闭确认属于此房间的 ws，避免误关已重连的新连接
+                if (p.ws && p.ws.readyState === WebSocket.OPEN && this.playerToRoom.get(p.ws) === roomId) {
                     p.ws.close();
                 }
             } catch (e) {}
@@ -185,6 +312,7 @@ class RoomManager {
         }
         for (const [pid, p] of room.players) {
             if (pid === excludePeerId) continue;
+            if (!p.connected) continue; // 跳过离线玩家
             if (p.ws && p.ws.readyState === WebSocket.OPEN) {
                 try {
                     p.ws.send(data);
@@ -215,7 +343,7 @@ class RoomManager {
         try {
             if (msg.targetPeerId) {
                 const target = room.players.get(msg.targetPeerId);
-                if (target) {
+                if (target && target.connected && target.ws && target.ws.readyState === WebSocket.OPEN) {
                     this.sendToPeer(target.ws, msg);
                 }
             } else if (msg.broadcast) {

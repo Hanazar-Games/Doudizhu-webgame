@@ -16,6 +16,12 @@ class ReplayManager {
         this.isPlaying = false;
         this.playTimer = null;
         this.playInterval = 1500;
+        this._keyHandler = null;
+    }
+
+    destroy() {
+        this.stop();
+        this._removeKeyHandler();
     }
 
     // 加载保存的牌局列表
@@ -28,25 +34,26 @@ class ReplayManager {
     showGameList() {
         if (!this.container) return;
         this.stop();
+        this._removeKeyHandler();
 
         const games = this.loadGames();
+        const validGames = games.filter(g => g && Array.isArray(g.players) && Array.isArray(g.history));
         let html = `
             <div class="replay-container">
                 <h2>📹 牌局回放</h2>
-                <p class="replay-subtitle">共保存 ${games.length} 局对局记录</p>
+                <p class="replay-subtitle">共保存 ${validGames.length} 局对局记录</p>
         `;
 
-        if (games.length === 0) {
+        if (validGames.length === 0) {
             html += `<div class="replay-empty">暂无保存的对局记录<br>完成对局后将自动保存</div>`;
         } else {
             html += `<div class="replay-list">`;
-            for (let i = 0; i < games.length; i++) {
-                const g = games[i];
-                if (!g || !Array.isArray(g.players) || !Array.isArray(g.history)) continue;
+            for (let i = 0; i < validGames.length; i++) {
+                const g = validGames[i];
                 const date = g.date ? new Date(g.date).toLocaleString('zh-CN') : '未知时间';
-                const modeText = g.mode === 'ai' ? '人机对战' : g.mode === 'lan' ? '联机' : '自定义';
+                const modeText = g.mode === 'ai' ? '人机对战' : g.mode === 'lan' ? '联机' : g.mode === 'tournament' ? '锦标赛' : '自定义';
                 const resultText = g.result?.isLandlordWin ? '地主胜' : '农民胜';
-                const spring = g.result?.springType === 'spring' ? ' 🌸春天' : 
+                const spring = g.result?.springType === 'spring' ? ' 🌸春天' :
                               g.result?.springType === 'anti_spring' ? ' 🌸反春' : '';
                 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
                 html += `
@@ -72,13 +79,13 @@ class ReplayManager {
         html += `<button id="btn-replay-back" class="btn-small">← 返回菜单</button></div>`;
         this.container.innerHTML = html;
 
-        // 绑定回放按钮（使用 data-index 避免跳过无效记录后索引错位）
+        // 绑定回放按钮
         this.container.querySelectorAll('.btn-replay-watch').forEach((btn) => {
             btn.addEventListener('click', () => {
                 window.gameApp?.renderer?.audio?.playButtonClick();
                 const idx = Number(btn.closest('.replay-item')?.dataset.index);
-                if (Number.isFinite(idx) && games[idx]) {
-                    this.startReplay(games[idx]);
+                if (Number.isFinite(idx) && validGames[idx]) {
+                    this.startReplay(validGames[idx]);
                 }
             });
         });
@@ -92,11 +99,47 @@ class ReplayManager {
 
     // 开始回放某一局
     startReplay(gameData) {
-        this.stop(); // 确保停止任何正在播放的旧 timer
+        this.stop();
         this.currentGame = gameData;
         this.currentStep = -1;
         this.isPlaying = false;
         this._renderReplayBoard();
+        this._attachKeyHandler();
+    }
+
+    _attachKeyHandler() {
+        this._removeKeyHandler();
+        this._keyHandler = (e) => {
+            if (!this.currentGame) return;
+            // 忽略输入框中的按键
+            const tag = e.target?.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+            switch (e.key) {
+                case ' ':
+                    e.preventDefault();
+                    this.togglePlay();
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    this.prevStep();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    this.nextStep();
+                    break;
+                case 'Escape':
+                    this.showGameList();
+                    break;
+            }
+        };
+        document.addEventListener('keydown', this._keyHandler);
+    }
+
+    _removeKeyHandler() {
+        if (this._keyHandler) {
+            document.removeEventListener('keydown', this._keyHandler);
+            this._keyHandler = null;
+        }
     }
 
     _playStepSound(action) {
@@ -125,10 +168,64 @@ class ReplayManager {
         }
     }
 
+    // 计算关键回合索引
+    _computeKeyMoments() {
+        const g = this.currentGame;
+        if (!g || !Array.isArray(g.history)) return [];
+        const moments = [];
+        for (let i = 0; i < g.history.length; i++) {
+            const h = g.history[i];
+            const type = h.pattern?.type;
+            if (type === 'BOMB') moments.push({ idx: i, label: '💣 炸弹', icon: '💣' });
+            else if (type === 'ROCKET') moments.push({ idx: i, label: '🚀 王炸', icon: '🚀' });
+            else if (type === 'PASS' && i > 0) {
+                // 连续两个 PASS 后新一轮开始，标记前一手为关键
+                const prev = g.history[i - 1];
+                if (prev && prev.pattern?.type !== 'PASS') {
+                    // 不重复标记
+                }
+            }
+        }
+        // 春天/反春天
+        if (g.result?.springType === 'spring') moments.push({ idx: g.history.length - 1, label: '🌸 春天', icon: '🌸' });
+        else if (g.result?.springType === 'anti_spring') moments.push({ idx: g.history.length - 1, label: '🌸 反春', icon: '🌸' });
+        return moments;
+    }
+
+    // 生成战报文本
+    _generateReport() {
+        const g = this.currentGame;
+        if (!g) return '';
+        const esc = (s) => String(s ?? '');
+        const dateStr = g.date ? new Date(g.date).toLocaleString('zh-CN') : '未知时间';
+        const modeText = g.mode === 'ai' ? '人机对战' : g.mode === 'lan' ? '联机' : g.mode === 'tournament' ? '锦标赛' : '自定义';
+        const resultText = g.result?.isLandlordWin ? '地主胜' : '农民胜';
+        const spring = g.result?.springType === 'spring' ? ' 🌸春天' : g.result?.springType === 'anti_spring' ? ' 🌸反春' : '';
+        const lines = [
+            '🃏 斗地主 WebGame 战报',
+            `📅 ${dateStr} · ${modeText}`,
+            `🏆 ${resultText}${spring} · ${g.result?.multiplier || 1}倍`,
+            '',
+            '玩家得分：',
+        ];
+        if (g.result?.scores) {
+            for (let i = 0; i < 3; i++) {
+                const p = g.players?.[i];
+                const name = p ? p.name : `玩家${i + 1}`;
+                const isLandlord = i === g.landlordIndex;
+                const score = g.result.scores[i] || 0;
+                lines.push(`${isLandlord ? '👑' : ''} ${esc(name)}: ${score > 0 ? '+' : ''}${score}`);
+            }
+        }
+        lines.push('', `总手数: ${g.history?.length || 0}`);
+        return lines.join('\n');
+    }
+
     // 渲染回放界面
     _renderReplayBoard() {
         if (!this.container || !this.currentGame) return;
         const g = this.currentGame;
+        const keyMoments = this._computeKeyMoments();
 
         let html = `
             <div class="replay-board">
@@ -139,16 +236,28 @@ class ReplayManager {
                         <span id="replay-progress">0 / ${g.history.length}</span>
                     </div>
                 </div>
+                <div class="replay-meta-bar">
+                    <button id="replay-copy-report" title="复制战报">📋 复制战报</button>
+                    ${keyMoments.length > 0 ? `
+                        <div class="replay-key-moments">
+                            <span>关键回合:</span>
+                            ${keyMoments.slice(0, 6).map(m => `<button class="replay-moment-btn" data-idx="${m.idx}" title="${m.label}">${m.icon}</button>`).join('')}
+                        </div>
+                    ` : ''}
+                </div>
                 <div class="replay-table" id="replay-table-area">
                     ${this._renderTableState()}
                 </div>
                 <div class="replay-controls">
-                    <button id="replay-prev" title="上一步">⏮</button>
-                    <button id="replay-play" title="播放/暂停">▶</button>
-                    <button id="replay-next" title="下一步">⏭</button>
+                    <button id="replay-prev" title="上一步 (←)">⏮</button>
+                    <button id="replay-play" title="播放/暂停 (Space)">▶</button>
+                    <button id="replay-next" title="下一步 (→)">⏭</button>
                     <input type="range" id="replay-slider" min="-1" max="${g.history.length - 1}" value="-1" step="1">
                     <button id="replay-speed" title="速度">1x</button>
-                    <button id="replay-close">✕</button>
+                    <button id="replay-close" title="关闭 (Esc)">✕</button>
+                </div>
+                <div class="replay-shortcut-hint">
+                    ← → 翻步 · 空格 播放/暂停 · Esc 退出
                 </div>
             </div>
         `;
@@ -192,6 +301,31 @@ class ReplayManager {
             });
         }
 
+        // 复制战报
+        const copyBtn = this.container.querySelector('#replay-copy-report');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                window.gameApp?.renderer?.audio?.playButtonClick();
+                const text = this._generateReport();
+                if (navigator.clipboard?.writeText) {
+                    navigator.clipboard.writeText(text)
+                        .then(() => window.gameApp?.showToast?.('战报已复制', 'success'))
+                        .catch(() => window.gameApp?.showToast?.('复制失败', 'error'));
+                } else {
+                    window.gameApp?.showToast?.('浏览器不支持自动复制', 'info');
+                }
+            });
+        }
+
+        // 关键回合跳转
+        this.container.querySelectorAll('.replay-moment-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                window.gameApp?.renderer?.audio?.playButtonClick();
+                const idx = parseInt(btn.dataset.idx, 10);
+                this.goToStep(idx);
+            });
+        });
+
         this._updateDisplay();
     }
 
@@ -226,6 +360,7 @@ class ReplayManager {
                 suitSymbol,
                 isJoker,
                 isRed,
+                isLaizi: card?.isLaizi === true,
             };
         };
 
@@ -241,9 +376,10 @@ class ReplayManager {
             ? g.initialHands.map(h => Array.isArray(h) ? [...h] : [])
             : [[], [], []];
         const bottom = g.initialBottom ? [...g.initialBottom] : [];
-        let landlordIdx = -1;
+        let landlordIdx = g.landlordIndex ?? -1;
         let lastPlay = null;
         let passCount = 0;
+        let currentTurn = g.dealerIndex ?? 0;
 
         for (let i = 0; i <= this.currentStep; i++) {
             const action = g.history[i];
@@ -251,8 +387,8 @@ class ReplayManager {
 
             if (action.pattern?.type === 'PASS') {
                 passCount++;
+                currentTurn = (action.playerIndex + 1) % 3;
             } else if (action.cards?.length > 0) {
-                // 出牌：从手牌中移除
                 for (const playedCard of action.cards) {
                     const hand = hands[action.playerIndex];
                     if (!hand) continue;
@@ -261,28 +397,31 @@ class ReplayManager {
                 }
                 lastPlay = action;
                 passCount = 0;
+                currentTurn = (action.playerIndex + 1) % 3;
             }
-
-            // 检测叫分结束（简化：第一个有实际出牌的 player's landlord）
-            // 实际上 landlordIndex 是直接从 gameData 中获取的
         }
 
-        landlordIdx = g.landlordIndex;
+        // 当前步骤的 action 决定高亮玩家
+        const activePlayerIndex = this.currentStep >= 0
+            ? (g.history[this.currentStep]?.playerIndex ?? -1)
+            : -1;
 
-        // 渲染3个玩家区域
         const renderCards = (cards) => {
             if (!cards || cards.length === 0) return '<span class="no-cards">无</span>';
-            // 按value排序
             const sorted = [...cards].sort((a, b) => normalizeCard(a).value - normalizeCard(b).value);
             return sorted.map((c, i) => {
                 const card = normalizeCard(c);
                 const colorClass = card.isRed ? 'red' : 'black';
+                const laiziClass = card.isLaizi ? 'laizi' : '';
+                const laiziBadge = card.isLaizi ? '<span class="laizi-badge">癞</span>' : '';
                 if (card.isJoker) {
-                    return `<span class="replay-card replay-joker ${colorClass}" style="--i:${i}">
+                    return `<span class="replay-card replay-joker ${colorClass} ${laiziClass}" style="--i:${i}">
+                        ${laiziBadge}
                         <span class="replay-joker-text">${esc(card.rankLabel)}</span>
                     </span>`;
                 }
-                return `<span class="replay-card ${colorClass}" style="--i:${i}">
+                return `<span class="replay-card ${colorClass} ${laiziClass}" style="--i:${i}">
+                    ${laiziBadge}
                     <span class="replay-card-rank">${esc(card.rankLabel)}</span>
                     <span class="replay-card-suit">${esc(card.suitSymbol)}</span>
                 </span>`;
@@ -294,14 +433,27 @@ class ReplayManager {
         if (lastPlay) {
             const pName = g.players[lastPlay.playerIndex]?.name || `玩家${lastPlay.playerIndex+1}`;
             const typeName = Rules.getTypeName ? Rules.getTypeName(lastPlay.pattern?.type) : lastPlay.pattern?.type;
+            const isBomb = lastPlay.pattern?.type === 'BOMB' || lastPlay.pattern?.type === 'ROCKET';
+            const badge = isBomb ? '<span class="replay-bomb-badge">💥</span>' : '';
             lastPlayHtml = `
                 <div class="replay-last-play">
                     <span class="replay-last-label">最近出牌</span>
                     <span class="replay-last-player">${esc(pName)}</span>
                     <span class="replay-last-type">[${esc(typeName)}]</span>
+                    ${badge}
                     <div class="replay-last-cards">${renderCards(lastPlay.cards)}</div>
                 </div>
             `;
+        }
+
+        // 春天/反春天标识
+        let springBadge = '';
+        if (this.currentStep >= (g.history?.length || 0) - 1) {
+            if (g.result?.springType === 'spring') {
+                springBadge = '<div class="replay-spring-badge">🌸 春天</div>';
+            } else if (g.result?.springType === 'anti_spring') {
+                springBadge = '<div class="replay-spring-badge anti">🌸 反春天</div>';
+            }
         }
 
         return `
@@ -310,8 +462,9 @@ class ReplayManager {
                     const p = g.players[idx];
                     const isLandlord = idx === landlordIdx;
                     const name = p ? p.name : `玩家${idx+1}`;
+                    const isActive = idx === activePlayerIndex;
                     return `
-                        <div class="replay-player ${isLandlord ? 'landlord' : ''} ${idx === (lastPlay?.playerIndex ?? -1) ? 'active' : ''}">
+                        <div class="replay-player ${isLandlord ? 'landlord' : ''} ${isActive ? 'active' : ''}">
                             <div class="replay-player-name">
                                 ${esc(name)} ${isLandlord ? '👑' : ''}
                                 <span class="replay-card-count">${hands[idx]?.length || 0}张</span>
@@ -327,6 +480,7 @@ class ReplayManager {
                     ${renderCards(bottom)}
                 </div>
                 ${lastPlayHtml}
+                ${springBadge}
             </div>
         `;
     }
@@ -336,7 +490,6 @@ class ReplayManager {
         const tableArea = this.container?.querySelector('#replay-table-area');
         if (tableArea) tableArea.innerHTML = this._renderTableState();
 
-        // 播放当前步骤音效
         if (this.currentStep >= 0 && this.currentGame?.history[this.currentStep]) {
             this._playStepSound(this.currentGame.history[this.currentStep]);
         }
@@ -420,7 +573,6 @@ class ReplayManager {
         this._updateDisplay();
     }
 
-    // 跳转到指定步骤（不播放音效，用于 slider 拖动）
     goToStepSilent(step) {
         if (!this.currentGame) return;
         const max = this.currentGame.history.length - 1;

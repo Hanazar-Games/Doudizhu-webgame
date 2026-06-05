@@ -205,7 +205,7 @@ export class PlayStyleAnalyzer {
         const totalGames = games.length;
         const stats = Storage.getStats();
 
-        if (totalGames === 0) {
+        if (totalGames < 3) {
             return { scores: null, labels: [], comboLabel: null, advice: [], report: null };
         }
 
@@ -222,9 +222,9 @@ export class PlayStyleAnalyzer {
         // --- 稳健性 ---
         const callWinRate = d.callSuccess / Math.max(d.callAttempts, 1);
         // passRate: 从 games 数组统计 pass 比例（若数据不可用则用默认值）
-        const passCount = games.filter(g => g.passed).length;
-        const playCount = games.filter(g => g.played).length;
-        const passRate = totalGames > 0
+        const passCount = games.filter(g => g.passed === true).length;
+        const playCount = games.filter(g => g.played === true).length;
+        const passRate = (passCount + playCount) > 0
             ? (passCount / Math.max(passCount + playCount, 1))
             : 0.3;
         const landlordWinRate = d.landlordCount > 0 ? d.landlordWinCount / d.landlordCount : 0.5;
@@ -376,10 +376,43 @@ export class PlayStyleAnalyzer {
         if (scores.speed < 30) {
             advice.push('适当加快出牌节奏可以给对手施加压力。');
         }
+
+        // 读取 AI 教练复盘摘要，生成长期建议
+        const coachAdvice = this._getCoachBasedAdvice();
+        if (coachAdvice) advice.push(coachAdvice);
+
         if (advice.length === 0) {
             advice.push('你的牌风比较均衡，继续享受游戏的乐趣吧！');
         }
         return advice;
+    }
+
+    _getCoachBasedAdvice() {
+        try {
+            const reviews = JSON.parse(localStorage.getItem('ddz_coach_reviews') || '[]');
+            if (!Array.isArray(reviews) || reviews.length < 3) return null;
+            const recent = reviews.slice(0, 10);
+            const avgScore = recent.reduce((s, r) => s + (r.score || 0), 0) / recent.length;
+            const highRate = recent.filter(r => (r.highCount || 0) > 0).length / recent.length;
+            const missedBeat = recent.filter(r => r.suggestionTypes?.includes('missed_beat')).length;
+            const splitCount = recent.filter(r => r.suggestionTypes?.includes('split')).length;
+
+            if (avgScore < 60) {
+                return `🎯 AI教练提示：最近${recent.length}局平均复盘得分仅${avgScore.toFixed(0)}分，建议多查看每局复盘中的高优先级建议。`;
+            }
+            if (missedBeat >= 3) {
+                return `🎯 AI教练提示：最近${recent.length}局中${missedBeat}次错过压制机会，建议出牌前检查"提示"功能。`;
+            }
+            if (splitCount >= 2) {
+                return `🎯 AI教练提示：多次拆炸弹出牌，建议优先保留炸弹等关键牌型。`;
+            }
+            if (highRate > 0.5) {
+                return `🎯 AI教练提示：超过半数对局存在严重失误，建议放慢节奏，多观察对手手牌数量。`;
+            }
+        } catch {
+            // ignore
+        }
+        return null;
     }
 
     _getImprovementTip(key) {

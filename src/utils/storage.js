@@ -322,13 +322,46 @@ export const Storage = {
         }
     },
 
-    // 清除统计数据（仅游戏记录和统计，保留设置和成就）
+    // 保存复盘摘要
+    saveCoachReview(review) {
+        try {
+            const reviews = this.getCoachReviews();
+            reviews.unshift(review);
+            if (reviews.length > 20) reviews.length = 20;
+            localStorage.setItem(PREFIX + 'coach_reviews', JSON.stringify(reviews));
+        } catch (e) {
+            console.warn('保存复盘摘要失败:', e);
+        }
+    },
+
+    getCoachReviews() {
+        const raw = localStorage.getItem(PREFIX + 'coach_reviews');
+        if (!raw) return [];
+        try {
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return [];
+            return parsed;
+        } catch {
+            return [];
+        }
+    },
+
+    // 清除统计数据（仅游戏记录和统计，保留设置、成就、牌风和教练复盘）
     clearStats() {
         localStorage.removeItem(PREFIX + 'stats');
         localStorage.removeItem(PREFIX + 'records');
         localStorage.removeItem(PREFIX + 'full_games');
         localStorage.removeItem(PREFIX + 'achievement_progress');
+    },
+
+    // 清除所有对局相关数据（含回放、牌风、教练复盘）
+    clearGameData() {
+        localStorage.removeItem(PREFIX + 'stats');
+        localStorage.removeItem(PREFIX + 'records');
+        localStorage.removeItem(PREFIX + 'full_games');
+        localStorage.removeItem(PREFIX + 'achievement_progress');
         localStorage.removeItem(PREFIX + 'playStyle');
+        localStorage.removeItem(PREFIX + 'coach_reviews');
     },
 
     // 清除所有数据

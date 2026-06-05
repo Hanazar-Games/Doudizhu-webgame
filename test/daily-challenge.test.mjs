@@ -246,6 +246,55 @@ test('dateToSeed produces different numbers for different dates', () => {
     assert(s1 !== s2);
 });
 
+// ===== 0星失败记录 =====
+test('calculateStars: 0 star loss is recorded correctly', () => {
+    const data = {
+        winnerIndex: 1,
+        landlordIndex: 0,
+        springType: null,
+    };
+    assert(calculateStars(data, 0, 0) === 0);
+});
+
+// ===== ChallengeRecordManager 0星保存 =====
+test('ChallengeRecordManager saves 0-star loss without overwriting later win', () => {
+    ChallengeRecordManager.clear();
+    const loss = new ChallengeResult('2024-01-15', 0, -20, false, null, 0, Date.now());
+    const win = new ChallengeResult('2024-01-15', 2, 80, true, 'spring', 0, Date.now() + 1000);
+    ChallengeRecordManager.saveRecord(loss);
+    ChallengeRecordManager.saveRecord(win);
+    const best = ChallengeRecordManager.getBestRecord('2024-01-15');
+    assert(best.stars === 2, `Expected 2 stars after win, got ${best.stars}`);
+    assert(best.isWin === true);
+});
+
+// ===== ChallengeRecordManager 30天历史截断精确 =====
+test('ChallengeRecordManager keeps records exactly at 30-day boundary', () => {
+    ChallengeRecordManager.clear();
+    const exactly30 = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const r = new ChallengeResult('2024-01-01', 2, 100, true, 'spring', 0, exactly30);
+    ChallengeRecordManager.saveRecord(r);
+    const records = ChallengeRecordManager.getRecords();
+    assert(records.length === 1, 'Record exactly 30 days old should be kept');
+});
+
+// ===== getTodayString UTC+8 consistency =====
+test('getTodayString uses UTC+8', () => {
+    const s = getTodayString();
+    assert(/^\d{4}-\d{2}-\d{2}$/.test(s), `Invalid format: ${s}`);
+});
+
+// ===== Streak calculation with gaps =====
+test('ChallengeRecordManager streak stops at first missing day', () => {
+    ChallengeRecordManager.clear();
+    const now = Date.now();
+    const r1 = new ChallengeResult(getTodayString(), 2, 100, true, 'spring', 0, now);
+    // 昨天没有记录
+    ChallengeRecordManager.saveRecord(r1);
+    const stats = ChallengeRecordManager.getStats();
+    assert(stats.streak === 1, `Expected streak 1 (today only), got ${stats.streak}`);
+});
+
 // ===== Summary =====
 console.log(`\n====================`);
 console.log(`Total: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);

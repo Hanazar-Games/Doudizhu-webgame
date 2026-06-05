@@ -942,6 +942,80 @@ test('GameState mustPlay blocks pass on new round when hasValidPlays=true', () =
     assert(result === false, 'Expected pass to be blocked under mustPlay on new round when cards exist');
 });
 
+// ===== Settings & Storage =====
+test('Storage.getDefaultSettings contains all gameplay rule defaults', () => {
+    const defs = Storage.getDefaultSettings();
+    assert(typeof defs.difficulty === 'string', 'difficulty');
+    assert(typeof defs.callMode === 'string', 'callMode');
+    assert(typeof defs.laiziEnabled === 'boolean', 'laiziEnabled');
+    assert(typeof defs.baseScore === 'number', 'baseScore');
+    assert(typeof defs.scoreMultiplier === 'number', 'scoreMultiplier');
+    assert(typeof defs.allowSpring === 'boolean', 'allowSpring');
+    assert(typeof defs.allowAntiSpring === 'boolean', 'allowAntiSpring');
+    assert(typeof defs.bombDoubles === 'boolean', 'bombDoubles');
+    assert(typeof defs.rocketDoubles === 'boolean', 'rocketDoubles');
+    assert(typeof defs.timerEnabled === 'boolean', 'timerEnabled');
+    assert(typeof defs.timerSeconds === 'number', 'timerSeconds');
+    assert(typeof defs.firstPlayer === 'string', 'firstPlayer');
+    assert(typeof defs.jokerRule === 'string', 'jokerRule');
+    assert(typeof defs.bombRule === 'string', 'bombRule');
+    assert(typeof defs.strictRules === 'boolean', 'strictRules');
+    assert(typeof defs.showCards === 'boolean', 'showCards');
+    assert(typeof defs.exchangeThree === 'boolean', 'exchangeThree');
+    assert(typeof defs.noShuffle === 'boolean', 'noShuffle');
+    assert(typeof defs.bottomVisible === 'boolean', 'bottomVisible');
+    assert(typeof defs.mustPlay === 'boolean', 'mustPlay');
+    assert(typeof defs.allowPassOnFirst === 'boolean', 'allowPassOnFirst');
+    assert(typeof defs.allowTripleWithSingle === 'boolean', 'allowTripleWithSingle');
+    assert(typeof defs.allowTripleWithPair === 'boolean', 'allowTripleWithPair');
+    assert(typeof defs.allowAirplaneWithWings === 'boolean', 'allowAirplaneWithWings');
+    assert(typeof defs.bombAsRocket === 'boolean', 'bombAsRocket');
+});
+
+test('Storage.getSettings merges missing keys with defaults', () => {
+    global.localStorage.setItem('ddz_settings', JSON.stringify({ playerName: 'Test' }));
+    const s = Storage.getSettings();
+    assert(s.playerName === 'Test', 'preserves existing');
+    assert(typeof s.difficulty === 'string', 'fills default difficulty');
+    assert(typeof s.bgmVolume === 'number', 'fills default bgmVolume');
+    global.localStorage.removeItem('ddz_settings');
+});
+
+test('Storage.resetSettings clears only settings key', () => {
+    global.localStorage.setItem('ddz_settings', JSON.stringify({ playerName: 'Test' }));
+    global.localStorage.setItem('ddz_stats', JSON.stringify({ gamesPlayed: 5 }));
+    global.localStorage.setItem('ddz_achievements', JSON.stringify({ first_game: true }));
+    global.localStorage.setItem('ddz_playStyle', JSON.stringify({ games: [] }));
+    global.localStorage.setItem('ddz_coach_reviews', JSON.stringify([]));
+    const defs = Storage.resetSettings();
+    assert(defs.playerName === '玩家', 'returns defaults');
+    assert(global.localStorage.getItem('ddz_settings') === null, 'settings removed');
+    assert(global.localStorage.getItem('ddz_stats') !== null, 'stats preserved');
+    assert(global.localStorage.getItem('ddz_achievements') !== null, 'achievements preserved');
+    assert(global.localStorage.getItem('ddz_playStyle') !== null, 'playStyle preserved');
+    assert(global.localStorage.getItem('ddz_coach_reviews') !== null, 'coach_reviews preserved');
+    global.localStorage.clear();
+});
+
+test('Storage.clearStats does not remove playStyle or coach_reviews', () => {
+    global.localStorage.setItem('ddz_stats', JSON.stringify({ gamesPlayed: 5 }));
+    global.localStorage.setItem('ddz_records', JSON.stringify([]));
+    global.localStorage.setItem('ddz_full_games', JSON.stringify([]));
+    global.localStorage.setItem('ddz_achievement_progress', JSON.stringify({ totalGames: 5 }));
+    global.localStorage.setItem('ddz_playStyle', JSON.stringify({ games: [] }));
+    global.localStorage.setItem('ddz_coach_reviews', JSON.stringify([]));
+    global.localStorage.setItem('ddz_settings', JSON.stringify({ playerName: 'Test' }));
+    Storage.clearStats();
+    assert(global.localStorage.getItem('ddz_stats') === null, 'stats cleared');
+    assert(global.localStorage.getItem('ddz_records') === null, 'records cleared');
+    assert(global.localStorage.getItem('ddz_full_games') === null, 'full_games cleared');
+    assert(global.localStorage.getItem('ddz_achievement_progress') === null, 'achievement_progress cleared');
+    assert(global.localStorage.getItem('ddz_playStyle') !== null, 'playStyle preserved');
+    assert(global.localStorage.getItem('ddz_coach_reviews') !== null, 'coach_reviews preserved');
+    assert(global.localStorage.getItem('ddz_settings') !== null, 'settings preserved');
+    global.localStorage.clear();
+});
+
 // ===== Summary =====
 console.log(`\n====================`);
 console.log(`Total: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);

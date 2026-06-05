@@ -29,38 +29,109 @@ function getFreePort() {
     });
 }
 
-async function startDevServer(port) {
-    return new Promise((resolve, reject) => {
-        const proc = spawn('npx', ['vite', '--port', String(port), '--host', '127.0.0.1'], {
+async function waitForTcp(port, retries = 30, interval = 200) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            await new Promise((resolve, reject) => {
+                const socket = new net.Socket();
+                socket.setTimeout(2000);
+                socket.on('connect', () => { socket.destroy(); resolve(); });
+                socket.on('error', reject);
+                socket.on('timeout', () => { socket.destroy(); reject(new Error('timeout')); });
+                socket.connect(port, '127.0.0.1');
+            });
+            return true;
+        } catch {}
+        await new Promise((r) => setTimeout(r, interval));
+    }
+    throw new Error(`TCP ready check failed after ${retries * interval}ms`);
+}
+
+async function startBackendServer(port) {
+    return new Promise((_resolve, _reject) => {
+        const proc = spawn('node', ['server/index.js', '--dev'], {
             cwd: root,
-            env: { ...process.env },
+            env: { ...process.env, PORT: String(port), HOST: '127.0.0.1' },
             stdio: 'pipe',
         });
-
-        const timeout = setTimeout(() => {
-            proc.kill('SIGTERM');
-            reject(new Error('Dev server start timeout (20s)'));
-        }, 20000);
-
+        const logs = [];
         const onData = (data) => {
             const text = data.toString();
-            if (text.includes(`http://127.0.0.1:${port}`) || text.includes('ready in')) {
+            logs.push(text);
+            if (text.includes('running on port')) {
                 clearTimeout(timeout);
-                proc.stdout.off('data', onData);
-                proc.stderr.off('data', onData);
-                resolve(proc);
+                _resolve({ proc, logs });
             }
         };
         proc.stdout.on('data', onData);
         proc.stderr.on('data', onData);
-        proc.on('error', reject);
+        const timeout = setTimeout(() => {
+            proc.kill('SIGTERM');
+            _reject(new Error('Backend server start timeout (10s)\nLogs:\n' + logs.join('')));
+        }, 10000);
+        proc.on('error', (err) => {
+            clearTimeout(timeout);
+            _reject(new Error(`Backend spawn error: ${err.message}`));
+        });
+    });
+}
+
+async function startDevServer(port, backendPort) {
+    // 使用本地 vite 二进制，避免 npx 额外开销和 CI 不确定性
+    const viteBin = resolve(root, process.platform === 'win32' ? 'node_modules/.bin/vite.cmd' : 'node_modules/.bin/vite');
+    return new Promise((_resolve, _reject) => {
+        const proc = spawn(viteBin, ['--port', String(port), '--host', '127.0.0.1'], {
+            cwd: root,
+            env: {
+                ...process.env,
+                API_PROXY_TARGET: `http://127.0.0.1:${backendPort}`,
+                WS_PROXY_TARGET: `ws://127.0.0.1:${backendPort}`,
+            },
+            stdio: 'pipe',
+        });
+
+        const serverLogs = [];
+        let resolved = false;
+        const onData = (data) => {
+            const text = data.toString();
+            serverLogs.push(text);
+            if (!resolved && (text.includes(`http://127.0.0.1:${port}`) || text.includes('ready in') || text.includes(`http://localhost:${port}`))) {
+                resolved = true;
+                clearTimeout(timeout);
+                // 再等待 TCP 端口真正可连接
+                waitForTcp(port)
+                    .then(() => {
+                        _resolve({ proc, logs: serverLogs });
+                    })
+                    .catch((err) => {
+                        proc.kill('SIGTERM');
+                        _reject(new Error(`${err.message}\nServer logs:\n${serverLogs.join('')}`));
+                    });
+            }
+        };
+        proc.stdout.on('data', onData);
+        proc.stderr.on('data', onData);
+
+        const timeout = setTimeout(() => {
+            proc.kill('SIGTERM');
+            _reject(new Error('Dev server start timeout (20s)\nServer logs:\n' + serverLogs.join('')));
+        }, 20000);
+
+        proc.on('error', (err) => {
+            clearTimeout(timeout);
+            _reject(new Error(`Dev server spawn error: ${err.message}\nServer logs:\n${serverLogs.join('')}`));
+        });
     });
 }
 
 async function stopDevServer(proc) {
+    if (!proc) return;
     proc.kill('SIGTERM');
     await new Promise((resolve) => {
-        const t = setTimeout(() => { proc.kill('SIGKILL'); resolve(); }, 3000);
+        const t = setTimeout(() => {
+            try { proc.kill('SIGKILL'); } catch {}
+            resolve();
+        }, 5000);
         proc.on('exit', () => { clearTimeout(t); resolve(); });
     });
 }
@@ -72,23 +143,42 @@ async function screenshot(page, name) {
     return path;
 }
 
-/** 收集 console / page error，发现即抛异常使测试失败 */
-async function checkConsoleErrors(page, label) {
-    const errors = [];
-    const onPageError = (err) => errors.push({ type: 'pageerror', message: err.message });
-    const onConsole = (msg) => {
-        if (msg.type() === 'error') errors.push({ type: 'console.error', message: msg.text() });
-    };
-    page.on('pageerror', onPageError);
-    page.on('console', onConsole);
-    await page.waitForTimeout(600);
-    page.off('pageerror', onPageError);
-    page.off('console', onConsole);
-    if (errors.length > 0) {
-        const summary = errors.map((e) => `${e.type}: ${e.message}`).join('\n     ');
-        throw new Error(`[${label}] console errors (${errors.length}):\n     ${summary}`);
+/** 全局 console / page error 收集器，测试结束时统一断言 */
+class ConsoleCollector {
+    constructor() {
+        this.errors = [];
     }
-    console.log(`  ✅ [${label}] 无 console error`);
+
+    attach(page) {
+        const onPageError = (err) => this.errors.push({ type: 'pageerror', message: err.message, stack: err.stack, url: page.url() });
+        const onConsole = (msg) => {
+            if (msg.type() === 'error') this.errors.push({ type: 'console.error', message: msg.text(), url: page.url() });
+        };
+        page.on('pageerror', onPageError);
+        page.on('console', onConsole);
+        return () => {
+            page.off('pageerror', onPageError);
+            page.off('console', onConsole);
+        };
+    }
+
+    assertClean(label) {
+        if (this.errors.length > 0) {
+            const summary = this.errors.map((e) => {
+                let s = `${e.type}: ${e.message}`;
+                if (e.stack) s += `\n       ${e.stack.split('\n').slice(1, 3).join('\n       ')}`;
+                return s;
+            }).join('\n     ');
+            throw new Error(`[${label}] console errors (${this.errors.length}):\n     ${summary}`);
+        }
+        console.log(`  ✅ [${label}] 无 console error`);
+    }
+
+    drain() {
+        const errs = this.errors.slice();
+        this.errors = [];
+        return errs;
+    }
 }
 
 /** 断言元素存在 */
@@ -121,18 +211,64 @@ async function dismissOverlays(page) {
 }
 
 async function run() {
+    const backendPort = await getFreePort();
     const port = await getFreePort();
-    console.log(`[UI-Test] 启动 dev server on port ${port}...`);
-    const serverProc = await startDevServer(port);
-    const baseUrl = `http://localhost:${port}`;
-    console.log(`[UI-Test] Server ready: ${baseUrl}\n`);
-
-    const browser = await chromium.launch({ headless: true });
+    console.log(`[UI-Test] 启动 backend on port ${backendPort}...`);
+    let backendProc = null;
+    let backendLogs = [];
+    let serverProc = null;
+    let serverLogs = [];
+    let browser = null;
     let passed = true;
 
     try {
+        const backendResult = await startBackendServer(backendPort);
+        backendProc = backendResult.proc;
+        backendLogs = backendResult.logs;
+        console.log(`[UI-Test] Backend ready`);
+    } catch (err) {
+        console.error('\n❌ Backend 启动失败:');
+        console.error(err.message);
+        passed = false;
+        console.log('\n====================');
+        console.log(`结果: ❌ 存在失败`);
+        console.log('====================');
+        process.exit(1);
+    }
+
+    console.log(`[UI-Test] 启动 dev server on port ${port}...`);
+    try {
+        const result = await startDevServer(port, backendPort);
+        serverProc = result?.proc;
+        serverLogs = result?.logs;
+    } catch (err) {
+        console.error('\n❌ Dev server 启动失败:');
+        console.error(err.message);
+        passed = false;
+        await stopDevServer(backendProc);
+        console.log('\n====================');
+        console.log(`结果: ❌ 存在失败`);
+        console.log('====================');
+        process.exit(1);
+    }
+
+    const baseUrl = `http://127.0.0.1:${port}`;
+    console.log(`[UI-Test] Server ready: ${baseUrl}`);
+    // 给 Vite 额外 500ms 确保真正开始接受连接
+    await new Promise((r) => setTimeout(r, 500));
+    console.log('');
+
+    try {
+        browser = await chromium.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        });
         const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
         const page = await context.newPage();
+
+        // 全局收集 console errors
+        const consoleCollector = new ConsoleCollector();
+        consoleCollector.attach(page);
 
         // ===== 1. 主菜单 =====
         console.log('--- 1. 主菜单 (1280×800) ---');
@@ -140,7 +276,6 @@ async function run() {
         await page.waitForTimeout(delays.medium);
         await dismissOverlays(page);
         await screenshot(page, '01-menu-desktop');
-        await checkConsoleErrors(page, '主菜单');
 
         const menuBtns = ['btn-ai-mode', 'btn-daily-challenge', 'btn-lan-mode', 'btn-custom-mode', 'btn-replay', 'btn-achievements', 'btn-tutorial', 'btn-settings', 'btn-play-style', 'btn-changelog'];
         for (const id of menuBtns) {
@@ -181,7 +316,6 @@ async function run() {
         await page.click('#btn-ai-mode');
         await page.waitForTimeout(delays.long);
         await screenshot(page, '04-game-ai-desktop');
-        await checkConsoleErrors(page, '进入AI对战');
 
         const headerBtns = ['btn-back-menu', 'btn-pause', 'btn-sound-toggle', 'btn-fullscreen'];
         for (const id of headerBtns) {
@@ -234,14 +368,12 @@ async function run() {
         const backToMenu = await page.$eval('#menu-screen', (el) => !el.classList.contains('hidden'));
         if (!backToMenu) throw new Error('退出 AI 对战后未返回菜单');
         console.log('  ✅ 退出后返回菜单');
-        await checkConsoleErrors(page, '退出AI对战回菜单');
 
         // ===== 5. 自定义模式 =====
         console.log('\n--- 5. 自定义模式 ---');
         await page.click('#btn-custom-mode');
         await page.waitForTimeout(delays.medium);
         await screenshot(page, '06-custom-mode');
-        await checkConsoleErrors(page, '进入自定义模式');
         await page.click('#btn-back-custom');
         await page.waitForTimeout(delays.short);
 
@@ -250,7 +382,6 @@ async function run() {
         await page.click('#btn-lan-mode');
         await page.waitForTimeout(delays.medium);
         await screenshot(page, '07-lan-mode');
-        await checkConsoleErrors(page, '进入LAN模式');
         await page.click('#btn-back-lan');
         await page.waitForTimeout(delays.short);
 
@@ -311,12 +442,12 @@ async function run() {
 
         // 8a. 竖屏菜单 (375×667)
         const mobilePage = await context.newPage();
+        consoleCollector.attach(mobilePage);
         await mobilePage.setViewportSize({ width: 375, height: 667 });
         await mobilePage.goto(baseUrl, { waitUntil: 'networkidle' });
         await mobilePage.waitForTimeout(delays.medium);
         await dismissOverlays(mobilePage);
         await screenshot(mobilePage, '13-menu-mobile-portrait');
-        await checkConsoleErrors(mobilePage, '移动端菜单(竖屏)');
 
         // 8b. 横屏游戏 (812×375)
         await mobilePage.setViewportSize({ width: 812, height: 375 });
@@ -326,7 +457,6 @@ async function run() {
         await mobilePage.click('#btn-ai-mode');
         await mobilePage.waitForTimeout(delays.long);
         await screenshot(mobilePage, '14-game-mobile-landscape');
-        await checkConsoleErrors(mobilePage, '移动端AI对战(横屏)');
 
         // 检查手牌区是否可见
         const cards = await mobilePage.$$('.hand-front .card');
@@ -363,13 +493,29 @@ async function run() {
 
         await mobilePage.close();
 
+        // 最终统一断言 console errors
+        console.log('\n--- Console Error 最终检查 ---');
+        consoleCollector.assertClean('全部页面');
+        if (typeof detachConsole === 'function') detachConsole();
+
     } catch (err) {
         passed = false;
         console.error('\n❌ UI 测试失败:');
         console.error(err.message);
     } finally {
-        await browser.close();
+        if (browser) await browser.close();
         await stopDevServer(serverProc);
+        await stopDevServer(backendProc);
+        if (!passed) {
+            if (Array.isArray(serverLogs) && serverLogs.length > 0) {
+                console.error('\n--- Dev Server 日志 ---');
+                serverLogs.forEach((l) => console.error(l.trimEnd()));
+            }
+            if (Array.isArray(backendLogs) && backendLogs.length > 0) {
+                console.error('\n--- Backend 日志 ---');
+                backendLogs.forEach((l) => console.error(l.trimEnd()));
+            }
+        }
     }
 
     console.log('\n====================');

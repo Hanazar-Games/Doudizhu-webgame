@@ -7,13 +7,19 @@ import { AIMode } from './modes/ai-mode.js';
 import { LANMode } from './modes/lan-mode.js';
 import { CustomMode } from './modes/custom-mode.js';
 import { DailyMode } from './modes/daily-mode.js';
+import { EndgameMode } from './modes/endgame-mode.js';
+import { TournamentMode } from './modes/tournament-mode.js';
 import { ChallengeRecordManager, getTodayString } from './utils/daily-challenge.js';
+import { EndgameRecordManager, ENDGAME_LEVELS } from './utils/endgame-data.js';
+import { TournamentStorage } from './utils/tournament-storage.js';
 import { Renderer } from './ui/renderer.js';
 import { AudioManager } from './ui/audio.js';
 import { Storage } from './utils/storage.js';
 import { ReplayManager } from './utils/replay.js';
 import { Tutorial } from './ui/tutorial.js';
 import { PlayStyleAnalyzer } from './ui/play-style.js';
+import { CoachAnalyzer } from './utils/coach-analyzer.js';
+import { seasonQuestManager, QUEST_META } from './utils/season-quest.js';
 
 class GameApp {
     constructor() {
@@ -51,6 +57,7 @@ class GameApp {
         // 绑定菜单按钮（带点击音效）
         const menuBtns = [
             { id: 'btn-ai-mode', action: () => this.startAIMode() },
+            { id: 'btn-tournament-mode', action: () => this.openTournamentSetup() },
             { id: 'btn-daily-challenge', action: () => this.startDailyMode() },
             { id: 'btn-lan-mode', action: () => this.startLANMode() },
             { id: 'btn-custom-mode', action: () => this.startCustomMode() },
@@ -60,6 +67,8 @@ class GameApp {
             { id: 'btn-tutorial', action: () => this.openTutorial() },
             { id: 'btn-settings', action: () => this.openSettings() },
             { id: 'btn-changelog', action: () => this.openChangelog() },
+            { id: 'btn-season-quests', action: () => this.openSeasonQuests() },
+            { id: 'btn-endgame-mode', action: () => this.showEndgameLevels() },
 
         ];
         for (const { id, action } of menuBtns) {
@@ -78,6 +87,9 @@ class GameApp {
                 action();
             });
         }
+
+        // 注意：菜单按钮事件在 init() 中只绑定一次，GameApp 为单例生命周期与页面一致，
+        // 因此没有集中移除监听器的机制。如需重构为多实例或支持热重启，需补充清理逻辑。
 
         // 音量控制
         let sfxPreviewTimer = null;
@@ -105,6 +117,7 @@ class GameApp {
         bindVolume('cfg-sfx-volume', 'cfg-sfx-volume-value', 'sfxVolume', 'setSFXVolume', true);
         bindVolume('cfg-voice-volume', 'cfg-voice-volume-value', 'voiceVolume', 'setVoiceVolume');
         this._bindUXSettings();
+        this._hideUnimplementedSettings();
 
         // 难度选择
         document.getElementById('difficulty')?.addEventListener('change', (e) => {
@@ -170,6 +183,61 @@ class GameApp {
             if (e.target.id === 'settings-overlay') this.closeSettings();
         });
 
+        // 赛季任务面板事件绑定
+        document.getElementById('btn-close-season-quests')?.addEventListener('click', () => {
+            this.closeSeasonQuests();
+        });
+        document.getElementById('season-quest-overlay')?.addEventListener('click', (e) => {
+            if (e.target.id === 'season-quest-overlay') this.closeSeasonQuests();
+        });
+        document.getElementById('btn-claim-all-quests')?.addEventListener('click', () => {
+            this._playButtonClick();
+            const results = seasonQuestManager.claimAll();
+            if (results.length > 0) {
+                const totalExp = results.reduce((s, r) => s + (r.reward.exp || 0), 0);
+                const badges = results.filter(r => r.reward.badge).map(r => r.reward.badgeName);
+                const msg = [`✅ 一键领取成功！共 ${results.length} 个任务`];
+                if (totalExp) msg.push(`+${totalExp} EXP`);
+                if (badges.length) msg.push(`获得徽章：${badges.join('、')}`);
+                this.renderer?.showToast?.(msg.join('\n'), 'success');
+                this._renderSeasonQuests();
+                this._updateSeasonQuestBadge();
+            } else {
+                this.renderer?.showToast?.('暂无可领取的奖励', 'info');
+            }
+        });
+
+        // 锦标赛配置面板事件绑定
+        document.getElementById('btn-close-tournament-setup')?.addEventListener('click', () => {
+            this.closeTournamentSetup();
+        });
+        document.getElementById('tournament-setup-overlay')?.addEventListener('click', (e) => {
+            if (e.target.id === 'tournament-setup-overlay') this.closeTournamentSetup();
+        });
+        document.querySelectorAll('.tour-round-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this._playButtonClick();
+                document.querySelectorAll('.tour-round-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const val = parseInt(btn.dataset.rounds, 10);
+                const input = document.getElementById('tour-custom-rounds-input');
+                if (input) input.value = val;
+            });
+        });
+        const tourCustomInput = document.getElementById('tour-custom-rounds-input');
+        if (tourCustomInput) {
+            tourCustomInput.addEventListener('change', () => {
+                document.querySelectorAll('.tour-round-btn').forEach(b => b.classList.remove('active'));
+            });
+            tourCustomInput.addEventListener('input', () => {
+                document.querySelectorAll('.tour-round-btn').forEach(b => b.classList.remove('active'));
+            });
+        }
+        document.getElementById('btn-start-tournament')?.addEventListener('click', () => {
+            this._playButtonClick();
+            this.startTournament();
+        });
+
         // 返回按钮（跨屏幕通用）
         document.getElementById('btn-back-lan')?.addEventListener('click', () => {
             this._playButtonClick();
@@ -180,6 +248,10 @@ class GameApp {
             this.showMenu();
         });
         document.getElementById('btn-back-replay')?.addEventListener('click', () => {
+            this._playButtonClick();
+            this.showMenu();
+        });
+        document.getElementById('btn-back-endgame')?.addEventListener('click', () => {
             this._playButtonClick();
             this.showMenu();
         });
@@ -259,12 +331,50 @@ class GameApp {
 
         // 首次加载：延迟检查是否需要自动弹出公告
         setTimeout(() => this._checkAutoShowChangelog(), 1200);
-        // 更新每日挑战徽章
+        // 更新每日挑战徽章和赛季任务徽章
         this._updateDailyChallengeBadge();
+        this._updateSeasonQuestBadge();
     }
 
     _getActiveAudio() {
         return this.renderer?.audio || this.menuAudio;
+    }
+
+    /**
+     * 隐藏未实现的设置项，防止用户看到"保存了但不生效"的假设置
+     */
+    _hideUnimplementedSettings() {
+        const UNIMPLEMENTED = new Set([
+            // 音频：语音播报/语音包/BGM曲目 暂无后端支持
+            'voiceAnnounce', 'bgmTrack', 'voicePack',
+            // 视觉：粒子数量/连击播报阈值 未接入动画系统
+            'particleCount', 'comboAnnounce',
+            // AI：所有行为细调项未接入 AI 决策
+            'aiCallStrategy', 'aiPlayStyle', 'aiMemoryLevel', 'aiCooperation',
+            'aiBluffRate', 'aiRiskTolerance', 'aiDifficultyScale', 'aiEmoteRate', 'aiUseHint',
+            // 交互：大量未实现的操作辅助
+            'spaceConfirm', 'autoHint', 'smartDiscard', 'playConfirm',
+            'smartSort', 'autoArrange', 'autoSortAfterPlay', 'stickySelection',
+            'showPlayPreview', 'gestureEnabled', 'swipeToSelect', 'longPressHint',
+            // 性能/网络/调试：无实际代码消费
+            'frameLimit', 'networkQuality', 'reconnectAttempts', 'heartbeatInterval',
+            'lagCompensation', 'autoSaveInterval',
+            // 辅助：未实现的高级提示
+            'showWinProbability', 'showBestMove', 'handAnalysis',
+            'showOpponentTendency', 'showDangerCards',
+            'autoOpenTracker', 'autoOpenHistory', 'hintDetail', 'sortOrder',
+            // 面板开关：enableStats/enableAchievements 未接入面板显隐
+            'enableStats', 'enableAchievements',
+        ]);
+        for (const key of UNIMPLEMENTED) {
+            const control = document.querySelector(`[data-setting="${key}"]`);
+            if (!control) continue;
+            const container = control.closest('.setting-row, .toggle-switch-wrap, .setting-slider, .volume-control, label');
+            if (container) {
+                container.style.display = 'none';
+                container.dataset.unimplemented = 'true';
+            }
+        }
     }
 
     _syncAudioSettings(audio) {
@@ -397,6 +507,8 @@ class GameApp {
     }
 
     _bindUXSettings() {
+        if (this._uxSettingsBound) return;
+        this._uxSettingsBound = true;
         const controls = document.querySelectorAll('[data-setting]');
         controls.forEach(control => {
             const eventName = control.type === 'range' ? 'input' : 'change';
@@ -411,6 +523,9 @@ class GameApp {
                     this.settings[key] = control.value;
                 }
                 Storage.saveSettings(this.settings);
+                if (key.startsWith('enable') && key.endsWith('Sound')) {
+                    this._getActiveAudio()?.reloadSfxSettings?.();
+                }
                 this._applyUXSettings();
                 this._updateUXSettingLabel(key);
 
@@ -537,7 +652,7 @@ class GameApp {
         document.getElementById('btn-reset-all-settings')?.addEventListener('click', () => {
             this._playButtonClick();
             this._getActiveAudio()?.playSettingReset?.();
-            if (confirm('确定要恢复所有设置到默认状态吗？这将重置包括游戏规则在内的所有参数。')) {
+            if (confirm('确定要恢复所有设置到默认状态吗？这将重置包括游戏规则在内的所有参数，但不会清除牌风分析数据（如需清除请前往牌风分析面板）。')) {
                 this.settings = Storage.resetSettings(); // 清除 localStorage 并获取纯默认值
                 this._syncAllSettings();
                 this._applyUXSettings();
@@ -1144,6 +1259,22 @@ class GameApp {
             this.renderer?.showAchievementUnlock(unlocked);
         }
 
+        // 赛季任务上报
+        const modeName = this.currentMode?.modeName || 'unknown';
+        const questCompleted = seasonQuestManager.reportGame({
+            isWin,
+            isLandlord: humanIdx === gs?.landlordIndex,
+            bombCount: bombsPlayed,
+            hasRocket: rocketPlayed,
+            isSpring: data.springType === 'spring',
+            isAntiSpring: data.springType === 'anti_spring',
+            mode: modeName,
+        });
+        if (questCompleted.length > 0) {
+            this.renderer?.showQuestCompleted?.(questCompleted);
+            this._updateSeasonQuestBadge();
+        }
+
         // 保存完整牌局（用于回放）
         if (gs) {
             const fullGame = {
@@ -1155,10 +1286,11 @@ class GameApp {
                 initialBottom: gs.initialBottom,
                 landlordIndex: gs.landlordIndex,
                 currentCall: gs.currentCall,
+                dealerIndex: gs.dealerIndex,
                 history: gs.history.map(h => ({
                     playerIndex: h.playerIndex,
-                    cards: h.cards.map(c => ({ value: c.value, suit: c.suit?.name, rank: c.rankKey, displayName: c.displayName })),
-                    pattern: { type: h.pattern?.type, mainValue: h.pattern?.mainValue },
+                    cards: h.cards.map(c => ({ value: c.value, suit: c.suit?.name, rank: c.rankKey, displayName: c.displayName, isLaizi: c.isLaizi })),
+                    pattern: { type: h.pattern?.type, mainValue: h.pattern?.mainValue, length: h.pattern?.length },
                     timestamp: h.timestamp,
                 })),
                 result: {
@@ -1171,6 +1303,26 @@ class GameApp {
                 },
             };
             Storage.saveFullGame(fullGame);
+            this._lastSavedGameId = fullGame.id;
+
+            // AI 教练复盘
+            try {
+                const coachResult = CoachAnalyzer.analyze(fullGame, humanIdx);
+                if (coachResult) {
+                    this._lastCoachResult = coachResult;
+                    Storage.saveCoachReview({
+                        date: new Date().toISOString(),
+                        gameId: fullGame.id,
+                        score: coachResult.summary.score,
+                        highCount: coachResult.summary.highCount,
+                        mediumCount: coachResult.summary.mediumCount,
+                        suggestionTypes: coachResult.suggestions.map(s => s.type),
+                    });
+                }
+            } catch (e) {
+                // 复盘失败不应影响主流程
+                console.warn('AI教练复盘失败:', e);
+            }
         }
 
         // 牌风分析数据收集
@@ -1195,6 +1347,8 @@ class GameApp {
             // 估算思考时间（基于AI延迟和人类操作）
             const isLandlord = humanIdx === gs?.landlordIndex;
             const callScore = gs?.currentCall || 0;
+            const humanPassCount = humanHistory.filter(h => h.pattern?.type === 'PASS').length;
+            const humanPlayCount = humanHistory.filter(h => h.pattern?.type !== 'PASS' && h.cards?.length > 0).length;
             this.playStyle.recordGame({
                 isWin: isHumanWin,
                 isLandlord,
@@ -1207,6 +1361,8 @@ class GameApp {
                 decisions: humanHistory.length + (isLandlord ? 1 : 0),
                 callScore: isLandlord ? callScore : 0,
                 bigPlays,
+                passed: humanPassCount > 0,
+                played: humanPlayCount > 0,
             });
         } catch (e) {
             // 牌风数据收集失败不应影响主流程
@@ -1424,14 +1580,16 @@ class GameApp {
 
         if (this._gameBgmTimer) { clearTimeout(this._gameBgmTimer); this._gameBgmTimer = null; }
 
-        // 刷新每日挑战徽章
+        // 刷新每日挑战徽章和残局徽章
         this._updateDailyChallengeBadge();
+        this._updateEndgameBadge();
 
         // 切换回菜单BGM
         this._playMenuBGM();
 
         // 淡出当前屏幕
-        [game, lan, custom, replay].forEach(s => {
+        const endgame = document.getElementById('endgame-screen');
+        [game, lan, custom, replay, endgame].forEach(s => {
             if (s && !s.classList.contains('hidden')) {
                 s.style.opacity = '1';
                 s.style.transition = 'opacity 0.3s ease';
@@ -1510,8 +1668,50 @@ class GameApp {
         this._replayManager.showGameList();
     }
 
-    startReplay() {
-        this.showReplayList();
+    startReplay(arg = null) {
+        const container = document.getElementById('replay-container');
+        if (!container) return;
+        if (this._replayManager) {
+            this._replayManager.stop();
+        }
+        this._replayManager = new ReplayManager('replay-container');
+        const games = this._replayManager.loadGames();
+        if (games.length === 0) {
+            this.showToast('暂无回放数据', 'info');
+            return;
+        }
+
+        let targetGame = null;
+        let jumpRoundIndex = null;
+
+        if (arg == null) {
+            this.showReplayList();
+            return;
+        } else if (arg === 'latest') {
+            targetGame = games[0];
+        } else if (typeof arg === 'number') {
+            targetGame = games[0];
+            jumpRoundIndex = arg;
+        } else if (typeof arg === 'string') {
+            targetGame = games.find(g => g.id === arg) || games[0];
+        }
+
+        if (!targetGame) {
+            this.showToast('找不到对应回放', 'info');
+            this.showReplayList();
+            return;
+        }
+
+        // 隐藏菜单/游戏界面，显示回放
+        document.getElementById('menu-screen')?.classList.add('hidden');
+        document.getElementById('game-screen')?.classList.add('hidden');
+        document.getElementById('custom-screen')?.classList.add('hidden');
+        document.getElementById('endgame-screen')?.classList.add('hidden');
+        document.getElementById('replay-screen')?.classList.remove('hidden');
+        this._replayManager.startReplay(targetGame);
+        if (jumpRoundIndex != null) {
+            this._replayManager.goToStep(jumpRoundIndex);
+        }
     }
 
     showAchievements() {
@@ -1649,6 +1849,97 @@ class GameApp {
         }
     }
 
+    // ===== 锦标赛模式 =====
+    openTournamentSetup() {
+        const overlay = document.getElementById('tournament-setup-overlay');
+        if (!overlay) return;
+        overlay.classList.remove('hidden');
+        overlay.style.opacity = '0';
+        requestAnimationFrame(() => {
+            overlay.style.transition = 'opacity 0.3s ease';
+            overlay.style.opacity = '1';
+        });
+        // 渲染历史统计
+        this._renderTournamentStatsPreview();
+        this._getActiveAudio()?.playSettingOpen?.();
+    }
+
+    closeTournamentSetup() {
+        const overlay = document.getElementById('tournament-setup-overlay');
+        if (!overlay || overlay.classList.contains('hidden')) return;
+        overlay.style.transition = 'opacity 0.2s ease-in';
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.classList.add('hidden'), 200);
+        this._getActiveAudio()?.playSettingClose?.();
+    }
+
+    _renderTournamentStatsPreview() {
+        const container = document.getElementById('tour-stats-preview');
+        if (!container) return;
+        const stats = TournamentStorage.getStats();
+        if (stats.totalPlayed === 0) {
+            container.innerHTML = '<div class="tour-stats-preview-title">🏆 锦标赛统计</div><div style="opacity:0.6;font-size:0.78rem;">暂无锦标赛记录，开始你的第一场锦标赛吧！</div>';
+            return;
+        }
+        container.innerHTML = `
+            <div class="tour-stats-preview-title">🏆 锦标赛统计</div>
+            <div class="tour-stats-preview-grid">
+                <div><span>参赛次数</span><span>${stats.totalPlayed}</span></div>
+                <div><span>冠军次数</span><span>${stats.championCount}</span></div>
+                <div><span>最高总分</span><span>${stats.highestScore > 0 ? '+' : ''}${stats.highestScore}</span></div>
+                <div><span>平均排名</span><span>第 ${stats.avgRank} 名</span></div>
+                <div><span>最佳排名</span><span>第 ${stats.bestRank} 名</span></div>
+            </div>
+        `;
+    }
+
+    async startTournament() {
+        this.closeTournamentSetup();
+        if (this._modeStarting) return;
+        this._modeStarting = true;
+        try {
+            if (this.currentMode) {
+                this.currentMode.isRunning = false;
+                this.currentMode.destroy?.();
+            }
+            this.renderer?.destroy?.();
+            this.renderer = null;
+
+            const diff = document.getElementById('tour-difficulty')?.value || this.settings.difficulty || 'normal';
+            // 优先取自定义输入，否则取选中的按钮
+            const customInput = document.getElementById('tour-custom-rounds-input');
+            let rounds = customInput ? parseInt(customInput.value, 10) : 3;
+            if (isNaN(rounds) || rounds < 2) rounds = 3;
+            if (rounds > 50) rounds = 50;
+
+            this.currentMode = new TournamentMode(diff, rounds);
+            await this.currentMode.init();
+            this.currentMode.speedFactor = Math.max(0.3, Math.min(5.0, this.settings.gameSpeed || 1.0));
+            const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
+            if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
+            document.getElementById('mode-display').textContent = `锦标赛 · ${rounds}局 · ${diff === 'easy' ? '简单' : diff === 'hard' ? '困难' : diff === 'expert' ? '专家' : '普通'}`;
+
+            this.renderer = new Renderer('game-table');
+            this.renderer.setGameState(this.currentMode.gameState);
+            this.renderer.setMode(this.currentMode);
+            this._configureRendererAudio(this.renderer);
+            this.currentMode.setRenderer(this.renderer);
+
+            this._roundEndBound = false;
+            this._bindRoundEndListener();
+
+            this.showGame();
+            this._lockGameRuleSettings(true);
+            await this.currentMode.startGame();
+        } catch (err) {
+            console.error('启动锦标赛失败:', err);
+            this._showFallbackToast('锦标赛启动失败，请返回菜单重试');
+            this.showMenu();
+        } finally {
+            this._modeStarting = false;
+        }
+    }
+
     // ---- 通用页面过渡 ----
     _transitionToScreen(targetId) {
         const menu = document.getElementById('menu-screen');
@@ -1752,6 +2043,102 @@ class GameApp {
         }
     }
 
+    // ---- 残局训练 ----
+    showEndgameLevels() {
+        this._playMenuBGM(0);
+        this._transitionToScreen('endgame-screen');
+        this._renderEndgameLevels();
+    }
+
+    _renderEndgameLevels() {
+        const grid = document.getElementById('endgame-levels-grid');
+        const progressFill = document.getElementById('endgame-progress-fill');
+        const progressText = document.getElementById('endgame-progress-text');
+        if (!grid) return;
+
+        const records = EndgameRecordManager.getRecords();
+        const progress = EndgameRecordManager.getProgress();
+        if (progressFill) progressFill.style.width = `${(progress.passed / progress.total) * 100}%`;
+        if (progressText) progressText.textContent = `${progress.passed}/${progress.total}`;
+
+        grid.innerHTML = '';
+        for (const level of ENDGAME_LEVELS) {
+            const record = records[level.id];
+            const isLocked = level.id > 1 && !records[level.id - 1]?.passed;
+            const stars = record?.stars || 0;
+            const card = document.createElement('div');
+            card.className = `endgame-level-card ${isLocked ? 'locked' : ''} ${record?.passed ? 'completed' : ''}`;
+            card.innerHTML = `
+                <div class="endgame-level-id">${level.id}</div>
+                <div class="endgame-level-name">${level.name}</div>
+                <div class="endgame-level-desc">${level.objective}</div>
+                <div class="endgame-level-stars">${'⭐'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>
+                ${record?.bestSteps ? `<div class="endgame-level-steps">最佳 ${record.bestSteps} 步</div>` : ''}
+                ${isLocked ? '<div class="endgame-level-lock">🔒</div>' : ''}
+            `;
+            if (!isLocked) {
+                card.addEventListener('click', () => {
+                    this._playButtonClick();
+                    this.startEndgameMode(level.id - 1);
+                });
+            }
+            grid.appendChild(card);
+        }
+    }
+
+    async startEndgameMode(levelIndex = 0) {
+        if (this._modeStarting) return;
+        this._modeStarting = true;
+        try {
+            if (this.currentMode) {
+                this.currentMode.isRunning = false;
+                this.currentMode.destroy?.();
+            }
+            this.renderer?.destroy?.();
+            this.renderer = null;
+
+            const endgameMode = new EndgameMode(levelIndex);
+            await endgameMode.init();
+            this.currentMode = endgameMode;
+            this.currentMode.speedFactor = Math.max(0.3, Math.min(5.0, this.settings.gameSpeed || 1.0));
+            const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
+            if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
+            document.getElementById('mode-display').textContent = `残局训练 · 第${levelIndex + 1}关`;
+
+            this.renderer = new Renderer('game-table');
+            this.renderer.setGameState(this.currentMode.gameState);
+            this.renderer.setMode(this.currentMode);
+            this._configureRendererAudio(this.renderer);
+            this.currentMode.setRenderer(this.renderer);
+
+            this._roundEndBound = false;
+            this._bindRoundEndListener();
+
+            this.showGame();
+            this._lockGameRuleSettings(true);
+            await this.currentMode.startGame();
+        } catch (err) {
+            console.error('启动残局训练失败:', err);
+            this._showFallbackToast('残局启动失败，请返回菜单重试');
+            this.showMenu();
+        } finally {
+            this._modeStarting = false;
+        }
+    }
+
+    _updateEndgameBadge() {
+        const desc = document.getElementById('endgame-desc');
+        if (!desc) return;
+        const progress = EndgameRecordManager.getProgress();
+        if (progress.passed === 0) {
+            desc.textContent = '挑战5个经典残局';
+        } else if (progress.passed === progress.total) {
+            desc.textContent = `⭐ ${progress.totalStars}/${progress.maxStars} 全通关`;
+        } else {
+            desc.textContent = `进度 ${progress.passed}/${progress.total} · ⭐ ${progress.totalStars}`;
+        }
+    }
+
     async startDailyMode() {
         if (this._modeStarting) return;
         this._modeStarting = true;
@@ -1797,6 +2184,16 @@ class GameApp {
 
     // ===== 每日挑战结果面板 =====
     openChallengeResult(result, roundData, stats) {
+        // 赛季任务：每日挑战上报
+        const questCompleted = seasonQuestManager.reportDailyChallenge({
+            completed: result.isWin,
+            stars: result.stars,
+        });
+        if (questCompleted.length > 0) {
+            this.renderer?.showQuestCompleted?.(questCompleted);
+            this._updateSeasonQuestBadge();
+        }
+
         const overlay = document.getElementById('challenge-result-overlay');
         if (!overlay) return;
         overlay.classList.remove('hidden');
@@ -1850,7 +2247,18 @@ class GameApp {
         if (btnShare) {
             btnShare.onclick = () => {
                 this._playButtonClick();
-                const shareText = `📅 斗地主每日挑战 ${result.date}\n${'⭐'.repeat(result.stars)} ${result.isWin ? '挑战成功' : '挑战失败'}\n得分: ${result.score > 0 ? '+' : ''}${result.score}\n连胜: ${stats.streak}天`;
+                const starText = result.stars === 0 ? '💫 0星' : '⭐'.repeat(result.stars);
+                const springText = result.springType === 'spring' ? '🌸 春天' :
+                    result.springType === 'anti_spring' ? '❄️ 反春天' : '';
+                const lines = [
+                    `📅 斗地主每日挑战 ${result.date}`,
+                    `${starText} ${result.isWin ? '挑战成功' : '挑战失败'}`,
+                    `得分: ${result.score > 0 ? '+' : ''}${result.score}`,
+                ];
+                if (springText) lines.push(springText);
+                if (result.bombCount > 0) lines.push(`💣 炸弹: ${result.bombCount}个`);
+                lines.push(`🔥 连胜: ${stats.streak}天`);
+                const shareText = lines.join('\n');
                 navigator.clipboard?.writeText?.(shareText).then(() => {
                     this.renderer?.showToast?.('成绩已复制到剪贴板', 'success');
                 }).catch(() => {
@@ -1955,6 +2363,154 @@ class GameApp {
         if (best.stars === 3) {
             desc.classList.add('daily-badge-three-star');
         }
+    }
+
+    // ===== 赛季任务面板 =====
+    openSeasonQuests() {
+        this._playButtonClick();
+        const overlay = document.getElementById('season-quest-overlay');
+        if (!overlay || !overlay.classList.contains('hidden')) return;
+        overlay.classList.remove('hidden');
+        overlay.style.opacity = '0';
+        requestAnimationFrame(() => {
+            overlay.style.transition = 'opacity 0.3s ease';
+            overlay.style.opacity = '1';
+        });
+        this._renderSeasonQuests('daily');
+        this._getActiveAudio()?.playSettingOpen?.();
+    }
+
+    closeSeasonQuests() {
+        const overlay = document.getElementById('season-quest-overlay');
+        if (!overlay || overlay.classList.contains('hidden')) return;
+        overlay.style.transition = 'opacity 0.2s ease-in';
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.classList.add('hidden'), 200);
+        this._getActiveAudio()?.playSettingClose?.();
+    }
+
+    _updateSeasonQuestBadge() {
+        const badge = document.getElementById('season-quest-badge');
+        if (!badge) return;
+        const hasUnclaimed = seasonQuestManager.hasUnclaimed();
+        badge.classList.toggle('hidden', !hasUnclaimed);
+    }
+
+    _renderSeasonQuests(activeTab = 'daily') {
+        const content = document.getElementById('season-quest-content');
+        if (!content) return;
+        const data = seasonQuestManager.getData();
+        const progress = seasonQuestManager.getProgress();
+
+        // 标签页
+        const tabsHtml = `
+            <div class="sq-tabs">
+                <div class="sq-tab ${activeTab === 'daily' ? 'active' : ''}" data-tab="daily">每日 (${progress.daily.done}/${progress.daily.total})</div>
+                <div class="sq-tab ${activeTab === 'weekly' ? 'active' : ''}" data-tab="weekly">每周 (${progress.weekly.done}/${progress.weekly.total})</div>
+                <div class="sq-tab ${activeTab === 'season' ? 'active' : ''}" data-tab="season">赛季 (${progress.season.done}/${progress.season.total})</div>
+            </div>
+        `;
+
+        // 概览
+        const overviewHtml = `
+            <div class="sq-overview">
+                <div class="sq-exp-circle">
+                    <span>${progress.totalExp}</span>
+                    <small>EXP</small>
+                </div>
+                <div class="sq-overview-info">
+                    <div class="sq-overview-title">当前赛季 · 夏日激战</div>
+                    <div class="sq-overview-desc">完成任务获得经验值与专属徽章</div>
+                </div>
+            </div>
+        `;
+
+        // 徽章展示
+        const badges = seasonQuestManager.getBadges();
+        const badgesHtml = badges.length > 0 ? `
+            <div style="margin-bottom:14px;">
+                <div style="font-size:0.8rem;font-weight:600;opacity:0.7;margin-bottom:6px;">已获徽章</div>
+                <div class="sq-badges-grid">
+                    ${badges.map(b => `<div class="sq-badge-item"><span class="sq-badge-emoji">${b.emoji}</span><span class="sq-badge-name">${b.name}</span></div>`).join('')}
+                </div>
+            </div>
+        ` : '';
+
+        // 任务列表
+        let quests = [];
+        if (activeTab === 'daily') quests = data.daily.quests;
+        else if (activeTab === 'weekly') quests = data.weekly.quests;
+        else if (activeTab === 'season') quests = data.season.quests;
+
+        const questsHtml = this._renderQuestList(quests);
+
+        content.innerHTML = tabsHtml + overviewHtml + badgesHtml + questsHtml;
+
+        // 绑定标签切换
+        content.querySelectorAll('.sq-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                this._playButtonClick();
+                this._renderSeasonQuests(tab.dataset.tab);
+            });
+        });
+
+        // 绑定领取按钮
+        content.querySelectorAll('.sq-btn-claim').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this._playButtonClick();
+                const questId = btn.dataset.questId;
+                const reward = seasonQuestManager.claimReward(questId);
+                if (reward) {
+                    const q = quests.find(x => x.id === questId);
+                    const msg = [`✅ 领取成功！`];
+                    if (reward.exp) msg.push(`+${reward.exp} EXP`);
+                    if (reward.badgeName) msg.push(`获得徽章「${reward.badgeName}」`);
+                    this.renderer?.showToast?.(msg.join(' '), 'success');
+                    this._renderSeasonQuests(activeTab);
+                    this._updateSeasonQuestBadge();
+                }
+            });
+        });
+    }
+
+    _renderQuestList(quests) {
+        if (!quests || quests.length === 0) {
+            return '<div style="text-align:center;padding:20px;opacity:0.5;font-size:0.85rem;">暂无任务</div>';
+        }
+        const items = quests.map(q => {
+            const meta = QUEST_META[q.type] || { name: q.type, desc: '', icon: '⭐', unit: '' };
+            const pct = Math.min(100, Math.round((q.current / Math.max(q.target, 1)) * 100));
+            const isClaimed = q.claimed;
+            const isCompleted = q.completed && !isClaimed;
+            const rewardText = [];
+            if (q.reward?.exp) rewardText.push(`+${q.reward.exp} EXP`);
+            if (q.reward?.badgeName) rewardText.push(`🏅 ${q.reward.badgeName}`);
+
+            return `
+                <div class="sq-quest-item ${q.completed ? 'completed' : ''} ${isClaimed ? 'claimed' : ''}">
+                    <div class="sq-quest-icon">${meta.icon}</div>
+                    <div class="sq-quest-info">
+                        <div class="sq-quest-name">${meta.name}</div>
+                        <div class="sq-quest-desc">${meta.desc} (${q.target}${meta.unit})</div>
+                        <div class="sq-quest-progress-wrap">
+                            <div class="sq-quest-progress-bar">
+                                <div class="sq-quest-progress-fill" style="width:${pct}%"></div>
+                            </div>
+                            <div class="sq-quest-progress-text">${q.current}/${q.target}</div>
+                        </div>
+                    </div>
+                    <div class="sq-quest-action">
+                        ${isCompleted
+                            ? `<button class="sq-btn-claim" data-quest-id="${q.id}">领取</button>`
+                            : isClaimed
+                                ? `<button class="sq-btn-claimed" disabled>已领</button>`
+                                : `<div class="sq-quest-reward">${rewardText.join('<br>')}</div>`
+                        }
+                    </div>
+                </div>
+            `;
+        }).join('');
+        return `<div class="sq-quest-list">${items}</div>`;
     }
 }
 

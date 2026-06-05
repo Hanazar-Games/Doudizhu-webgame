@@ -35,6 +35,10 @@ class CommentaryEngine {
      */
     trigger(event, data = {}) {
         if (!this._enabled) return;
+        // 限制队列长度，防止高频事件导致内存泄漏和延迟堆积
+        if (this._queue.length >= 10) {
+            this._queue.shift();
+        }
         const now = performance.now();
         const remaining = this._cooldown - (now - this._lastCommentTime);
         if (remaining > 0) {
@@ -173,35 +177,50 @@ class CommentaryEngine {
         const pos = this._slotPositions[this._lastSlotIndex];
         el.style.left = pos.left + '%';
         el.style.top = pos.top + '%';
-        el.style.transform = 'translate(-50%, -50%) scale(0.5)';
         el.style.zIndex = '9997';
         el.style.pointerEvents = 'none';
         el.style.whiteSpace = 'nowrap';
         el.dataset.animFx = 'true';
 
+        const reduceMotion = document.body.dataset.reduceMotion === 'true';
+
+        if (reduceMotion) {
+            el.style.transform = 'translate(-50%, -50%) scale(1)';
+            el.style.opacity = '1';
+        } else {
+            el.style.transform = 'translate(-50%, -50%) scale(0.5)';
+            el.style.opacity = '0';
+        }
+
         this.container.appendChild(el);
 
-        // 强制重排触发动画
-        requestAnimationFrame(() => {
+        if (!reduceMotion) {
+            // 强制重排触发动画
             requestAnimationFrame(() => {
-                if (!el.isConnected) return;
-                el.style.transform = 'translate(-50%, -50%) scale(1)';
-                el.style.opacity = '1';
+                requestAnimationFrame(() => {
+                    if (!el.isConnected) return;
+                    el.style.transform = 'translate(-50%, -50%) scale(1)';
+                    el.style.opacity = '1';
+                });
             });
-        });
+        }
 
         // 3秒后淡出移除
         const fadeTimer = setTimeout(() => {
             this._activeTimers.delete(fadeTimer);
             if (!el.isConnected) return;
-            el.style.transition = 'all 0.4s ease-out';
-            el.style.transform = 'translate(-50%, -50%) scale(0.6)';
-            el.style.opacity = '0';
-            const removeTimer = setTimeout(() => {
-                this._activeTimers.delete(removeTimer);
+            if (reduceMotion) {
                 el.remove();
-            }, 400);
-            this._activeTimers.add(removeTimer);
+            } else {
+                el.style.transition = 'all 0.4s ease-out';
+                el.style.transform = 'translate(-50%, -50%) scale(0.6)';
+                el.style.opacity = '0';
+                const removeTimer = setTimeout(() => {
+                    this._activeTimers.delete(removeTimer);
+                    el.remove();
+                }, 400);
+                this._activeTimers.add(removeTimer);
+            }
         }, 2500);
         this._activeTimers.add(fadeTimer);
     }

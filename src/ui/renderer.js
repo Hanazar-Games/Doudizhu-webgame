@@ -721,6 +721,11 @@ class Renderer {
                 e.preventDefault();
                 const enabled = this.audio.toggle();
                 this.showToast(enabled ? '🔊 音效已开启' : '🔇 音效已关闭');
+                // 同步到全局设置
+                if (window.gameApp) {
+                    window.gameApp.settings.soundEnabled = enabled;
+                    Storage.saveSettings(window.gameApp.settings);
+                }
                 const btn = document.getElementById('btn-sound-toggle');
                 if (btn) btn.textContent = enabled ? '🔊' : '🔇';
             }
@@ -2544,6 +2549,7 @@ class Renderer {
         const overlay = this.container.querySelector('#modal-overlay');
         const content = this.container.querySelector('#modal-content');
         if (!overlay || !content || !this.gameState) return;
+        this._lastRoundResult = { data, matchStatus };
 
         const winner = this.gameState.players?.[data.winnerIndex];
         const resultText = data.isLandlordWin ? '地主胜利' : '农民胜利';
@@ -2591,10 +2597,56 @@ class Renderer {
                 </div>
             `;
 
+            // 锦标赛增强信息
+            if (matchStatus.isTournament && matchStatus.roundResults?.length > 0) {
+                const lastRound = matchStatus.roundResults[matchStatus.roundResults.length - 1];
+                const humanIdx = this.mode?.humanIndex ?? -1;
+
+                // 本局得分增量
+                const roundDeltaHtml = lastRound.scores.map((s, i) => `
+                    <span class="tour-delta ${s > 0 ? 'positive' : s < 0 ? 'negative' : ''}">${esc(this.gameState.players[i]?.name || '?')}: ${s > 0 ? '+' : ''}${s}</span>
+                `).join('');
+
+                // 排名变化
+                const prevScores = matchStatus.roundResults.length > 1
+                    ? matchStatus.roundResults[matchStatus.roundResults.length - 2].cumulativeScores
+                    : [0, 0, 0];
+                const prevSorted = prevScores.map((s, i) => ({ score: s, index: i })).sort((a, b) => b.score - a.score);
+                const currSorted = lastRound.cumulativeScores.map((s, i) => ({ score: s, index: i })).sort((a, b) => b.score - a.score);
+                const prevRank = new Array(3);
+                const currRank = new Array(3);
+                prevSorted.forEach((p, i) => { prevRank[p.index] = i + 1; });
+                currSorted.forEach((p, i) => { currRank[p.index] = i + 1; });
+
+                const rankChangeHtml = currRank.map((r, i) => {
+                    const change = prevRank[i] - r;
+                    const arrow = change > 0 ? '▲' : change < 0 ? '▼' : '-';
+                    const cls = change > 0 ? 'up' : change < 0 ? 'down' : 'same';
+                    return `<span class="tour-rank ${cls}">${esc(this.gameState.players[i]?.name || '?')}: 第${r}名 ${arrow}${change !== 0 ? Math.abs(change) : ''}</span>`;
+                }).join('');
+
+                // MVP（累计最高）
+                const mvp = currSorted[0];
+                const mvpHtml = `<div class="tour-mvp">👑 当前榜首: ${esc(this.gameState.players[mvp.index]?.name || '?')} (${mvp.score > 0 ? '+' : ''}${mvp.score})</div>`;
+
+                matchScoreText += `
+                    <div class="tour-round-info">
+                        <div class="tour-round-title">📊 本局战况</div>
+                        <div class="tour-deltas">${roundDeltaHtml}</div>
+                        <div class="tour-ranks">${rankChangeHtml}</div>
+                        ${mvpHtml}
+                    </div>
+                `;
+            }
+
             if (matchStatus.isFinished) {
                 isMatchEnd = true;
                 matchText = `<div class="match-round match-end">🏆 比赛结束</div>`;
-                nextButtonText = '重新开始';
+                if (matchStatus.isTournament) {
+                    nextButtonText = '查看锦标赛结果';
+                } else {
+                    nextButtonText = '重新开始';
+                }
                 this.audio.playMatchEnd();
             } else {
                 nextButtonText = '下一局';
@@ -2631,6 +2683,7 @@ class Renderer {
             ${matchScoreText}
             <button id="btn-next-round">${nextButtonText}</button>
             ${!isMatchEnd ? '<button id="btn-replay">📹 查看回放</button>' : ''}
+            <button id="btn-coach-review">🤖 AI 教练复盘</button>
             <button id="btn-share-round">📋 分享本局</button>
             <button id="btn-round-back-menu">返回菜单</button>
         `;
@@ -2716,6 +2769,11 @@ class Renderer {
             btnNext._roundClickHandler = () => {
                 this.audio.playButtonClick();
                 this._closeModal(overlay, content);
+                if (isMatchEnd && matchStatus?.isTournament) {
+                    // 锦标赛结束，显示锦标赛结算面板
+                    this.showTournamentResult(matchStatus);
+                    return;
+                }
                 if (isMatchEnd && matchStatus) {
                     // 比赛结束，重置
                     this.mode?.setMatchRounds(matchStatus.totalRounds);
@@ -2732,7 +2790,7 @@ class Renderer {
                     this.audio.playButtonClick();
                     this._closeModal(overlay, content);
                     if (window.gameApp?.startReplay) {
-                        window.gameApp.startReplay();
+                        window.gameApp.startReplay('latest');
                     }
                 };
                 btnReplay.addEventListener('click', btnReplay._roundClickHandler);
@@ -2756,6 +2814,213 @@ class Renderer {
                 window.gameApp?.showMenu();
             };
             btnRoundBackMenu.addEventListener('click', btnRoundBackMenu._roundClickHandler);
+        }
+
+        const btnCoach = content.querySelector('#btn-coach-review');
+        if (btnCoach) {
+            btnCoach._roundClickHandler = () => {
+                this.audio.playButtonClick();
+                const result = window.gameApp?._lastCoachResult;
+                if (result) {
+                    this.showCoachReview(result, overlay, content);
+                } else {
+                    this.showToast('暂无复盘数据', 'info');
+                }
+            };
+            btnCoach.addEventListener('click', btnCoach._roundClickHandler);
+        }
+    }
+
+    showCoachReview(result, overlay, content) {
+        if (!content || !result) return;
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
+        const severityClass = (s) => s === 'high' ? 'severity-high' : s === 'medium' ? 'severity-medium' : 'severity-low';
+        const severityIcon = (s) => s === 'high' ? '🔴' : s === 'medium' ? '🟡' : '🟢';
+
+        const score = result.summary.score;
+        const scoreClass = score >= 80 ? 'score-good' : score >= 50 ? 'score-mid' : 'score-bad';
+
+        content.innerHTML = `
+            <h2>🤖 AI 教练复盘</h2>
+            <div class="coach-score ${scoreClass}">
+                <span class="coach-score-value">${score}</span>
+                <span class="coach-score-label">复盘得分</span>
+            </div>
+            <div class="coach-suggestions">
+                ${result.suggestions.map((s, i) => `
+                    <div class="coach-suggestion ${severityClass(s.severity)}">
+                        <div class="coach-suggestion-header">
+                            <span class="coach-suggestion-icon">${severityIcon(s.severity)}</span>
+                            <span class="coach-suggestion-title">${esc(s.message)}</span>
+                        </div>
+                        ${s.detail ? `<div class="coach-suggestion-detail">${esc(s.detail)}</div>` : ''}
+                        ${s.roundIndex >= 0 ? `<button class="coach-jump-btn" data-round="${s.roundIndex}">⏩ 跳转到第 ${s.roundIndex + 1} 回合</button>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+            <button id="btn-coach-close">← 返回结算</button>
+        `;
+
+        // 绑定跳转按钮
+        content.querySelectorAll('.coach-jump-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.audio.playButtonClick();
+                const roundIdx = parseInt(btn.dataset.round, 10);
+                this._closeModal(overlay, content);
+                if (window.gameApp?.startReplay) {
+                    window.gameApp.startReplay(roundIdx);
+                }
+            });
+        });
+
+        const btnClose = content.querySelector('#btn-coach-close');
+        if (btnClose) {
+            btnClose.addEventListener('click', () => {
+                this.audio.playButtonClick();
+                if (this._lastRoundResult) {
+                    this.showRoundResult(this._lastRoundResult.data, this._lastRoundResult.matchStatus);
+                } else {
+                    this._closeModal(overlay, content);
+                }
+            });
+        }
+    }
+
+    showTournamentResult(matchStatus) {
+        const overlay = this.container.querySelector('#modal-overlay');
+        const content = this.container.querySelector('#modal-content');
+        if (!overlay || !content) return;
+
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
+        const gs = this.gameState;
+        const humanIdx = this.mode?.humanIndex ?? -1;
+        const roundResults = matchStatus.roundResults || [];
+
+        // 最终排名
+        const finalScores = matchStatus.matchScores || [0, 0, 0];
+        const finalRankings = finalScores
+            .map((score, i) => ({ score, index: i, name: gs?.players[i]?.name || '?', isHuman: i === humanIdx }))
+            .sort((a, b) => b.score - a.score);
+
+        const playerRank = finalRankings.findIndex(p => p.isHuman) + 1;
+        const playerScore = humanIdx >= 0 ? finalScores[humanIdx] : 0;
+
+        // 冠亚季军
+        const crownMedal = ['🥇', '🥈', '🥉'];
+        const podiumHtml = finalRankings.slice(0, 3).map((p, i) => `
+            <div class="tour-podium-item rank-${i + 1} ${p.isHuman ? 'is-human' : ''}">
+                <div class="tour-podium-rank">${crownMedal[i]}</div>
+                <div class="tour-podium-name">${esc(p.name)}</div>
+                <div class="tour-podium-score">${p.score > 0 ? '+' : ''}${p.score}</div>
+            </div>
+        `).join('');
+
+        // 每轮回顾
+        const roundHistoryHtml = roundResults.map((r, i) => {
+            const roundRanks = [...r.cumulativeScores]
+                .map((s, idx) => ({ score: s, index: idx }))
+                .sort((a, b) => b.score - a.score);
+            const rankMap = new Array(3);
+            roundRanks.forEach((p, idx) => { rankMap[p.index] = idx + 1; });
+            return `
+                <div class="tour-history-round">
+                    <div class="tour-history-header">第 ${r.round} 局</div>
+                    <div class="tour-history-scores">
+                        ${r.cumulativeScores.map((s, idx) => `
+                            <span class="${idx === humanIdx ? 'human' : ''}">${esc(gs?.players[idx]?.name || '?')}: ${s > 0 ? '+' : ''}${s}</span>
+                        `).join('')}
+                    </div>
+                    <div class="tour-history-meta">
+                        <span> winner: ${esc(gs?.players[r.winnerIndex]?.name || '?')}</span>
+                        ${r.springType ? `<span>${r.springType === 'spring' ? '🌸春天' : '🌸反春天'}</span>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // 玩家总结
+        const humanName = humanIdx >= 0 ? gs?.players[humanIdx]?.name || '玩家' : '玩家';
+        const winCount = roundResults.filter(r => r.isHumanWin).length;
+        const landlordCount = roundResults.filter(r => r.landlordIndex === humanIdx).length;
+        const summaryHtml = `
+            <div class="tour-player-summary">
+                <div class="tour-summary-title">📊 ${esc(humanName)} 的锦标赛表现</div>
+                <div class="tour-summary-grid">
+                    <div><span>最终排名</span><strong>第 ${playerRank} 名</strong></div>
+                    <div><span>总得分</span><strong>${playerScore > 0 ? '+' : ''}${playerScore}</strong></div>
+                    <div><span>获胜局数</span><strong>${winCount} / ${roundResults.length}</strong></div>
+                    <div><span>当地主</span><strong>${landlordCount} 次</strong></div>
+                </div>
+            </div>
+        `;
+
+        content.innerHTML = `
+            <h2>🏆 锦标赛结算</h2>
+            <div class="tour-podium">${podiumHtml}</div>
+            ${summaryHtml}
+            <div class="tour-history">
+                <div class="tour-history-title">📜 每轮回顾</div>
+                <div class="tour-history-list">${roundHistoryHtml}</div>
+            </div>
+            <button id="btn-tour-share">📋 复制战报</button>
+            <button id="btn-tour-restart">🔄 再来一局锦标赛</button>
+            <button id="btn-tour-menu">返回菜单</button>
+        `;
+
+        overlay.classList.remove('hidden', 'modal-exit');
+        content.classList.remove('modal-exit');
+        content.classList.remove('modal-scale-in');
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => content.classList.add('modal-scale-in'));
+        });
+
+        // 绑定按钮
+        const btnShare = content.querySelector('#btn-tour-share');
+        if (btnShare) {
+            btnShare.addEventListener('click', () => {
+                this.audio.playButtonClick();
+                this._shareTournamentResult(matchStatus, finalRankings, playerRank, winCount);
+            });
+        }
+
+        const btnRestart = content.querySelector('#btn-tour-restart');
+        if (btnRestart) {
+            btnRestart.addEventListener('click', () => {
+                this.audio.playButtonClick();
+                this._closeModal(overlay, content);
+                const mode = this.mode;
+                if (mode?.setMatchRounds && mode?.startGame) {
+                    mode.setMatchRounds(mode.totalRounds || matchStatus.totalRounds);
+                    mode.startGame();
+                }
+            });
+        }
+
+        const btnMenu = content.querySelector('#btn-tour-menu');
+        if (btnMenu) {
+            btnMenu.addEventListener('click', () => {
+                this.audio.playButtonClick();
+                this._closeModal(overlay, content);
+                window.gameApp?.showMenu();
+            });
+        }
+    }
+
+    _shareTournamentResult(matchStatus, finalRankings, playerRank, winCount) {
+        const total = matchStatus.totalRounds;
+        const lines = [
+            '🃏 斗地主 WebGame 锦标赛战报',
+            `📊 ${total}局锦标赛 · 最终排名`,
+            '',
+            ...finalRankings.map((p, i) => `${['🥇','🥈','🥉'][i] || `${i+1}.`} ${p.name}: ${p.score > 0 ? '+' : ''}${p.score}`),
+            '',
+            `我的排名: 第 ${playerRank} 名 · 获胜 ${winCount}/${total} 局`,
+        ];
+        const text = lines.join('\n');
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(text).then(() => this.showToast('战报已复制', 'success')).catch(() => this.showToast('复制失败', 'error'));
+        } else {
+            this.showToast('浏览器不支持自动复制', 'info');
         }
     }
 
@@ -2798,6 +3063,111 @@ class Renderer {
     showChallengeResult(result, roundData, stats) {
         if (window.gameApp?.openChallengeResult) {
             window.gameApp.openChallengeResult(result, roundData, stats);
+        }
+    }
+
+    // ---- 残局训练 UI ----
+
+    showEndgameInfo(level) {
+        if (!this.container || this._destroyed) return;
+        const infoBar = this.container.querySelector('#endgame-info-bar');
+        if (infoBar) infoBar.remove();
+        const bar = document.createElement('div');
+        bar.id = 'endgame-info-bar';
+        bar.className = 'endgame-info-bar';
+        bar.innerHTML = `
+            <div class="endgame-info-title">🧩 第${level.id}关 · ${level.name}</div>
+            <div class="endgame-info-obj">目标: ${level.objective}</div>
+            <button class="endgame-info-hint-btn" title="查看提示">💡 提示</button>
+        `;
+        const controls = this.container.querySelector('#controls-area');
+        if (controls) controls.insertBefore(bar, controls.firstChild);
+        else this.container.appendChild(bar);
+
+        const hintBtn = bar.querySelector('.endgame-info-hint-btn');
+        if (hintBtn) {
+            hintBtn.addEventListener('click', () => {
+                this.audio.playButtonClick();
+                this.showToast(`💡 提示: ${level.hint}`, 'info');
+            });
+        }
+    }
+
+    showEndgameResult(passed, stars, levelIndex, progress) {
+        const overlay = this.container.querySelector('#modal-overlay');
+        const content = this.container.querySelector('#modal-content');
+        if (!overlay || !content) return;
+
+        const level = window.gameApp?.currentMode?.constructor?.name === 'EndgameMode'
+            ? window.gameApp.currentMode.getLevelInfo()
+            : null;
+
+        const starHtml = '⭐'.repeat(stars) + '<span class="star-empty">' + '⭐'.repeat(3 - stars) + '</span>';
+        const title = passed ? '挑战成功' : '挑战失败';
+        const titleColor = passed ? '#4caf50' : '#ff6b6b';
+        const hasNext = passed && levelIndex + 1 < progress.total;
+
+        content.innerHTML = `
+            <h2 style="color:${titleColor}">${title}</h2>
+            <div class="challenge-stars" style="font-size:1.6rem;margin:8px 0">${starHtml}</div>
+            ${level ? `<div class="endgame-result-level">第${level.id}关 · ${level.name}</div>` : ''}
+            ${passed && level?.humanStepCount ? `<div class="endgame-result-steps">本局 ${level.humanStepCount} 步</div>` : ''}
+            <div class="endgame-result-progress">总进度: ${progress.passed}/${progress.total} · ⭐ ${progress.totalStars}/${progress.maxStars}</div>
+            <button id="btn-endgame-retry" class="btn-primary">${passed ? '再玩一次' : '重新挑战'}</button>
+            ${hasNext ? '<button id="btn-endgame-next" class="btn-primary">下一关</button>' : ''}
+            <button id="btn-endgame-back">返回关卡列表</button>
+        `;
+
+        if (overlay._modalCloseTimeout) clearTimeout(overlay._modalCloseTimeout);
+        if (this._modalOverlayClick) {
+            overlay.removeEventListener('click', this._modalOverlayClick);
+        }
+        overlay.classList.remove('hidden', 'modal-exit');
+        content.classList.remove('modal-exit');
+        this._modalOverlayClick = (e) => {
+            if (e.target === overlay) this._closeModal(overlay, content);
+        };
+        overlay.addEventListener('click', this._modalOverlayClick);
+        content.classList.remove('modal-scale-in');
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                content.classList.add('modal-scale-in');
+            });
+        });
+
+        if (passed) this.audio.playWin();
+        else this.audio.playLose();
+
+        const btnRetry = content.querySelector('#btn-endgame-retry');
+        if (btnRetry) {
+            btnRetry._roundClickHandler = () => {
+                this.audio.playButtonClick();
+                this._closeModal(overlay, content);
+                window.gameApp?.startEndgameMode?.(levelIndex);
+            };
+            btnRetry.addEventListener('click', btnRetry._roundClickHandler);
+        }
+
+        if (hasNext) {
+            const btnNext = content.querySelector('#btn-endgame-next');
+            if (btnNext) {
+                btnNext._roundClickHandler = () => {
+                    this.audio.playButtonClick();
+                    this._closeModal(overlay, content);
+                    window.gameApp?.startEndgameMode?.(levelIndex + 1);
+                };
+                btnNext.addEventListener('click', btnNext._roundClickHandler);
+            }
+        }
+
+        const btnBack = content.querySelector('#btn-endgame-back');
+        if (btnBack) {
+            btnBack._roundClickHandler = () => {
+                this.audio.playButtonClick();
+                this._closeModal(overlay, content);
+                window.gameApp?.showEndgameLevels?.();
+            };
+            btnBack.addEventListener('click', btnBack._roundClickHandler);
         }
     }
 
@@ -2857,6 +3227,39 @@ class Renderer {
                         <div class="ach-title">成就解锁</div>
                         <div class="ach-name">${esc(ach.name)}</div>
                         <div class="ach-desc">${esc(ach.desc)}</div>
+                    </div>
+                `;
+                this.container.appendChild(el);
+                this.audio?.playWin?.();
+                this._setTimer(() => {
+                    el.style.transition = 'all 0.5s ease-in';
+                    el.style.opacity = '0';
+                    el.style.transform = 'translateX(-50%) translateY(-30px) scale(0.9)';
+                    this._setTimer(() => el.remove(), 500);
+                }, 3500);
+            }, i * 600);
+        });
+    }
+
+    showQuestCompleted(quests) {
+        if (!this.container || !quests?.length) return;
+        const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
+        quests.forEach((q, i) => {
+            this._setTimer(() => {
+                if (this._destroyed) return;
+                const meta = q.desc || '';
+                const rewardText = [];
+                if (q.reward?.exp) rewardText.push(`+${q.reward.exp} EXP`);
+                if (q.reward?.badgeName) rewardText.push(`🏅 ${q.reward.badgeName}`);
+                const el = document.createElement('div');
+                el.className = 'achievement-toast quest-toast';
+                el.dataset.animFx = 'true';
+                el.innerHTML = `
+                    <div class="ach-icon">📜</div>
+                    <div class="ach-body">
+                        <div class="ach-title">任务完成</div>
+                        <div class="ach-name">${esc(q.name)}</div>
+                        <div class="ach-desc">${esc(meta)} ${rewardText.join(' · ')}</div>
                     </div>
                 `;
                 this.container.appendChild(el);

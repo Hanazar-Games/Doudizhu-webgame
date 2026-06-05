@@ -31,4 +31,8 @@ EXPOSE 3001
 ENV NODE_ENV=production
 ENV PORT=3001
 
+# 健康检查：验证生产 server 可访问 /api/health
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "fetch('http://localhost:3001/api/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"
+
 CMD ["node", "server/index.js"]

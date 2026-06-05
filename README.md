@@ -16,6 +16,30 @@ npm run dev
 # 浏览器打开 http://localhost:5173
 ```
 
+## 本地开发
+
+```bash
+# 只启动前端 Vite 开发服务器
+npm run client
+
+# 只启动后端 WebSocket 服务器（开发模式）
+npm run server:dev
+
+# 启动完整开发环境（前端 + 后端）
+npm run dev
+```
+
+## LAN 联机 Host 模式
+
+```bash
+# 构建前端并启动生产服务器（供局域网好友连接）
+npm run lan:host
+
+# 终端会输出局域网地址，例如：
+#   http://192.168.1.100:3001
+# 其他玩家在同一 WiFi 下用浏览器打开该地址即可
+```
+
 ## Docker 部署
 
 ```bash
@@ -23,13 +47,34 @@ npm run dev
 docker build -t doudizhu .
 
 # 运行容器
-docker run -p 3001:3001 doudizhu
+docker run -p 3001:3001 --name doudizhu-game doudizhu
 
 # 或使用 docker-compose
 docker-compose up -d
 ```
 
+生产镜像包含 `HEALTHCHECK`，自动检测 `/api/health` 端点。可用以下命令查看健康状态：
+
+```bash
+docker inspect --format='{{.State.Health.Status}}' doudizhu-game
+```
+
 生产环境建议使用 Nginx 反向代理（已提供 `nginx.conf`）。
+
+## GitHub Pages 部署
+
+本项目使用 GitHub Actions 自动部署：
+
+1. 推送代码到 `main` 或 `master` 分支
+2. Actions 会自动运行测试、构建，并部署到 GitHub Pages
+3. 在仓库 **Settings → Pages** 中选择 **GitHub Actions** 作为 Source
+
+CI 流程包含：
+- `npm ci` 安装依赖
+- `npm run test:all` 运行全部测试（核心 / 每日挑战 / 残局 / AI 教练 / LAN / UI）
+- `npm run build` 生产构建
+- `npm audit --audit-level=moderate` 依赖安全审计
+- 测试失败时自动上传 UI 截图作为 Artifact
 
 ## 三种游戏模式
 
@@ -48,7 +93,7 @@ docker-compose up -d
 
 ### 🌐 局域网联机
 - 3人实时对战，基于 WebSocket
-- 支持“本机托管”：房主电脑运行 `npm run lan:host`，其他玩家打开终端显示的局域网地址
+- 支持"本机托管"：房主电脑运行 `npm run lan:host`，其他玩家打开终端显示的局域网地址
 - 房主创建房间 → 分享房主地址和房间号 → 好友加入 → 开始游戏
 - 支持聊天、断线重连、玩家列表
 - 房主电脑承担房间管理、自动清理、心跳检测，不需要外部服务器
@@ -103,15 +148,26 @@ docker-compose up -d
 │   │   ├── base-mode.js      # 模式基类（游戏流程 + 托管逻辑）
 │   │   ├── ai-mode.js        # 人机对战
 │   │   ├── lan-mode.js       # 局域网联机（WebSocket客户端）
+│   │   ├── daily-mode.js     # 每日挑战
+│   │   ├── endgame-mode.js   # 残局模式
 │   │   └── custom-mode.js    # 自定义模式
 │   ├── ui/
 │   │   ├── renderer.js       # UI渲染 + 交互 + 记牌器 + 历史 + 聊天
 │   │   ├── audio.js          # Web Audio API 音效系统
-│   │   └── animations.js     # 粒子/爆炸/火箭/飘字特效
+│   │   ├── animations.js     # 粒子/爆炸/火箭/飘字特效
+│   │   ├── play-style.js     # 牌风分析系统
+│   │   └── commentary.js     # 牌局神评论系统
 │   └── styles/
 │       └── main.css          # 完整样式 + 动画特效 + 响应式
 └── test/
-    └── core.test.mjs         # 核心逻辑单元测试
+    ├── core.test.mjs           # 核心逻辑单元测试
+    ├── daily-challenge.test.mjs # 每日挑战测试
+    ├── endgame.test.mjs        # 残局模式测试
+    ├── coach-analyzer.test.mjs # AI 教练复盘测试
+    ├── lan-flow.test.mjs       # LAN 联机端到端测试
+    ├── run-lan-test.mjs        # LAN 测试 runner（临时端口）
+    ├── ui-browser.mjs          # Playwright UI 回归测试
+    └── ui-screenshots/         # UI 测试截图输出（gitignore）
 ```
 
 ## 测试
@@ -121,16 +177,22 @@ docker-compose up -d
 npm run test:core      # 64 项
 
 # 每日挑战测试（确定性随机、星级评分、记录管理）
-npm run test:daily     # 21 项
+npm run test:daily     # 26 项
 
-# LAN 联机端到端测试（WebSocket、房间、数据同步）
-npm run test:lan       # 12 项
+# 残局模式测试（关卡数据、星级计算、游戏流程）
+npm run test:endgame   # 23 项
+
+# AI 教练复盘测试（叫分分析、出牌效率、建议生成）
+npm run test:coach     # 11 项
+
+# LAN 联机端到端测试（WebSocket、房间、数据同步、断线重连）
+npm run test:lan       # 18 项
 
 # Playwright UI 回归测试（菜单/设置/游戏/暂停/移动端截图）
 npm run test:ui        # 14 张截图 + 严格断言
 
-# 一次跑完核心 + 每日挑战 + LAN + UI（CI 默认）
-npm run test:all       # 111 项
+# 一次跑完全部测试（CI 默认）
+npm run test:all       # 142+ 项
 
 # 生产构建
 npm run build
@@ -142,15 +204,17 @@ npm run build
 
 | 接口 | 说明 |
 |------|------|
+| `GET /` | 生产模式返回前端 SPA（`dist/index.html`） |
 | `GET /api/health` | 健康检查 |
 | `GET /api/rooms` | 可用房间列表 |
+| `GET /api/lan-info` | 局域网信息（端口、URL 列表） |
 | `WS /ws` | WebSocket 游戏通信 |
 
 ### WebSocket 消息类型
 
 - `create_room` / `join_room` / `start_game`
 - `player_action` - 玩家操作（叫分/出牌/不出）
-- `game_start` / `game_state_sync`
+- `game_start` / `game_state_sync` / `request_state_sync`
 - `chat` - 玩家聊天
 
 ## 特色功能
@@ -168,6 +232,9 @@ npm run build
 - **移动端适配**：触摸操作、响应式布局、禁止缩放
 - **加载动画**：扑克牌翻转加载画面
 - **开发热更新**：Vite HMR 支持
+- **牌风分析**：六维雷达图分析长期游戏风格
+- **AI 教练复盘**：每局结束后生成针对性改进建议
+- **牌局神评论**：关键时刻触发趣味解说气泡
 
 ## 版本公告
 
@@ -607,31 +674,6 @@ npm run build
 ---
 
 ### v1.1.2 — 深度全面修复
-
-**Bug 修复**
-- 🎹 **键盘快捷键可靠性**：叫分快捷键（1/2/3/0/ESC）现在会检查 `humanCall` 返回值后再隐藏面板，防止在非法状态下错误关闭控制面板
-- 💡 **提示功能精准化**：修复提示（H键）未正确判断新轮次的问题，现在会结合 `passCount >= 2` 和上一轮出牌者身份给出正确建议
-- 🎊 **庆祝动画分离**：修复 `springCelebrate` 与 `winCelebrate` 共享同一防抖标志导致“春天+胜利”时春天动画被吞掉的 bug
-- 🤖 **托管即时响应**：修复出牌/叫分阶段中途点击“托管”后 AI 不立即接管的 bug，新增 `triggerAutoIfNeeded` 机制
-- 🎵 **飞机带翅膀音效**：修复飞机带单/带对（`TRIPLE_STRAIGHT_WITH_SINGLES/PAIRS`）未被识别为飞机音效和 AI 短语的问题
-- 🧹 **Renderer 生命周期**：修复 `showMenu()` 和 `startAIMode()` 未调用 `destroy()` 导致键盘事件监听器泄漏的隐患
-- 📊 **观战模式统计隔离**：修复观战模式（`humanIndex = -1`）仍被计入总局数和负场的 bug
-- 📈 **统计面板实时更新**：修复已有统计面板时 `_renderStats()` 不刷新数值的问题
-- 🃏 **重选清除提示**：修复按 R 重选时 `.hint` 高亮 class 未被清除的问题
-- 🧼 **癞子状态清理**：修复 `resetRound()` 未重置 `laiziEnabled` 标志的隐患
-- 🫧 **气泡元素标记**：为 `call-bubble`、`pass-bubble`、`chat-bubble` 统一添加 `data-anim-fx` 标记，确保返回菜单后正确清理
-- 🔄 **返回菜单平滑过渡**：结算面板“返回菜单”按钮从 `window.location.reload()` 改为调用 `showMenu()`，避免整页刷新
-- 🎯 **观战模式结果判定**：修复 `showRoundResult` 中观战模式（`humanIndex=-1`）`isHumanWin` 恒为 `true` 导致错误播放胜利动画/音效的 bug
-- 🗺️ **观战模式座位映射**：修复 `_getPlayerArea` 在 `humanIndex=-1` 时玩家区域映射错乱的问题
-- 🫨 **屏幕震动恢复**：`destroy()` 中强制重置 `document.body.style.transform`，防止 `screenShake` 在切换屏幕后残留偏移
-- 🍞 **Toast 残留清理**：为 `toast-message` 元素添加 `data-anim-fx` 标记，确保返回菜单后被统一清理
-- ⏱️ **托管安全守卫**：`_autoPlayForHuman` 在延迟前后增加 `isRunning` 和 `phase === PLAYING` 检查，防止对已结束的游戏尝试出牌
-- 🔗 **向后兼容**：`AIPlayer.getHint` 在未传入 `isNewRound` 时自动从 `lastPattern` 推断，避免破坏现有测试和调用方
-- 🧹 **后端清理完善**：`RoomManager.destroy()` 补充 `playerToRoom.clear()`，防止服务器优雅关闭时映射泄漏
-
----
-
-### v1.1.1 — 人机交互与回放修复
 
 **Bug 修复（13项）**
 - 修复人类玩家出牌后手牌未实时更新（`renderHands` 在 `animatePlay` 中补调）

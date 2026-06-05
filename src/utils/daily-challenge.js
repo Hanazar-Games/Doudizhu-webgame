@@ -37,11 +37,11 @@ class SeededRandom {
  */
 function getTodayString() {
     const now = new Date();
-    // 转换为 UTC+8
-    const utc8 = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
-    const y = utc8.getFullYear();
-    const m = String(utc8.getMonth() + 1).padStart(2, '0');
-    const d = String(utc8.getDate()).padStart(2, '0');
+    // 转换为 UTC+8 的日历日期（使用 UTC 方法避免本地时区影响）
+    const utc8Time = now.getTime() + (now.getTimezoneOffset() + 480) * 60000;
+    const y = new Date(utc8Time).getUTCFullYear();
+    const m = String(new Date(utc8Time).getUTCMonth() + 1).padStart(2, '0');
+    const d = String(new Date(utc8Time).getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
 }
 

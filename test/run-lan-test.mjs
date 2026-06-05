@@ -17,6 +17,18 @@ function getFreePort() {
     });
 }
 
+async function waitForHealth(port, retries = 30, interval = 300) {
+    const url = `http://127.0.0.1:${port}/api/health`;
+    for (let i = 0; i < retries; i++) {
+        try {
+            const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
+            if (res.ok) return await res.json();
+        } catch {}
+        await new Promise((r) => setTimeout(r, interval));
+    }
+    throw new Error(`Health check failed after ${retries * interval}ms`);
+}
+
 async function main() {
     const port = await getFreePort();
     console.log(`[LAN-Test-Runner] 使用临时端口: ${port}`);
@@ -27,63 +39,87 @@ async function main() {
         stdio: 'pipe',
     });
 
-    // 等待 server ready（监听 stdout 中的启动标志）
-    await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-            serverProc.kill('SIGTERM');
-            reject(new Error('Server start timeout (10s)'));
-        }, 10000);
+    const serverLogs = [];
+    const onData = (data) => serverLogs.push(data.toString());
+    serverProc.stdout.on('data', onData);
+    serverProc.stderr.on('data', onData);
 
-        const onData = (data) => {
-            const text = data.toString();
-            if (text.includes('running on port')) {
+    let testExitCode = 1;
+    let serverReady = false;
+
+    try {
+        // 等待 server ready（优先监听 stdout 启动标志，备选 health API 轮询）
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                serverProc.stdout.off('data', onStdout);
+                reject(new Error('Server start timeout (10s)'));
+            }, 10000);
+
+            const onStdout = (data) => {
+                const text = data.toString();
+                if (text.includes('running on port')) {
+                    clearTimeout(timeout);
+                    serverProc.stdout.off('data', onStdout);
+                    resolve();
+                }
+            };
+            serverProc.stdout.on('data', onStdout);
+            serverProc.on('error', (err) => {
                 clearTimeout(timeout);
-                serverProc.stdout.off('data', onData);
+                reject(err);
+            });
+            serverProc.on('exit', (code) => {
+                if (code !== 0 && code !== null) {
+                    clearTimeout(timeout);
+                    reject(new Error(`Server exited with code ${code}`));
+                }
+            });
+        });
+
+        // 二次确认 server 真正可访问（health check）
+        const health = await waitForHealth(port);
+        serverReady = true;
+        console.log(`[LAN-Test-Runner] Server ready (health=${health.status}), running tests...\n`);
+
+        // 运行测试，传入端口
+        const testProc = spawn('node', ['test/lan-flow.test.mjs'], {
+            env: { ...process.env, TEST_PORT: String(port) },
+            stdio: 'inherit',
+        });
+
+        testExitCode = await new Promise((resolve) => {
+            testProc.on('exit', resolve);
+        });
+    } catch (err) {
+        console.error('[LAN-Test-Runner] Error:', err.message);
+        testExitCode = 1;
+    } finally {
+        // 优雅关闭 server
+        serverProc.stdout.off('data', onData);
+        serverProc.stderr.off('data', onData);
+        serverProc.kill('SIGTERM');
+        await new Promise((resolve) => {
+            const t = setTimeout(() => {
+                try { serverProc.kill('SIGKILL'); } catch {}
                 resolve();
-            }
-        };
-        serverProc.stdout.on('data', onData);
-        serverProc.on('error', (err) => {
-            clearTimeout(timeout);
-            reject(err);
+            }, 5000);
+            serverProc.on('exit', () => {
+                clearTimeout(t);
+                resolve();
+            });
         });
-        serverProc.on('exit', (code) => {
-            if (code !== 0 && code !== null) {
-                clearTimeout(timeout);
-                reject(new Error(`Server exited with code ${code}`));
-            }
-        });
-    });
 
-    console.log(`[LAN-Test-Runner] Server ready, running tests...\n`);
+        // 失败时输出 server 日志，帮助诊断
+        if (testExitCode !== 0 && serverLogs.length > 0) {
+            console.error('\n--- Server 日志 ---');
+            serverLogs.forEach((l) => console.error(l.trimEnd()));
+        }
+    }
 
-    // 运行测试，传入端口
-    const testProc = spawn('node', ['test/lan-flow.test.mjs'], {
-        env: { ...process.env, TEST_PORT: String(port) },
-        stdio: 'inherit',
-    });
-
-    const exitCode = await new Promise((resolve) => {
-        testProc.on('exit', resolve);
-    });
-
-    // 优雅关闭 server
-    serverProc.kill('SIGTERM');
-    await new Promise((resolve) => {
-        const t = setTimeout(() => {
-            serverProc.kill('SIGKILL');
-            resolve();
-        }, 3000);
-        serverProc.on('exit', () => {
-            clearTimeout(t);
-            resolve();
-        });
-    });
-
-    process.exit(exitCode ?? 0);
+    process.exit(testExitCode ?? 0);
 }
 
 main().catch((err) => {
-    console.error('[LAN-Test-Runner] Error:', err.message);
+    console.error('[LAN-Test-Runner] Fatal error:', err.message);
     process.exit(1);
 });

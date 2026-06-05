@@ -1,6 +1,6 @@
 {
   "name": "doudizhu-webgame",
-  "version": "1.2.18",
+  "version": "1.2.19",
   "description": "斗地主网页版 - 支持人机对战、局域网联机、自定义模式",
   "type": "module",
   "scripts": {
@@ -17,7 +17,13 @@
     "test:daily": "node test/daily-challenge.test.mjs",
     "test:lan": "node test/run-lan-test.mjs",
     "test:ui": "node test/ui-browser.mjs",
-    "test:all": "node test/core.test.mjs && node test/daily-challenge.test.mjs && node test/run-lan-test.mjs && node test/ui-browser.mjs"
+    "test:endgame": "node test/endgame.test.mjs",
+    "test:coach": "node test/coach-analyzer.test.mjs",
+    "test:season": "node test/season-quests.test.mjs",
+    "test:tournament": "node test/tournament.test.mjs",
+    "test:lan-sync": "node test/lan-sync.test.mjs",
+    "test:replay": "node test/replay.test.mjs",
+    "test:all": "node test/core.test.mjs && node test/daily-challenge.test.mjs && node test/endgame.test.mjs && node test/coach-analyzer.test.mjs && node test/season-quests.test.mjs && node test/tournament.test.mjs && node test/lan-sync.test.mjs && node test/replay.test.mjs && node test/run-lan-test.mjs && node test/ui-browser.mjs"
   },
   "keywords": [
     "doudizhu",
