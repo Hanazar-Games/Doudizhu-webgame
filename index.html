@@ -91,6 +91,16 @@
                                 <div class="mode-card__arrow">→</div>
                             </button>
                         </div>
+                        <div class="mode-card-row">
+                            <button id="btn-challenge-mode" class="mode-card mode-card--accent">
+                                <div class="mode-card__icon">⚔️</div>
+                                <div class="mode-card__content">
+                                    <div class="mode-card__title">极限挑战</div>
+                                    <div class="mode-card__desc" id="challenge-desc">挑战10个极限规则关卡</div>
+                                </div>
+                                <div class="mode-card__arrow">→</div>
+                            </button>
+                        </div>
 
                         <div class="mode-card-row mode-card-row--small">
                             <button id="btn-replay" class="mode-card mode-card--ghost">
@@ -1440,6 +1450,33 @@
         </div>
     </div>
 
+    <!-- 极限挑战界面 -->
+    <div id="challenge-screen" class="screen hidden">
+        <div class="screen-bg-decoration"></div>
+        <div class="challenge-container">
+            <header class="screen-header">
+                <div class="screen-header__icon">⚔️</div>
+                <h2 class="screen-header__title">极限挑战</h2>
+                <p class="screen-header__subtitle">特殊规则限制，考验真正牌技</p>
+            </header>
+            <div class="challenge-progress-bar">
+                <div class="challenge-progress-track">
+                    <div class="challenge-progress-fill" id="challenge-progress-fill"></div>
+                </div>
+                <span class="challenge-progress-text" id="challenge-progress-text">0/10</span>
+            </div>
+            <div class="challenge-levels-grid" id="challenge-levels-grid">
+                <!-- JS 动态渲染关卡卡片 -->
+            </div>
+            <div class="challenge-actions">
+                <button id="btn-back-challenge" class="screen-btn screen-btn--ghost screen-btn--back">
+                    <span>←</span>
+                    <span>返回菜单</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- 回放界面 -->
     <div id="replay-screen" class="screen hidden">
         <div class="replay-container" id="replay-container"></div>
@@ -1593,22 +1630,40 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.20</div>
-                    <h3>全面深度 Bug 检查与修复（第五轮）</h3>
+                    <div class="changelog-version-badge">v1.2.21</div>
+                    <h3>🆕 新增：极限挑战模式</h3>
                     <ul>
-                        <li>🚨 <strong>核心逻辑修复</strong>：修复 <code>game-state.js</code> 抢地主阶段 <code>currentCallPlayer</code> 不更新导致轮转错乱；<code>_finishCalling</code> landlord 为 null 时直接 return 导致 phase 死锁</li>
-                        <li>🃏 <strong>规则引擎修复</strong>：<code>_tryStraightWithLaizi</code> 显式拒绝重复真实牌的顺子组合，杜绝癞子顺子误判</li>
-                        <li>🎵 <strong>音频系统修复</strong>：移除 <code>showGame()</code> 与 <code>onPhaseChange</code> 的 BGM 双重调度；<code>stopBGM()</code> 清理 loop timer 防止泄漏；所有 <code>start()/stop()</code> 添加 <code>InvalidStateError</code> 防护</li>
-                        <li>🖥️ <strong>渲染器修复</strong>：<code>_initLayout</code> 重复绑定清理；<code>hidePlayControls</code>/<code>showPlayControls</code>/<code>showCallResult</code> 原生 setTimeout 统一替换为 <code>_setTimer</code>；暂停覆盖层按钮事件防重复绑定</li>
-                        <li>🧠 <strong>AI 教练修复</strong>：<code>sameCard</code> 王牌比较逻辑错误（大小王互混）；<code>play-style.js</code> <code>passRate</code> 使用不存在字段导致永远为 0.3</li>
-                        <li>📊 <strong>数据修复</strong>：<code>season-quest.js</code> <code>bombCount</code> undefined 导致 NaN；<code>endgame-data.js</code> <code>bestSteps = 0</code> 被 falsy 错误覆盖；残局关卡 5 人类索引与地主索引矛盾</li>
-                        <li>🌐 <strong>LAN 联机修复</strong>：<code>_syncGameStart</code> 校验 <code>startRound</code> 返回值，数据损坏时优雅报错而非软锁</li>
-                        <li>⚙️ <strong>自定义模式修复</strong>：无预设牌分支缺失 <code>_applyGameRules()</code> 导致规则设置不生效</li>
+                        <li>⚔️ <strong>全新模式「极限挑战」</strong>：10个带有特殊规则限制的挑战关卡，递进难度（简单/普通/困难）</li>
+                        <li>🚫 <strong>禁炸令</strong>：禁用炸弹和王炸，纯靠牌型组合取胜</li>
+                        <li>⚡ <strong>速战速决</strong>：每步10秒限时，考验快速决策</li>
+                        <li>🛡️ <strong>保守派</strong>：禁用炸弹，但胜利得分x3</li>
+                        <li>📜 <strong>严格执法</strong>：禁用三带一、飞机带翅膀等复杂牌型</li>
+                        <li>🔒 <strong>不能Pass</strong>：有牌必须出，不能选择跳过</li>
+                        <li>🙈 <strong>盲牌斗地主</strong>：记牌器禁用，靠记忆推算</li>
+                        <li>💰 <strong>底分翻倍</strong>：底分提升至3分，高风险高回报</li>
+                        <li>💣 <strong>炸弹之王</strong>：炸弹可以压过王炸</li>
+                        <li>⚔️ <strong>孤军奋战</strong>：困难AI，强制玩家为地主1v2</li>
+                        <li>👑 <strong>斗帝之路</strong>：困难AI + 8秒限时 + 必须春天</li>
+                        <li>⭐ 每个挑战1~3星评级，解锁制递进，数据持久化到 localStorage</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.20</div>
+                            <h4>全面深度 Bug 检查与修复（第五轮）</h4>
+                            <ul>
+                                <li>🚨 核心逻辑修复：修复 <code>game-state.js</code> 抢地主阶段 <code>currentCallPlayer</code> 不更新；<code>_finishCalling</code> landlord 为 null 时死锁</li>
+                                <li>🃏 规则引擎修复：<code>_tryStraightWithLaizi</code> 显式拒绝重复真实牌</li>
+                                <li>🎵 音频系统修复：移除 BGM 双重调度；<code>stopBGM()</code> 清理 loop timer；<code>InvalidStateError</code> 防护</li>
+                                <li>🖥️ 渲染器修复：<code>_initLayout</code> 重复绑定清理；setTimeout 统一替换为 <code>_setTimer</code></li>
+                                <li>🧠 AI 教练修复：<code>sameCard</code> 王牌比较；<code>passRate</code> 字段错误</li>
+                                <li>📊 数据修复：season-quest bombCount NaN；endgame bestSteps falsy；残局关卡5索引矛盾</li>
+                                <li>🌐 LAN 联机修复：<code>_syncGameStart</code> 校验 <code>startRound</code> 返回值</li>
+                                <li>⚙️ 自定义模式修复：无预设牌分支缺失 <code>_applyGameRules()</code></li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.19</div>
                             <h4>全面深度 Bug 检查与修复（第四轮）</h4>
@@ -1634,6 +1689,18 @@
                                 <li>🎯 交互修复：一键出牌取消选中时清除 timeout 防止错误触发；分数滚动动画保存 RAF id 避免幽灵动画；拖拽选牌时节流 <code>_updateHandHint</code> 调用</li>
                                 <li>🛡️ 动画修复：<code>cancelAll()</code> 恢复 body transform 并重置 <code>_shakeCount</code>；<code>screenShake</code> 修复 <code>_activeRafs</code> 帧级泄漏</li>
                                 <li>📐 主程序修复：<code>showMenu()</code> 现在关闭所有面板（设置/公告/牌风/成就）；<code>_calcStreak</code> 统一使用 UTC+8</li>
+                            </ul>
+                        </div>
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.17</div>
+                            <h4>UI/UX/SFX/BGM 全面检查与改进</h4>
+                            <ul>
+                                <li>🚨 致命修复：修复 <code>startDailyMode()</code> 每日挑战完全无法启动——错误传入 DOM 对象、调用不存在方法、缺失关键初始化</li>
+                                <li>🎵 音频修复：<code>stopBGM()</code> 未清理 <code>_bgmGain/_masterCompressor</code> 导致重建 Context 后无声；toggleBGM 不再重播一次性 win/lose BGM；核心音效增加节流防止音爆重叠</li>
+                                <li>🎯 交互改进：出牌按钮根据选牌状态动态启用/禁用；涟漪效果仅在无拖拽意图时触发，避免滚动误反馈</li>
+                                <li>♿ 无障碍：<code>screenShake</code> 与 <code>flashScreen</code> 尊重 <code>prefers-reduced-motion: reduce</code> 系统偏好</li>
+                                <li>✨ 面板 UX：挑战结果→历史记录切换等待关闭动画完成；历史面板淡入淡出；分享失败 fallback 从 alert() 改为 toast</li>
+                                <li>🏷️ 徽章改进：每日挑战徽章使用 CSS <code>.daily-badge</code> 类，已完成/三星有独立视觉样式</li>
                             </ul>
                         </div>
                         <div class="changelog-version">
@@ -1673,23 +1740,6 @@
                                 <li>📐 <strong>结构与样式修复</strong>：修复modal-overlay嵌套、toast z-index被遮挡等DOM/CSS问题</li>
                             </ul>
                         </div>
-                        <div class="changelog-version">
-                            <div class="changelog-version-badge">v1.2.17</div>
-                            <h4>UI/UX/SFX/BGM 全面检查与改进</h4>
-                            <ul>
-                                <li>🚨 致命修复：修复 <code>startDailyMode()</code> 每日挑战完全无法启动——错误传入 DOM 对象、调用不存在方法、缺失关键初始化</li>
-                                <li>🎵 音频修复：<code>stopBGM()</code> 未清理 <code>_bgmGain/_masterCompressor</code> 导致重建 Context 后无声；toggleBGM 不再重播一次性 win/lose BGM；核心音效增加节流防止音爆重叠</li>
-                                <li>🎯 交互改进：出牌按钮根据选牌状态动态启用/禁用；涟漪效果仅在无拖拽意图时触发，避免滚动误反馈</li>
-                                <li>♿ 无障碍：<code>screenShake</code> 与 <code>flashScreen</code> 尊重 <code>prefers-reduced-motion: reduce</code> 系统偏好</li>
-                                <li>✨ 面板 UX：挑战结果→历史记录切换等待关闭动画完成；历史面板淡入淡出；分享失败 fallback 从 alert() 改为 toast</li>
-                                <li>🏷️ 徽章改进：每日挑战徽章使用 CSS <code>.daily-badge</code> 类，已完成/三星有独立视觉样式</li>
-                            </ul>
-                        </div>
-                    </div>
-                </details>
-                <details class="changelog-history">
-                    <summary>📚 历史版本</summary>
-                    <div class="changelog-history-content">
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.13</div>
                             <h4>牌风分析系统</h4>

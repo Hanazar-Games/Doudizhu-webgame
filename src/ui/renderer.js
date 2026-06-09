@@ -11,6 +11,7 @@ import { AudioManager } from './audio.js';
 import { Animations } from './animations.js';
 import { CommentaryEngine } from './commentary.js';
 import { Storage } from '../utils/storage.js';
+import { CHALLENGES } from '../utils/challenge-data.js';
 
 class Renderer {
     constructor(containerId) {
@@ -3173,6 +3174,98 @@ class Renderer {
                 this.audio.playButtonClick();
                 this._closeModal(overlay, content);
                 window.gameApp?.showEndgameLevels?.();
+            };
+            btnBack.addEventListener('click', btnBack._roundClickHandler);
+        }
+    }
+
+    // ---- 极限挑战 UI ----
+
+    showChallengeInfo(challenge) {
+        if (!this.container || this._destroyed) return;
+        const infoBar = this.container.querySelector('#challenge-info-bar');
+        if (infoBar) infoBar.remove();
+        const bar = document.createElement('div');
+        bar.id = 'challenge-info-bar';
+        bar.className = 'challenge-info-bar';
+        bar.innerHTML = `
+            <div class="challenge-info-title">${challenge.icon} ${challenge.title}</div>
+            <div class="challenge-info-desc">${challenge.desc}</div>
+        `;
+        const controls = this.container.querySelector('#controls-area');
+        if (controls) controls.insertBefore(bar, controls.firstChild);
+        else this.container.appendChild(bar);
+    }
+
+    showChallengeResult(passed, stars, challenge, progress) {
+        const overlay = this.container.querySelector('#modal-overlay');
+        const content = this.container.querySelector('#modal-content');
+        if (!overlay || !content) return;
+
+        const starHtml = '⭐'.repeat(stars) + '<span class="star-empty">' + '⭐'.repeat(3 - stars) + '</span>';
+        const title = passed ? '挑战成功' : '挑战失败';
+        const titleColor = passed ? '#4caf50' : '#ff6b6b';
+        const challengeId = challenge?.id || 0;
+        const hasNext = passed && challengeId < CHALLENGES.length;
+
+        content.innerHTML = `
+            <h2 style="color:${titleColor}">${title}</h2>
+            <div class="challenge-stars" style="font-size:1.6rem;margin:8px 0">${starHtml}</div>
+            ${challenge ? `<div class="challenge-result-name">${challenge.icon} ${challenge.title}</div>` : ''}
+            <div class="challenge-result-progress">总进度: ${progress.passed}/${progress.total} · ⭐ ${progress.totalStars}/${progress.maxStars}</div>
+            <button id="btn-challenge-retry" class="btn-primary">${passed ? '再玩一次' : '重新挑战'}</button>
+            ${hasNext ? '<button id="btn-challenge-next" class="btn-primary">下一关</button>' : ''}
+            <button id="btn-challenge-back">返回关卡列表</button>
+        `;
+
+        if (overlay._modalCloseTimeout) clearTimeout(overlay._modalCloseTimeout);
+        if (this._modalOverlayClick) {
+            overlay.removeEventListener('click', this._modalOverlayClick);
+        }
+        overlay.classList.remove('hidden', 'modal-exit');
+        content.classList.remove('modal-exit');
+        this._modalOverlayClick = (e) => {
+            if (e.target === overlay) this._closeModal(overlay, content);
+        };
+        overlay.addEventListener('click', this._modalOverlayClick);
+        content.classList.remove('modal-scale-in');
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                content.classList.add('modal-scale-in');
+            });
+        });
+
+        if (passed) this.audio.playWin();
+        else this.audio.playLose();
+
+        const btnRetry = content.querySelector('#btn-challenge-retry');
+        if (btnRetry) {
+            btnRetry._roundClickHandler = () => {
+                this.audio.playButtonClick();
+                this._closeModal(overlay, content);
+                window.gameApp?.startChallengeMode?.(challengeId);
+            };
+            btnRetry.addEventListener('click', btnRetry._roundClickHandler);
+        }
+
+        if (hasNext) {
+            const btnNext = content.querySelector('#btn-challenge-next');
+            if (btnNext) {
+                btnNext._roundClickHandler = () => {
+                    this.audio.playButtonClick();
+                    this._closeModal(overlay, content);
+                    window.gameApp?.startChallengeMode?.(challengeId + 1);
+                };
+                btnNext.addEventListener('click', btnNext._roundClickHandler);
+            }
+        }
+
+        const btnBack = content.querySelector('#btn-challenge-back');
+        if (btnBack) {
+            btnBack._roundClickHandler = () => {
+                this.audio.playButtonClick();
+                this._closeModal(overlay, content);
+                window.gameApp?.showChallengeLevels?.();
             };
             btnBack.addEventListener('click', btnBack._roundClickHandler);
         }

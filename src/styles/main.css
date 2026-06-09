@@ -11265,3 +11265,213 @@ body[data-commentary="false"] .commentary-bubble {
 #btn-coach-review:hover {
     background: linear-gradient(135deg, rgba(120,100,220,0.9), rgba(100,80,200,1));
 }
+
+/* ===== 极限挑战模式 ===== */
+
+.challenge-container {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 840px;
+    width: 100%;
+}
+
+.challenge-progress-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.challenge-progress-track {
+    flex: 1;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.challenge-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #e040f0, #ff6b9d);
+    border-radius: 5px;
+    transition: width 0.5s ease;
+    width: 0%;
+}
+
+.challenge-progress-text {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #e040f0;
+    min-width: 42px;
+    text-align: right;
+}
+
+.challenge-levels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+}
+
+.challenge-level-card {
+    position: relative;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 18px 16px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+}
+
+.challenge-level-card:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(224, 64, 240, 0.3);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.challenge-level-card.locked {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(0.8);
+}
+
+.challenge-level-card.locked:hover {
+    transform: none;
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.challenge-level-card.completed {
+    background: rgba(224, 64, 240, 0.08);
+    border-color: rgba(224, 64, 240, 0.2);
+}
+
+.challenge-level-card.diff-easy {
+    border-left: 3px solid #4ade80;
+}
+
+.challenge-level-card.diff-normal {
+    border-left: 3px solid #facc15;
+}
+
+.challenge-level-card.diff-hard {
+    border-left: 3px solid #f87171;
+}
+
+.challenge-level-icon {
+    font-size: 1.6rem;
+    line-height: 1;
+}
+
+.challenge-level-id {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    font-size: 1.2rem;
+    font-weight: 900;
+    opacity: 0.15;
+    line-height: 1;
+}
+
+.challenge-level-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.challenge-level-desc {
+    font-size: 0.78rem;
+    opacity: 0.55;
+    line-height: 1.4;
+}
+
+.challenge-level-diff {
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin-top: 2px;
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.08);
+    width: fit-content;
+}
+
+.challenge-level-stars {
+    font-size: 1rem;
+    margin-top: 4px;
+}
+
+.challenge-level-lock {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2rem;
+    opacity: 0.6;
+}
+
+.challenge-actions {
+    display: flex;
+    justify-content: center;
+    padding-top: 8px;
+}
+
+/* 挑战游戏内信息栏 */
+.challenge-info-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    background: rgba(224, 64, 240, 0.12);
+    border: 1px solid rgba(224, 64, 240, 0.2);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.challenge-info-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #e040f0;
+}
+
+.challenge-info-desc {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    flex: 1;
+}
+
+/* 挑战结果面板 */
+.challenge-result-name {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 6px 0;
+}
+
+.challenge-result-progress {
+    font-size: 0.85rem;
+    opacity: 0.6;
+    margin: 8px 0 14px;
+}
+
+/* 响应式 */
+@media (max-width: 560px) {
+    .challenge-levels-grid {
+        grid-template-columns: 1fr;
+    }
+    .challenge-info-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+}

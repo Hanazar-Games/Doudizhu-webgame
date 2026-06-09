@@ -9,8 +9,10 @@ import { CustomMode } from './modes/custom-mode.js';
 import { DailyMode } from './modes/daily-mode.js';
 import { EndgameMode } from './modes/endgame-mode.js';
 import { TournamentMode } from './modes/tournament-mode.js';
+import { ChallengeMode } from './modes/challenge-mode.js';
 import { ChallengeRecordManager, getTodayString } from './utils/daily-challenge.js';
 import { EndgameRecordManager, ENDGAME_LEVELS } from './utils/endgame-data.js';
+import { CHALLENGES, ExtremeChallengeRecordManager } from './utils/challenge-data.js';
 import { TournamentStorage } from './utils/tournament-storage.js';
 import { Renderer } from './ui/renderer.js';
 import { AudioManager } from './ui/audio.js';
@@ -69,6 +71,7 @@ class GameApp {
             { id: 'btn-changelog', action: () => this.openChangelog() },
             { id: 'btn-season-quests', action: () => this.openSeasonQuests() },
             { id: 'btn-endgame-mode', action: () => this.showEndgameLevels() },
+            { id: 'btn-challenge-mode', action: () => this.showChallengeLevels() },
 
         ];
         for (const { id, action } of menuBtns) {
@@ -252,6 +255,10 @@ class GameApp {
             this.showMenu();
         });
         document.getElementById('btn-back-endgame')?.addEventListener('click', () => {
+            this._playButtonClick();
+            this.showMenu();
+        });
+        document.getElementById('btn-back-challenge')?.addEventListener('click', () => {
             this._playButtonClick();
             this.showMenu();
         });
@@ -1580,16 +1587,18 @@ class GameApp {
 
         if (this._gameBgmTimer) { clearTimeout(this._gameBgmTimer); this._gameBgmTimer = null; }
 
-        // 刷新每日挑战徽章和残局徽章
+        // 刷新徽章
         this._updateDailyChallengeBadge();
         this._updateEndgameBadge();
+        this._updateChallengeBadge();
 
         // 切换回菜单BGM
         this._playMenuBGM();
 
         // 淡出当前屏幕
         const endgame = document.getElementById('endgame-screen');
-        [game, lan, custom, replay, endgame].forEach(s => {
+        const challenge = document.getElementById('challenge-screen');
+        [game, lan, custom, replay, endgame, challenge].forEach(s => {
             if (s && !s.classList.contains('hidden')) {
                 s.style.opacity = '1';
                 s.style.transition = 'opacity 0.3s ease';
@@ -2132,6 +2141,103 @@ class GameApp {
         const progress = EndgameRecordManager.getProgress();
         if (progress.passed === 0) {
             desc.textContent = '挑战5个经典残局';
+        } else if (progress.passed === progress.total) {
+            desc.textContent = `⭐ ${progress.totalStars}/${progress.maxStars} 全通关`;
+        } else {
+            desc.textContent = `进度 ${progress.passed}/${progress.total} · ⭐ ${progress.totalStars}`;
+        }
+    }
+
+    // ---- 极限挑战 ----
+    showChallengeLevels() {
+        this._playMenuBGM(0);
+        this._transitionToScreen('challenge-screen');
+        this._renderChallengeLevels();
+    }
+
+    _renderChallengeLevels() {
+        const grid = document.getElementById('challenge-levels-grid');
+        const progressFill = document.getElementById('challenge-progress-fill');
+        const progressText = document.getElementById('challenge-progress-text');
+        if (!grid) return;
+
+        const records = ExtremeChallengeRecordManager.getRecords();
+        const progress = ExtremeChallengeRecordManager.getProgress();
+        if (progressFill) progressFill.style.width = `${(progress.passed / progress.total) * 100}%`;
+        if (progressText) progressText.textContent = `${progress.passed}/${progress.total}`;
+
+        grid.innerHTML = '';
+        for (const level of CHALLENGES) {
+            const record = records[level.id];
+            const isLocked = level.id > 1 && !records[level.id - 1]?.passed;
+            const stars = record?.stars || 0;
+            const diffClass = level.difficulty;
+            const card = document.createElement('div');
+            card.className = `challenge-level-card ${isLocked ? 'locked' : ''} ${record?.passed ? 'completed' : ''} diff-${diffClass}`;
+            card.innerHTML = `
+                <div class="challenge-level-icon">${level.icon}</div>
+                <div class="challenge-level-id">${level.id}</div>
+                <div class="challenge-level-name">${level.title}</div>
+                <div class="challenge-level-desc">${level.desc}</div>
+                <div class="challenge-level-diff">${level.difficulty === 'easy' ? '简单' : level.difficulty === 'normal' ? '普通' : '困难'}</div>
+                <div class="challenge-level-stars">${'⭐'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>
+                ${isLocked ? '<div class="challenge-level-lock">🔒</div>' : ''}
+            `;
+            if (!isLocked) {
+                card.addEventListener('click', () => {
+                    this._playButtonClick();
+                    this.startChallengeMode(level.id);
+                });
+            }
+            grid.appendChild(card);
+        }
+    }
+
+    async startChallengeMode(challengeId = 1) {
+        if (this._modeStarting) return;
+        this._modeStarting = true;
+        try {
+            if (this.currentMode) {
+                this.currentMode.isRunning = false;
+                this.currentMode.destroy?.();
+            }
+            this.renderer?.destroy?.();
+            this.renderer = null;
+
+            this.currentMode = new ChallengeMode(challengeId);
+            await this.currentMode.init();
+            this.currentMode.speedFactor = Math.max(0.3, Math.min(5.0, this.settings.gameSpeed || 1.0));
+            const humanPlayer = this.currentMode.gameState?.players?.[this.currentMode.humanIndex];
+            if (humanPlayer) humanPlayer.name = this.settings.playerName || '玩家';
+            document.getElementById('mode-display').textContent = `极限挑战 · ${this.currentMode.challenge?.title || '?'}`;
+
+            this.renderer = new Renderer('game-table');
+            this.renderer.setGameState(this.currentMode.gameState);
+            this.renderer.setMode(this.currentMode);
+            this._configureRendererAudio(this.renderer);
+            this.currentMode.setRenderer(this.renderer);
+
+            this._roundEndBound = false;
+            this._bindRoundEndListener();
+
+            this.showGame();
+            this._lockGameRuleSettings(true);
+            await this.currentMode.startGame();
+        } catch (err) {
+            console.error('启动极限挑战失败:', err);
+            this._showFallbackToast('挑战启动失败，请返回菜单重试');
+            this.showMenu();
+        } finally {
+            this._modeStarting = false;
+        }
+    }
+
+    _updateChallengeBadge() {
+        const desc = document.getElementById('challenge-desc');
+        if (!desc) return;
+        const progress = ExtremeChallengeRecordManager.getProgress();
+        if (progress.passed === 0) {
+            desc.textContent = '挑战10个极限规则关卡';
         } else if (progress.passed === progress.total) {
             desc.textContent = `⭐ ${progress.totalStars}/${progress.maxStars} 全通关`;
         } else {
