@@ -3197,7 +3197,8 @@ class Renderer {
         else this.container.appendChild(bar);
     }
 
-    showChallengeResult(passed, stars, challenge, progress) {
+    showExtremeChallengeResult(passed, stars, challenge, progress) {
+        if (!this.container || this._destroyed) return;
         const overlay = this.container.querySelector('#modal-overlay');
         const content = this.container.querySelector('#modal-content');
         if (!overlay || !content) return;

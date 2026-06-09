@@ -1583,6 +1583,13 @@ class GameApp {
             this.currentMode.destroy?.();
         }
         this.renderer?.audio?.stopBGM();
+        // 关闭可能残留的模态框
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalContent = document.getElementById('modal-content');
+        if (modalOverlay && !modalOverlay.classList.contains('hidden')) {
+            modalOverlay.classList.add('hidden', 'modal-exit');
+            modalContent?.classList.add('modal-exit');
+        }
         this.renderer?.destroy?.();
         this.renderer = null;
         this.currentMode = null;
@@ -2152,6 +2159,8 @@ class GameApp {
 
     // ---- 极限挑战 ----
     showChallengeLevels() {
+        // 从游戏返回时停止 renderer BGM，避免与菜单 BGM 冲突
+        this.renderer?.audio?.stopBGM();
         this._playMenuBGM(0);
         this._transitionToScreen('challenge-screen');
         this._renderChallengeLevels();

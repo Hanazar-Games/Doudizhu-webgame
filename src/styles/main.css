@@ -10963,7 +10963,8 @@ body[data-commentary="false"] .commentary-bubble {
 /* ===== 残局训练 ===== */
 
 /* 残局训练界面 */
-#endgame-screen {
+#endgame-screen,
+#challenge-screen {
     display: flex;
     flex-direction: column;
     align-items: center;

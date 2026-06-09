@@ -1630,21 +1630,33 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.22</div>
-                    <h3>🔧 极限挑战模式 Bug 修复</h3>
+                    <div class="changelog-version-badge">v1.2.23</div>
+                    <h3>🔧 极限挑战模式深度修复</h3>
                     <ul>
-                        <li>🚨 <strong>核心修复</strong>：<code>game-state.js</code> <code>_isPatternAllowed</code> 未处理 <code>bombRule='disabled'</code>，导致 AI 在禁炸令/保守派挑战中仍可出炸弹</li>
-                        <li>🎯 <strong>炸弹压王炸检测修复</strong>：AI 出牌时现在也能正确检测炸弹压王炸，挑战8「炸弹之王」星级判定准确</li>
-                        <li>🙈 <strong>盲牌斗地主实现</strong>：挑战6「盲牌斗地主」的 <code>disableTracker</code> 配置现在真正禁用记牌器按钮和面板</li>
-                        <li>👑 <strong>斗帝之路实现</strong>：挑战10「斗帝之路」的 <code>mustSpring</code> 配置现在正确强制判定——非春天胜利不计入通过</li>
-                        <li>🛡️ <strong>forceLandlord 数据完整性</strong>：孤军奋战/斗帝之路的强制地主流程现在正确设置 <code>initialHands</code> 和 <code>bottomCards</code></li>
-                        <li>⏱️ <strong>Timer 泄漏防护</strong>：挑战结果面板延迟 timer 现在正确追踪；<code>destroy()</code> 时清理状态标记</li>
-                        <li>🧪 <strong>测试增强</strong>：新增 GameState 炸弹拦截、forceLandlord 配置、mustSpring 基础逻辑等测试用例</li>
+                        <li>🚨 <strong>game-state.js</strong>：修复 <code>_isPatternAllowed</code> 未处理 <code>bombRule='disabled'</code>，AI 在禁炸令中仍可出炸弹</li>
+                        <li>🎯 <strong>bombBeatRocket 检测</strong>：AI 出牌现在也能检测炸弹压王炸；<code>calculateChallengeStars</code> 接收外部标记</li>
+                        <li>🙈 <strong>盲牌斗地主</strong>：<code>disableTracker</code> 真正禁用记牌器；<strong>斗帝之路</strong> <code>mustSpring</code> 强制判定</li>
+                        <li>🛡️ <strong>forceLandlord 完整性</strong>：补全 <code>initialHands</code>、<code>bottomCards</code>、<code>lastPlay</code> 重置</li>
+                        <li>🖥️ <strong>UI 修复</strong>：所有挑战都显示信息栏；<code>#challenge-screen</code> 补全布局样式；结果面板加 <code>_destroyed</code> 检查</li>
+                        <li>🎵 <strong>音频修复</strong>：返回关卡列表时停止 renderer BGM；返回菜单时关闭残留模态框</li>
+                        <li>🧪 <strong>测试</strong>：新增 bombBeatRocket 星级判定测试；同名方法冲突修复为 <code>showExtremeChallengeResult</code></li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.22</div>
+                            <h4>🔧 极限挑战模式 Bug 修复</h4>
+                            <ul>
+                                <li>🚨 game-state.js _isPatternAllowed 未处理 bombRule='disabled'</li>
+                                <li>🎯 bombBeatRocket 检测修复；calculateChallengeStars 外部标记</li>
+                                <li>🙈 盲牌斗地主 disableTracker / 斗帝之路 mustSpring 实现</li>
+                                <li>🛡️ forceLandlord 补全 initialHands / bottomCards / lastPlay</li>
+                                <li>🖥️ UI 修复：信息栏显示、challenge-screen 布局、_destroyed 检查</li>
+                                <li>🎵 音频：返回关卡列表停止 BGM；返回菜单关闭模态框</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.21</div>
                             <h4>🆕 新增：极限挑战模式</h4>

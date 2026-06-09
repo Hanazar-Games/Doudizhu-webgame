@@ -115,6 +115,7 @@ class ChallengeMode extends AIMode {
             this.gameState.passCount = 0;
             this.gameState.playCounts = [0, 0, 0];
             this.gameState.history = [];
+            this.gameState.lastPlay = { playerIndex: -1, cards: [], pattern: null };
 
             // 音效 + 渲染
             this.renderer?.audio?.playDeal();
@@ -129,6 +130,9 @@ class ChallengeMode extends AIMode {
         // 音效 + 新轮提示
         this.renderer?.audio?.playDeal();
         this._setTimer(() => this.renderer?.audio?.playNewRound(), 300);
+
+        // 显示挑战信息
+        this.renderer?.showChallengeInfo?.(this.challenge);
 
         // 进入叫分流程
         this._processCalling();
@@ -243,8 +247,17 @@ class ChallengeMode extends AIMode {
     }
 
     onRoundEnd(data) {
-        // 父类处理 BGM、渲染等
+        // 父类处理 BGM、音效等，但不显示普通结果面板
+        // 保存 renderer 的 showRoundResult 方法，临时禁用
+        const originalShowRoundResult = this.renderer?.showRoundResult;
+        if (this.renderer) {
+            this.renderer.showRoundResult = () => {};
+        }
         super.onRoundEnd(data);
+        // 恢复原始方法
+        if (this.renderer) {
+            this.renderer.showRoundResult = originalShowRoundResult;
+        }
 
         if (!this.challenge) return;
 
@@ -252,7 +265,8 @@ class ChallengeMode extends AIMode {
             this.challenge,
             data,
             this.gameState,
-            this.humanIndex
+            this.humanIndex,
+            { bombBeatRocket: this._bombBeatRocket }
         );
 
         // 处理 mustSpring 强制春天挑战
@@ -276,7 +290,7 @@ class ChallengeMode extends AIMode {
                 if (overlay && !overlay.classList.contains('hidden')) {
                     this.renderer._closeModal(overlay, content);
                 }
-                this.renderer?.showChallengeResult?.(
+                this.renderer?.showExtremeChallengeResult?.(
                     result.passed,
                     result.stars,
                     this.challenge,

@@ -248,7 +248,6 @@ async function test_challengeModeMustSpring() {
     mode.isRunning = true;
     mode._applyGameRules();
     mode._applyChallengeRules();
-    // 模拟非春天胜利，应被判定为失败
     const gs = mode.gameState;
     gs.landlordIndex = 0;
     const roundData = {
@@ -258,10 +257,28 @@ async function test_challengeModeMustSpring() {
     };
     const { calculateChallengeStars } = await import('../src/utils/challenge-data.js');
     const result = calculateChallengeStars(mode.challenge, roundData, gs, 0);
-    // 注意：mustSpring 是在 onRoundEnd 中处理的，calculateChallengeStars 本身不处理
-    // 这里只测试基本逻辑
     if (!result.passed) throw new Error('普通胜利应通过 calculateChallengeStars');
     console.log('✓ ChallengeMode mustSpring 基础逻辑');
+}
+
+async function test_challengeModeBombBeatRocket() {
+    const { calculateChallengeStars } = await import('../src/utils/challenge-data.js');
+    const challenge = CHALLENGES[7]; // 炸弹之王
+    const gs = new GameState();
+    gs.landlordIndex = 0;
+    const roundData = {
+        winnerIndex: 0,
+        scores: [100, -50, -50],
+        springType: null,
+    };
+    // 传入 bombBeatRocket=true 应得2星
+    const result = calculateChallengeStars(challenge, roundData, gs, 0, { bombBeatRocket: true });
+    if (!result.passed) throw new Error('应判定为通过');
+    if (result.stars !== 2) throw new Error(`炸弹压王炸应得2星, 得到${result.stars}`);
+    // 不传标记应得1星
+    const result2 = calculateChallengeStars(challenge, roundData, gs, 0);
+    if (result2.stars !== 1) throw new Error(`无炸弹压王炸应得1星, 得到${result2.stars}`);
+    console.log('✓ ChallengeMode bombBeatRocket 星级判定');
 }
 
 const tests = [
@@ -283,6 +300,7 @@ const tests = [
     test_challengeModeBombRuleBlockedByGameState,
     test_challengeModeForceLandlord,
     test_challengeModeMustSpring,
+    test_challengeModeBombBeatRocket,
 ];
 
 let passed = 0;

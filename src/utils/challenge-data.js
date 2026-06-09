@@ -269,7 +269,7 @@ class ExtremeChallengeRecordManager {
  * @param {number} humanIndex
  * @returns {{stars: number, passed: boolean}}
  */
-function calculateChallengeStars(challenge, roundData, gameState, humanIndex) {
+function calculateChallengeStars(challenge, roundData, gameState, humanIndex, extraFlags = {}) {
     if (!challenge || !roundData) return { stars: 0, passed: false };
 
     const gs = gameState;
@@ -281,7 +281,6 @@ function calculateChallengeStars(challenge, roundData, gameState, humanIndex) {
     // 统计本局是否有炸弹被打出
     const history = gs.history || [];
     let bombPlayed = false;
-    let bombBeatRocket = false;
     let totalPlays = 0;
     for (const h of history) {
         if (h.type === 'play' && h.cards && h.cards.length > 0) {
@@ -290,12 +289,11 @@ function calculateChallengeStars(challenge, roundData, gameState, humanIndex) {
             if (pat && (pat.type === 'BOMB' || pat.type === 'ROCKET')) {
                 bombPlayed = true;
             }
-            // 检测炸弹压王炸：当前是炸弹，且上一家出了王炸
-            if (pat && pat.type === 'BOMB') {
-                // 简化检测：本局只要有炸弹在火箭后出即算
-            }
         }
     }
+
+    // 炸弹压王炸标记由外部传入（history 中无法准确判断上家牌型）
+    const bombBeatRocket = extraFlags.bombBeatRocket || false;
 
     // 检测是否有纯顺子出牌（严格模式下有用）
     const straightTypes = ['STRAIGHT', 'DOUBLE_STRAIGHT', 'TRIPLE_STRAIGHT'];
