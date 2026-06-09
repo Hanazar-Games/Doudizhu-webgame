@@ -1593,22 +1593,36 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.19</div>
-                    <h3>全面深度 Bug 检查与修复（第四轮）</h3>
+                    <div class="changelog-version-badge">v1.2.20</div>
+                    <h3>全面深度 Bug 检查与修复（第五轮）</h3>
                     <ul>
-                        <li>🛡️ <strong>动画系统修复</strong>：<code>Animations.cancelAll()</code> 现在真正取消全部 30+ 处 <code>setTimeout</code> 和 <code>requestAnimationFrame</code>；庆祝状态锁在销毁时正确复位</li>
-                        <li>🃏 <strong>规则引擎修复</strong>：修复 <code>_tryStraightWithLaizi</code> 癞子顺子误判 bug——含额外牌时不再错误识别为顺子</li>
-                        <li>🎵 <strong>音频系统修复</strong>：所有 SFX <code>setTimeout</code> 纳入 <code>_sfxTimeouts</code> 统一管理；<code>destroy()</code> 时全部清理；音效细粒度设置支持热更新；<code>_wasPlayingBGM</code> 标志在手动关闭/切换时正确重置；M 键静音同步保存到全局设置</li>
-                        <li>📊 <strong>游戏状态修复</strong>：<code>pass</code> 存入 history 的 pattern 改为 <code>HandPattern</code> 实例；<code>playCards</code> 中 <code>lastPlay.pattern.cards</code> 与 <code>lastPlay.cards</code> 引用一致；<code>startRound</code> 增加牌组长度校验</li>
-                        <li>🌐 <strong>LAN 联机修复</strong>：非 Host 客户端正确维护 <code>playerMapping</code>；<code>_destroyRoom</code> 只关闭仍属于该房间的连接，避免误关已重连玩家</li>
-                        <li>⚙️ <strong>主程序修复</strong>：<code>_bindUXSettings()</code> 添加防重复绑定保护；设置变更时自动热重载 SFX 设置</li>
-                        <li>🌍 <strong>时区修复</strong>：<code>getTodayString</code> / <code>getWeekStartString</code> 改用 UTC 方法计算，避免跨时区日期漂移</li>
-                        <li>📹 <strong>回放修复</strong>：回放列表过滤脏数据后再渲染，避免索引错位和计数不准确</li>
+                        <li>🚨 <strong>核心逻辑修复</strong>：修复 <code>game-state.js</code> 抢地主阶段 <code>currentCallPlayer</code> 不更新导致轮转错乱；<code>_finishCalling</code> landlord 为 null 时直接 return 导致 phase 死锁</li>
+                        <li>🃏 <strong>规则引擎修复</strong>：<code>_tryStraightWithLaizi</code> 显式拒绝重复真实牌的顺子组合，杜绝癞子顺子误判</li>
+                        <li>🎵 <strong>音频系统修复</strong>：移除 <code>showGame()</code> 与 <code>onPhaseChange</code> 的 BGM 双重调度；<code>stopBGM()</code> 清理 loop timer 防止泄漏；所有 <code>start()/stop()</code> 添加 <code>InvalidStateError</code> 防护</li>
+                        <li>🖥️ <strong>渲染器修复</strong>：<code>_initLayout</code> 重复绑定清理；<code>hidePlayControls</code>/<code>showPlayControls</code>/<code>showCallResult</code> 原生 setTimeout 统一替换为 <code>_setTimer</code>；暂停覆盖层按钮事件防重复绑定</li>
+                        <li>🧠 <strong>AI 教练修复</strong>：<code>sameCard</code> 王牌比较逻辑错误（大小王互混）；<code>play-style.js</code> <code>passRate</code> 使用不存在字段导致永远为 0.3</li>
+                        <li>📊 <strong>数据修复</strong>：<code>season-quest.js</code> <code>bombCount</code> undefined 导致 NaN；<code>endgame-data.js</code> <code>bestSteps = 0</code> 被 falsy 错误覆盖；残局关卡 5 人类索引与地主索引矛盾</li>
+                        <li>🌐 <strong>LAN 联机修复</strong>：<code>_syncGameStart</code> 校验 <code>startRound</code> 返回值，数据损坏时优雅报错而非软锁</li>
+                        <li>⚙️ <strong>自定义模式修复</strong>：无预设牌分支缺失 <code>_applyGameRules()</code> 导致规则设置不生效</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.19</div>
+                            <h4>全面深度 Bug 检查与修复（第四轮）</h4>
+                            <ul>
+                                <li>🛡️ 动画系统修复：<code>Animations.cancelAll()</code> 现在真正取消全部 30+ 处定时器；庆祝状态锁在销毁时正确复位</li>
+                                <li>🃏 规则引擎修复：癞子顺子误判 bug——含额外牌时不再错误识别为顺子</li>
+                                <li>🎵 音频系统修复：SFX <code>setTimeout</code> 纳入统一管理；<code>destroy()</code> 时全部清理；音效细粒度设置支持热更新</li>
+                                <li>📊 游戏状态修复：<code>pass</code> 存入 history 的 pattern 改为 <code>HandPattern</code> 实例；<code>startRound</code> 增加牌组长度校验</li>
+                                <li>🌐 LAN 联机修复：非 Host 客户端正确维护 <code>playerMapping</code>；<code>_destroyRoom</code> 只关闭仍属于该房间的连接</li>
+                                <li>⚙️ 主程序修复：<code>_bindUXSettings()</code> 添加防重复绑定保护；设置变更时自动热重载 SFX 设置</li>
+                                <li>🌍 时区修复：<code>getTodayString</code> / <code>getWeekStartString</code> 改用 UTC 方法计算</li>
+                                <li>📹 回放修复：回放列表过滤脏数据后再渲染</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.18</div>
                             <h4>全面深度 Bug 检查与修复（第三轮）</h4>

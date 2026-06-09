@@ -445,12 +445,12 @@ class GameApp {
             setTimeout(() => { subtitle.style.opacity = '0.7'; }, 200);
         }
 
-        // 按钮依次弹入
-        const buttons = menuScreen.querySelectorAll('.menu-buttons .btn-primary');
+        // 按钮依次弹入（主模式卡片 + 小卡片）
+        const buttons = menuScreen.querySelectorAll('.mode-card');
         buttons.forEach((btn, i) => {
             btn.style.opacity = '0';
             btn.style.transform = 'translateY(30px) scale(0.9)';
-            btn.style.transition = `all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${300 + i * 100}ms`;
+            btn.style.transition = `all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${300 + i * 80}ms`;
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     btn.style.opacity = '1';
@@ -1794,14 +1794,10 @@ class GameApp {
             });
         }
 
-        // 切换为游戏BGM（延迟等发牌动画）
+        // 停止菜单音频；游戏BGM由 onPhaseChange(PLAYING) 统一调度，避免双重触发
         this._stopMenuAudio();
         this.renderer?.audio?.stopBGM();
-        if (this._gameBgmTimer) clearTimeout(this._gameBgmTimer);
-        this._gameBgmTimer = setTimeout(() => {
-            this._gameBgmTimer = null;
-            this.renderer?.audio?.playGameBGM();
-        }, 1500);
+        if (this._gameBgmTimer) { clearTimeout(this._gameBgmTimer); this._gameBgmTimer = null; }
     }
 
     // ---- AI模式 ----
@@ -1869,7 +1865,11 @@ class GameApp {
         if (!overlay || overlay.classList.contains('hidden')) return;
         overlay.style.transition = 'opacity 0.2s ease-in';
         overlay.style.opacity = '0';
-        setTimeout(() => overlay.classList.add('hidden'), 200);
+        if (this._tourCloseTimer) clearTimeout(this._tourCloseTimer);
+        this._tourCloseTimer = setTimeout(() => {
+            this._tourCloseTimer = null;
+            overlay.classList.add('hidden');
+        }, 200);
         this._getActiveAudio()?.playSettingClose?.();
     }
 

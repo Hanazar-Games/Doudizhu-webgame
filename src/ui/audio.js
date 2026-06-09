@@ -151,8 +151,13 @@ class AudioManager {
         osc.connect(gain);
         gain.connect(this._getMasterCompressor());
 
-        osc.start(t);
-        osc.stop(t + duration);
+        try {
+            osc.start(t);
+            osc.stop(t + duration);
+        } catch (e) {
+            try { osc.disconnect(); gain.disconnect(); } catch (_) {}
+            return;
+        }
         osc.onended = () => {
             try { osc.disconnect(); gain.disconnect(); } catch (e) {}
         };
@@ -259,10 +264,14 @@ class AudioManager {
 
     setBGMVolume(v) {
         this.bgmVolume = Math.max(0, Math.min(1, v));
-        if (this._bgmGain && this.ctx) {
-            const now = this.ctx.currentTime;
-            const target = 0.08 * this.bgmVolume;
-            this._bgmGain.gain.setTargetAtTime(target, now, 0.15);
+        if (this._bgmGain && this.ctx && this.ctx.state === 'running') {
+            try {
+                const now = this.ctx.currentTime;
+                const target = 0.08 * this.bgmVolume;
+                this._bgmGain.gain.setTargetAtTime(target, now, 0.15);
+            } catch (e) {
+                // InvalidStateError: context 已关闭或节点已断开
+            }
         }
     }
 
@@ -289,8 +298,15 @@ class AudioManager {
         gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
         osc.connect(gain);
         gain.connect(master);
-        osc.start(t);
-        osc.stop(t + duration + 0.1);
+        try {
+            osc.start(t);
+            osc.stop(t + duration + 0.1);
+        } catch (e) {
+            const idx = this._bgmNodes.indexOf(nodeRef);
+            if (idx >= 0) this._bgmNodes.splice(idx, 1);
+            try { osc.disconnect(); gain.disconnect(); } catch (_) {}
+            return;
+        }
         
         const nodeRef = { osc, gain };
         this._bgmNodes.push(nodeRef);
@@ -474,8 +490,13 @@ class AudioManager {
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
         osc.connect(gain);
         gain.connect(this._getMasterCompressor() || this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.3);
+        try {
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.3);
+        } catch (e) {
+            try { osc.disconnect(); gain.disconnect(); } catch (_) {}
+            return;
+        }
         osc.onended = () => {
             try { osc.disconnect(); gain.disconnect(); } catch (e) {}
         };
@@ -523,7 +544,7 @@ class AudioManager {
         noise.connect(filter);
         filter.connect(gain);
         gain.connect(this._getMasterCompressor() || this.ctx.destination);
-        noise.start();
+        try { noise.start(); } catch (e) { return; }
 
         const osc = this.ctx.createOscillator();
         osc.type = 'sawtooth';
@@ -534,8 +555,13 @@ class AudioManager {
         oscGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
         osc.connect(oscGain);
         oscGain.connect(this._getMasterCompressor() || this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + duration);
+        try {
+            osc.start();
+            osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {
+            try { osc.disconnect(); oscGain.disconnect(); } catch (_) {}
+            return;
+        }
         noise.onended = () => {
             try { noise.disconnect(); filter.disconnect(); gain.disconnect(); } catch (e) {}
         };
@@ -560,8 +586,13 @@ class AudioManager {
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.9);
         osc.connect(gain);
         gain.connect(this._getMasterCompressor() || this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.9);
+        try {
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.9);
+        } catch (e) {
+            try { osc.disconnect(); gain.disconnect(); } catch (_) {}
+            return;
+        }
         osc.onended = () => {
             try { osc.disconnect(); gain.disconnect(); } catch (e) {}
         };
@@ -838,7 +869,11 @@ class AudioManager {
         this._bgmNodes.forEach(n => {
             try {
                 if (n.gain) n.gain.disconnect();
-                if (n.osc) { n.osc.stop(); n.osc.disconnect(); }
+                if (n.osc) {
+                    // 避免对已 stopped 的 oscillator 重复调用 stop()
+                    try { n.osc.stop(); } catch (e) {}
+                    n.osc.disconnect();
+                }
             } catch (e) {}
         });
         this._bgmNodes = [];

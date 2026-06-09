@@ -299,6 +299,7 @@ class GameState {
             // 叫地主的人自己不能抢自己（但可以反抢，简化：任何人都可以抢）
             if (action === GRAB_ACTION.GRAB) {
                 this.grabMultiplier *= 2;
+                this.currentCallPlayer = playerIndex; // 最后抢地主的人成为地主候选
                 this.hasCalled[playerIndex] = true; // 用 hasCalled 标记参与过的人
                 this.emit('playerCall', { playerIndex, action: 'grab', name: player?.name, mode: 'grab', phase: 'grab', multiplier: this.grabMultiplier });
             } else {
@@ -326,10 +327,17 @@ class GameState {
             // 没人叫分：默认dealer为地主
             this.landlordIndex = this.dealerIndex;
         }
-        const landlord = this.players[this.landlordIndex];
+        let landlord = this.players[this.landlordIndex];
         if (!landlord) {
-            console.error('[_finishCalling] 地主位置无玩家:', this.landlordIndex);
-            return;
+            console.error('[_finishCalling] 地主位置无玩家，回退到 dealer:', this.landlordIndex);
+            this.landlordIndex = this.dealerIndex;
+            landlord = this.players[this.landlordIndex];
+            if (!landlord) {
+                console.error('[_finishCalling] dealer 也无玩家，游戏无法继续');
+                this.phase = PHASE.ENDED;
+                this.emit('phaseChange', { phase: this.phase });
+                return;
+            }
         }
         landlord.isLandlord = true;
         landlord.addCards(this.bottomCards);

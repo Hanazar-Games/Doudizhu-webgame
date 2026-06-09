@@ -87,6 +87,9 @@ class CustomMode extends BaseMode {
     async startGame() {
         this.isRunning = true;
         
+        // 应用全局游戏规则（与 BaseMode 保持一致）
+        this._applyGameRules();
+        
         // 从设置读取标准游戏规则并配置 GameState（CustomMode 也受全局设置约束）
         const settings = Storage.getSettings();
         this.speedFactor = Math.max(0.3, Math.min(5.0, parseFloat(settings.gameSpeed) || 1.0));

@@ -222,11 +222,15 @@ export class PlayStyleAnalyzer {
         // --- 稳健性 ---
         const callWinRate = d.callSuccess / Math.max(d.callAttempts, 1);
         // passRate: 从 games 数组统计 pass 比例（若数据不可用则用默认值）
+        // games 中可能没有 passed/played 字段，使用 passCount/playCount 聚合值作为兜底
         const passCount = games.filter(g => g.passed === true).length;
         const playCount = games.filter(g => g.played === true).length;
-        const passRate = (passCount + playCount) > 0
-            ? (passCount / Math.max(passCount + playCount, 1))
-            : 0.3;
+        const totalActions = passCount + playCount;
+        const passRate = totalActions > 0
+            ? (passCount / totalActions)
+            : (d.passCount + d.playCount > 0
+                ? (d.passCount / (d.passCount + d.playCount))
+                : 0.3);
         const landlordWinRate = d.landlordCount > 0 ? d.landlordWinCount / d.landlordCount : 0.5;
         const steadiness = Math.min(100, Math.round(
             (callWinRate * 30) + ((1 - Math.abs(passRate - 0.3)) * 25) + (landlordWinRate * 20) + 25

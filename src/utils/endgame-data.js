@@ -203,7 +203,7 @@ const EndgameRecordManager = {
             records[levelId] = new EndgameRecord(levelId, stars, steps, true);
         } else {
             const betterStars = Math.max(existing.stars, stars);
-            const betterSteps = existing.bestSteps ? Math.min(existing.bestSteps, steps) : steps;
+            const betterSteps = (existing.bestSteps != null) ? Math.min(existing.bestSteps, steps) : steps;
             records[levelId] = new EndgameRecord(levelId, betterStars, betterSteps, true);
         }
         try {

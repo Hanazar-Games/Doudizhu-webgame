@@ -347,7 +347,8 @@ class SeasonQuestManager {
     reportGame(event) {
         this._checkReset();
         const newlyCompleted = [];
-        const { isWin, isLandlord, bombCount, hasRocket, isSpring, isAntiSpring, mode } = event;
+        const { isWin, isLandlord, hasRocket, isSpring, isAntiSpring, mode } = event;
+        const bombCount = typeof event.bombCount === 'number' ? event.bombCount : 0;
 
         // LAN 模式不计入（避免跨设备同步问题）
         if (mode === 'lan') return newlyCompleted;

@@ -19,6 +19,7 @@ function adaptCard(c) {
 function sameCard(a, b) {
     if (!a || !b) return false;
     if (a.value !== b.value) return false;
+    // 大小王：value 相同即为同一张（各只有一张）
     if (a.value >= 16) return true;
     const aSuit = typeof a.suit === 'string' ? a.suit : (a.suit?.name || '');
     const bSuit = typeof b.suit === 'string' ? b.suit : (b.suit?.name || '');

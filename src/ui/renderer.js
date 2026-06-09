@@ -851,7 +851,8 @@ class Renderer {
         if (overlay._removeTimeout) clearTimeout(overlay._removeTimeout);
         overlay.style.transition = 'opacity 0.25s ease-in';
         overlay.style.opacity = '0';
-        overlay._removeTimeout = setTimeout(() => {
+        overlay._removeTimeout = this._setTimer(() => {
+            if (this._destroyed) return;
             overlay.remove();
             overlay._removeTimeout = null;
         }, 250);
@@ -2045,7 +2046,8 @@ class Renderer {
                 btn.style.transform = 'scale(0)';
                 btn.style.opacity = '0';
                 btn.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s';
-                setTimeout(() => {
+                this._setTimer(() => {
+                    if (this._destroyed) return;
                     btn.style.transform = 'scale(1)';
                     btn.style.opacity = '1';
                 }, i * 80);
@@ -2070,7 +2072,8 @@ class Renderer {
             btn.style.transform = 'scale(0)';
             btn.style.opacity = '0';
             btn.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s';
-            setTimeout(() => {
+            this._setTimer(() => {
+                if (this._destroyed) return;
                 btn.style.transform = 'scale(1)';
                 btn.style.opacity = btn.disabled ? '0.4' : '1';
             }, i * 80);
@@ -2118,7 +2121,8 @@ class Renderer {
             btn.style.transform = 'scale(0)';
             btn.style.opacity = '0';
             btn.style.transition = 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s';
-            setTimeout(() => {
+            this._setTimer(() => {
+                if (this._destroyed) return;
                 btn.style.transform = 'scale(1)';
                 btn.style.opacity = '1';
             }, i * 60);
@@ -2688,7 +2692,10 @@ class Renderer {
             <button id="btn-round-back-menu">返回菜单</button>
         `;
 
-        if (overlay._modalCloseTimeout) clearTimeout(overlay._modalCloseTimeout);
+        if (overlay._modalCloseTimeout) {
+            clearTimeout(overlay._modalCloseTimeout);
+            overlay._modalCloseTimeout = null;
+        }
         // 清理上一个 modal 的 overlay click listener，防止快速重入时累积
         if (this._modalOverlayClick) {
             overlay.removeEventListener('click', this._modalOverlayClick);
@@ -3369,7 +3376,7 @@ class Renderer {
                 countEl.textContent = remaining;
                 if (remaining === 0 && oldVal > 0) {
                     countEl.classList.add('count-jump');
-                    setTimeout(() => countEl.classList.remove('count-jump'), 300);
+                    this._setTimer(() => countEl.classList.remove('count-jump'), 300);
                 }
             }
             cell.classList.remove('full', 'low', 'empty');

@@ -331,9 +331,11 @@ class Rules {
         const laiziCount = laiziCards.length;
         const allCards = [...normalCards, ...laiziCards];
         
-        // 所有真实牌必须是单张（不能有重复值，除非重复值是癞子可替代的）
+        // 所有真实牌必须是单张（不能有重复值，顺子中每个值只出现一次）
         if (normalCards.some(c => c.value >= 15)) return null;
-        const values = [...new Set(normalCards.map(c => c.value))].filter(v => v <= 14).sort((a, b) => a - b);
+        const uniqueNormalValues = [...new Set(normalCards.map(c => c.value))];
+        if (uniqueNormalValues.length !== normalCards.length) return null;
+        const values = uniqueNormalValues.filter(v => v <= 14).sort((a, b) => a - b);
         if (values.length === 0 && laiziCount >= 5) {
             // 全是癞子，最小顺子 3-7
             return new HandPattern(HAND_TYPE.STRAIGHT, allCards, 7, n, true);

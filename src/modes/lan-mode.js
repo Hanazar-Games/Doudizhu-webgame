@@ -333,7 +333,12 @@ class LANMode extends BaseMode {
         const deck = this._deserializeDeck(data.deck);
         const bottom = this._deserializeDeck(data.bottomCards);
         this.gameState.dealerIndex = data.dealerIndex;
-        this.gameState.startRound(deck, bottom);
+        const ok = this.gameState.startRound(deck, bottom);
+        if (!ok) {
+            this.showToast?.('牌局数据错误，请重新开局', 'error');
+            this.isRunning = false;
+            return;
+        }
         this.isRunning = true;
         
         // 音效 + BGM
