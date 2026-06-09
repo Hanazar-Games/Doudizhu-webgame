@@ -222,12 +222,10 @@ class CustomMode extends BaseMode {
             this.humanIndex = -1;
         }
         
-        // 音效 + BGM
+        // 音效（BGM 由 BaseMode.onPhaseChange 统一调度）
         this.renderer?.audio?.playDeal();
         this._setTimer(() => this.renderer?.audio?.playNewRound(), 300);
-        this.renderer?.audio?.stopBGM();
-        this._setTimer(() => this.renderer?.audio?.playGameBGM(), 1500);
-        
+
         this._processCalling();
     }
 

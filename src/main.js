@@ -462,6 +462,8 @@ class GameApp {
     _playMenuBGM(delay = 300) {
         if (this.renderer) return;
         this._syncAudioSettings(this.menuAudio);
+        // 如果已经在播放菜单 BGM，避免中断重启
+        if (this.menuAudio?._currentBGM === 'menu') return;
         this.menuAudio?.stopBGM();
         if (this._menuBgmTimer) clearTimeout(this._menuBgmTimer);
         this._menuBgmTimer = setTimeout(() => {
@@ -1662,19 +1664,25 @@ class GameApp {
         this._playMenuBGM();
 
         // 淡出当前屏幕
+        if (!this._screenTimers) this._screenTimers = new Map();
         const endgame = document.getElementById('endgame-screen');
         const challenge = document.getElementById('challenge-screen');
         const workshop = document.getElementById('workshop-screen');
         [game, lan, custom, replay, endgame, challenge, workshop].forEach(s => {
             if (s && !s.classList.contains('hidden')) {
+                const id = s.id;
+                const oldTimer = this._screenTimers.get(id);
+                if (oldTimer) clearTimeout(oldTimer);
                 s.style.opacity = '1';
                 s.style.transition = 'opacity 0.3s ease';
                 s.style.opacity = '0';
-                setTimeout(() => {
+                const timer = setTimeout(() => {
+                    this._screenTimers.delete(id);
                     s.classList.add('hidden');
                     s.style.opacity = '';
                     s.style.transition = '';
                 }, 300);
+                this._screenTimers.set(id, timer);
             }
         });
 
@@ -1736,9 +1744,9 @@ class GameApp {
         const container = document.getElementById('replay-container');
         if (!container) return;
 
-        // 停止旧的 ReplayManager 防止定时器泄漏
+        // 停止旧的 ReplayManager 防止定时器/键盘事件泄漏
         if (this._replayManager) {
-            this._replayManager.stop();
+            this._replayManager.destroy();
         }
         this._replayManager = new ReplayManager('replay-container');
         this._replayManager.showGameList();
@@ -1748,12 +1756,12 @@ class GameApp {
         const container = document.getElementById('replay-container');
         if (!container) return;
         if (this._replayManager) {
-            this._replayManager.stop();
+            this._replayManager.destroy();
         }
         this._replayManager = new ReplayManager('replay-container');
         const games = this._replayManager.loadGames();
         if (games.length === 0) {
-            this.showToast('暂无回放数据', 'info');
+            this._showFallbackToast('暂无回放数据', 'info');
             return;
         }
 
@@ -1773,7 +1781,7 @@ class GameApp {
         }
 
         if (!targetGame) {
-            this.showToast('找不到对应回放', 'info');
+            this._showFallbackToast('找不到对应回放', 'info');
             this.showReplayList();
             return;
         }
@@ -2154,26 +2162,37 @@ class GameApp {
 
     // ---- 通用页面过渡 ----
     _transitionToScreen(targetId) {
-        const menu = document.getElementById('menu-screen');
+        if (!this._screenTimers) this._screenTimers = new Map();
         const target = document.getElementById(targetId);
         const allScreens = [
             'menu-screen', 'game-screen', 'lan-screen', 'custom-screen',
             'replay-screen', 'endgame-screen', 'challenge-screen', 'workshop-screen'
         ];
 
-        // 隐藏所有非目标 screen
+        // 隐藏所有非目标 screen，取消旧 timer 防止竞态
         for (const id of allScreens) {
             if (id === targetId) continue;
             const el = document.getElementById(id);
             if (el && !el.classList.contains('hidden')) {
+                const oldTimer = this._screenTimers.get(id);
+                if (oldTimer) clearTimeout(oldTimer);
                 el.style.transition = 'opacity 0.3s ease';
                 el.style.opacity = '0';
-                setTimeout(() => {
+                const timer = setTimeout(() => {
+                    this._screenTimers.delete(id);
                     el.classList.add('hidden');
                     el.style.opacity = '';
                     el.style.transition = '';
                 }, 300);
+                this._screenTimers.set(id, timer);
             }
+        }
+
+        // 取消目标 screen 的旧隐藏 timer，防止被之前动画重新 hidden
+        const targetOldTimer = this._screenTimers.get(targetId);
+        if (targetOldTimer) {
+            clearTimeout(targetOldTimer);
+            this._screenTimers.delete(targetId);
         }
 
         if (target) {

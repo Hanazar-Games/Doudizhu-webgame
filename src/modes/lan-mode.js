@@ -122,7 +122,7 @@ class LANMode extends BaseMode {
                         this._onWsMessage(JSON.parse(e.data));
                     } catch (err) {
                         console.warn('[LANMode] 忽略异常网络消息:', err);
-                        this.showToast('收到异常网络消息，已忽略');
+                        this.renderer?.showToast?.('收到异常网络消息，已忽略');
                     }
                 };
                 
@@ -152,7 +152,7 @@ class LANMode extends BaseMode {
         if (!this.myPeerId) return; // 从未加入/创建过房间，不重连
         if (this._reconnectAttempts >= CONFIG.ws.maxReconnectAttempts) {
             console.warn('[LANMode] 重连次数已达上限，停止重连');
-            this.showToast('连接已断开，请重新进入局域网联机');
+            this.renderer?.showToast?.('连接已断开，请重新进入局域网联机');
             return;
         }
         this._reconnectAttempts++;
@@ -206,7 +206,7 @@ class LANMode extends BaseMode {
                     if (peerId) this._sendStateSync(peerId);
                 }
                 if (msg.reconnected && !this.isHost) {
-                    this.showToast('重连成功，正在同步游戏状态...');
+                    this.renderer?.showToast?.('重连成功，正在同步游戏状态...');
                     // 非 host 重连后请求状态同步（server 已代发，但双重保险）
                     if (this.hostPeerId) {
                         this._send({ type: 'request_state_sync', targetPeerId: this.hostPeerId });
@@ -221,7 +221,7 @@ class LANMode extends BaseMode {
                 break;
             case 'game_starting':
                 if (!this.isHost) {
-                    this.showToast('游戏即将开始...');
+                    this.renderer?.showToast?.('游戏即将开始...');
                 }
                 break;
             case 'request_state_sync':
@@ -237,10 +237,10 @@ class LANMode extends BaseMode {
                 this._handleRemoteAction(msg);
                 break;
             case 'player_left':
-                this.showToast(`玩家 ${msg.peerId} 已离开`);
+                this.renderer?.showToast?.(`玩家 ${msg.peerId} 已离开`);
                 break;
             case 'room_closed':
-                this.showToast('房间已关闭: ' + (msg.reason || ''));
+                this.renderer?.showToast?.('房间已关闭: ' + (msg.reason || ''));
                 break;
             case 'chat':
                 if (this.renderer) {
@@ -249,7 +249,7 @@ class LANMode extends BaseMode {
                 break;
             case 'error':
                 console.error('[LANMode]', msg.message);
-                this.showToast('错误: ' + msg.message);
+                this.renderer?.showToast?.('错误: ' + msg.message);
                 break;
         }
     }
@@ -289,7 +289,7 @@ class LANMode extends BaseMode {
 
     async startGame() {
         if (!this.isHost) {
-            this.showToast('只有房主可以开始游戏');
+            this.renderer?.showToast?.('只有房主可以开始游戏');
             return;
         }
 
@@ -335,18 +335,16 @@ class LANMode extends BaseMode {
         this.gameState.dealerIndex = data.dealerIndex;
         const ok = this.gameState.startRound(deck, bottom);
         if (!ok) {
-            this.showToast?.('牌局数据错误，请重新开局', 'error');
+            this.renderer?.showToast?.('牌局数据错误，请重新开局', 'error');
             this.isRunning = false;
             return;
         }
         this.isRunning = true;
         
-        // 音效 + BGM
+        // 音效（BGM 由 BaseMode.onPhaseChange 统一调度）
         this.renderer?.audio?.playDeal();
         this._setTimer(() => this.renderer?.audio?.playNewRound(), 300);
-        this.renderer?.audio?.stopBGM();
-        this._setTimer(() => this.renderer?.audio?.playGameBGM(), 1500);
-        
+
         this._processCalling();
     }
 
