@@ -298,6 +298,7 @@ class AudioManager {
         gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
         osc.connect(gain);
         gain.connect(master);
+        const nodeRef = { osc, gain };
         try {
             osc.start(t);
             osc.stop(t + duration + 0.1);
@@ -307,8 +308,6 @@ class AudioManager {
             try { osc.disconnect(); gain.disconnect(); } catch (_) {}
             return;
         }
-        
-        const nodeRef = { osc, gain };
         this._bgmNodes.push(nodeRef);
         
         // 播放结束后自动从列表中移除，防止内存泄漏

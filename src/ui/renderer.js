@@ -1142,6 +1142,7 @@ class Renderer {
      * CSS flex + margin-left 规则会自动让剩余卡片重新居中，无需手动重算 overlap。
      */
     _updateHumanHand(playedCards) {
+        if (this._destroyed) return;
         if (!playedCards || playedCards.length === 0) return;
         const container = this.container?.querySelector('#player-right .hand-front');
         if (!container) return;
@@ -1535,6 +1536,7 @@ class Renderer {
 
     // 渲染玩家手牌（正面，仅自己）
     renderHands() {
+        if (this._destroyed) return;
         if (!this.gameState) return;
         // 重新渲染前清除选择状态，避免 DOM 与 selectedCards 不一致
         this.clearSelection();
@@ -1903,6 +1905,7 @@ class Renderer {
     }
 
     showCountdown(playerIndex, seconds) {
+        if (this._destroyed) return;
         // 1. 对手区域显示小倒计时（人类玩家只在桌面中央显示大倒计时）
         const humanIdx = this.mode?.humanIndex;
         if (humanIdx !== undefined && playerIndex !== humanIdx) {
@@ -1935,6 +1938,7 @@ class Renderer {
     }
 
     hideCountdown() {
+        if (this._destroyed) return;
         // 1. 清除玩家区域倒计时
         const areas = this.container.querySelectorAll('.player-area');
         for (const area of areas) {
@@ -1954,6 +1958,7 @@ class Renderer {
     }
 
     showThinking(playerIndex, hintText = null) {
+        if (this._destroyed) return;
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
         let el = area.querySelector('.thinking-indicator');
@@ -1975,6 +1980,7 @@ class Renderer {
     }
 
     hideThinking(playerIndex) {
+        if (this._destroyed) return;
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
         const el = area.querySelector('.thinking-indicator');
@@ -1985,6 +1991,7 @@ class Renderer {
     }
 
     showAIHint(playerIndex, cards) {
+        if (this._destroyed) return;
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
         let hint = area.querySelector('.ai-hint');
@@ -1999,6 +2006,7 @@ class Renderer {
     }
 
     hideAIHint(playerIndex) {
+        if (this._destroyed) return;
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
         const hint = area.querySelector('.ai-hint');
@@ -2149,6 +2157,7 @@ class Renderer {
     // ---- 事件动画 ----
 
     showCallResult(data) {
+        if (this._destroyed) return;
         const area = this._getPlayerArea(data.playerIndex);
         const bubble = document.createElement('div');
         bubble.className = 'call-bubble';
@@ -2256,6 +2265,7 @@ class Renderer {
     }
 
     animatePlay(data) {
+        if (this._destroyed) return;
         const area = this._getPlayerArea(data.playerIndex);
         const playedArea = area?.querySelector('.played-area');
         if (!playedArea) return;
@@ -2401,6 +2411,7 @@ class Renderer {
     }
 
     showPass(playerIndex) {
+        if (this._destroyed) return;
         const area = this._getPlayerArea(playerIndex);
         const bubble = document.createElement('div');
         bubble.className = 'pass-bubble';
@@ -2434,6 +2445,7 @@ class Renderer {
 
     // AI/玩家快捷短语气泡
     showChatBubble(playerIndex, text) {
+        if (this._destroyed) return;
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
 
@@ -2461,6 +2473,7 @@ class Renderer {
     }
 
     highlightTurn(playerIndex) {
+        if (this._destroyed) return;
         if (this.gameState?.phase === PHASE.CALLING) {
             this.hidePlayControls();
             this.clearSelection();
@@ -2551,6 +2564,7 @@ class Renderer {
     }
 
     showRoundResult(data, matchStatus = null) {
+        if (this._destroyed) return;
         const overlay = this.container.querySelector('#modal-overlay');
         const content = this.container.querySelector('#modal-content');
         if (!overlay || !content || !this.gameState) return;
@@ -3102,6 +3116,7 @@ class Renderer {
     }
 
     showEndgameResult(passed, stars, levelIndex, progress) {
+        if (this._destroyed) return;
         const overlay = this.container.querySelector('#modal-overlay');
         const content = this.container.querySelector('#modal-content');
         if (!overlay || !content) return;
@@ -3316,9 +3331,12 @@ class Renderer {
     showAchievementUnlock(achievements) {
         if (!this.container || !achievements?.length) return;
         const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
-        achievements.forEach((ach, i) => {
+        achievements.slice(0, 3).forEach((ach, i) => {
             this._setTimer(() => {
                 if (this._destroyed) return;
+                // 限制同时存在的成就toast数量
+                const existing = this.container.querySelectorAll('.achievement-toast:not(.quest-toast)');
+                if (existing.length >= 3) existing[0].remove();
                 const el = document.createElement('div');
                 el.className = 'achievement-toast';
                 el.dataset.animFx = 'true';
@@ -3345,9 +3363,12 @@ class Renderer {
     showQuestCompleted(quests) {
         if (!this.container || !quests?.length) return;
         const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
-        quests.forEach((q, i) => {
+        quests.slice(0, 3).forEach((q, i) => {
             this._setTimer(() => {
                 if (this._destroyed) return;
+                // 限制同时存在的任务toast数量
+                const existing = this.container.querySelectorAll('.quest-toast');
+                if (existing.length >= 3) existing[0].remove();
                 const meta = q.desc || '';
                 const rewardText = [];
                 if (q.reward?.exp) rewardText.push(`+${q.reward.exp} EXP`);

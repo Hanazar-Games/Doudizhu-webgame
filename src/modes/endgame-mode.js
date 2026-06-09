@@ -92,6 +92,12 @@ class EndgameMode extends BaseMode {
         this.gameState.playCounts = [0, 0, 0];
         this.gameState.history = [];
 
+        // 手动调度游戏BGM（直接赋值phase绕过了phaseChange事件）
+        this.renderer?.audio?.stopBGM();
+        this._setTimer(() => {
+            if (this.isRunning) this.renderer?.audio?.playGameBGM();
+        }, 500);
+
         // 残局模式强制使用标准规则，确保所有预设牌型合法
         this.gameState.allowTripleWithSingle = true;
         this.gameState.allowTripleWithPair = true;

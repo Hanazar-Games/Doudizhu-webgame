@@ -18,6 +18,7 @@ import { Renderer } from './ui/renderer.js';
 import { AudioManager } from './ui/audio.js';
 import { Storage } from './utils/storage.js';
 import { ReplayManager } from './utils/replay.js';
+import { ReplayWorkshop } from './utils/replay-workshop.js';
 import { Tutorial } from './ui/tutorial.js';
 import { PlayStyleAnalyzer } from './ui/play-style.js';
 import { CoachAnalyzer } from './utils/coach-analyzer.js';
@@ -52,6 +53,21 @@ class GameApp {
         this.renderer?.showToast?.(msg, type) ?? alert(msg);
     }
 
+    _fallbackCopy(text) {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;left:-9999px;opacity:0;';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            this._showFallbackToast('分享码已复制到剪贴板', 'success');
+        } catch (e) {
+            this._showFallbackToast('复制失败，请手动复制分享码', 'error');
+        }
+    }
+
     init() {
         // 恢复设置
         this._applySettings();
@@ -64,6 +80,7 @@ class GameApp {
             { id: 'btn-lan-mode', action: () => this.startLANMode() },
             { id: 'btn-custom-mode', action: () => this.startCustomMode() },
             { id: 'btn-replay', action: () => this.showReplayList() },
+            { id: 'btn-workshop', action: () => this.showWorkshop() },
             { id: 'btn-achievements', action: () => this.showAchievements() },
             { id: 'btn-play-style', action: () => this.openPlayStyle() },
             { id: 'btn-tutorial', action: () => this.openTutorial() },
@@ -254,6 +271,10 @@ class GameApp {
             this._playButtonClick();
             this.showMenu();
         });
+        document.getElementById('btn-back-workshop')?.addEventListener('click', () => {
+            this._playButtonClick();
+            this.showMenu();
+        });
         document.getElementById('btn-back-endgame')?.addEventListener('click', () => {
             this._playButtonClick();
             this.showMenu();
@@ -313,7 +334,27 @@ class GameApp {
             const settingsOverlay = document.getElementById('settings-overlay');
             const changelogOverlay = document.getElementById('changelog-overlay');
             const playStyleOverlay = document.getElementById('play-style-overlay');
-            if (playStyleOverlay && !playStyleOverlay.classList.contains('hidden')) {
+            const seasonQuestOverlay = document.getElementById('season-quest-overlay');
+            const tournamentSetupOverlay = document.getElementById('tournament-setup-overlay');
+            const achievementPanel = document.getElementById('achievement-panel');
+            const challengeResultOverlay = document.getElementById('challenge-result-overlay');
+            const challengeHistoryOverlay = document.getElementById('challenge-history-overlay');
+            if (challengeHistoryOverlay && !challengeHistoryOverlay.classList.contains('hidden')) {
+                challengeHistoryOverlay.classList.add('hidden');
+                e.stopPropagation();
+            } else if (challengeResultOverlay && !challengeResultOverlay.classList.contains('hidden')) {
+                this.closeChallengeResult();
+                e.stopPropagation();
+            } else if (achievementPanel && !achievementPanel.classList.contains('hidden')) {
+                achievementPanel.classList.add('hidden');
+                e.stopPropagation();
+            } else if (seasonQuestOverlay && !seasonQuestOverlay.classList.contains('hidden')) {
+                this.closeSeasonQuests();
+                e.stopPropagation();
+            } else if (tournamentSetupOverlay && !tournamentSetupOverlay.classList.contains('hidden')) {
+                this.closeTournamentSetup();
+                e.stopPropagation();
+            } else if (playStyleOverlay && !playStyleOverlay.classList.contains('hidden')) {
                 this.closePlayStyle();
                 e.stopPropagation();
             } else if (changelogOverlay && !changelogOverlay.classList.contains('hidden')) {
@@ -347,6 +388,10 @@ class GameApp {
 
     _getActiveAudio() {
         return this.renderer?.audio || this.menuAudio;
+    }
+
+    _escapeHtml(str) {
+        return String(str ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
     }
 
     /**
@@ -1314,6 +1359,15 @@ class GameApp {
             Storage.saveFullGame(fullGame);
             this._lastSavedGameId = fullGame.id;
 
+            // 自动保存精彩对局到牌谱工坊
+            const isNotable = isHumanWin || data.springType === 'spring' || data.springType === 'anti_spring' || bombsPlayed >= 2 || (data.multiplier || 1) >= 2;
+            if (isNotable) {
+                const wsRecord = ReplayWorkshop.saveGame(fullGame);
+                if (wsRecord) {
+                    this.renderer?.showToast?.('📜 精彩对局已保存到牌谱工坊', 'info', 2000);
+                }
+            }
+
             // AI 教练复盘
             try {
                 const coachResult = CoachAnalyzer.analyze(fullGame, humanIdx);
@@ -1566,13 +1620,16 @@ class GameApp {
         const custom = document.getElementById('custom-screen');
         const replay = document.getElementById('replay-screen');
 
-        // 停止回放管理器
-        this._replayManager?.stop?.();
+        // 停止回放管理器（destroy会清理键盘事件监听器）
+        this._replayManager?.destroy?.();
+        this._replayManager = null;
 
         // 关闭所有可能打开的面板
         this.closeSettings();
         this.closeChangelog();
         this.closePlayStyle();
+        this.closeSeasonQuests();
+        this.closeTournamentSetup();
         this.closeChallengeResult();
         document.getElementById('challenge-history-overlay')?.classList.add('hidden');
         document.getElementById('achievement-panel')?.classList.add('hidden');
@@ -1607,7 +1664,8 @@ class GameApp {
         // 淡出当前屏幕
         const endgame = document.getElementById('endgame-screen');
         const challenge = document.getElementById('challenge-screen');
-        [game, lan, custom, replay, endgame, challenge].forEach(s => {
+        const workshop = document.getElementById('workshop-screen');
+        [game, lan, custom, replay, endgame, challenge, workshop].forEach(s => {
             if (s && !s.classList.contains('hidden')) {
                 s.style.opacity = '1';
                 s.style.transition = 'opacity 0.3s ease';
@@ -1732,10 +1790,146 @@ class GameApp {
         }
     }
 
+    // ---- 牌谱工坊 ----
+    showWorkshop() {
+        this._playMenuBGM(0);
+        this._transitionToScreen('workshop-screen');
+        this._renderWorkshop();
+    }
+
+    _renderWorkshop() {
+        const grid = document.getElementById('workshop-records-grid');
+        const importInput = document.getElementById('workshop-import-input');
+        if (!grid) return;
+
+        const records = ReplayWorkshop.getRecords();
+        const stats = ReplayWorkshop.getStats();
+
+        // 渲染统计
+        const statsEl = document.getElementById('workshop-stats');
+        if (statsEl) {
+            if (stats.total > 0) {
+                const modeLabels = { ai: '人机', lan: '联机', tournament: '锦标赛', challenge: '极限挑战', custom: '自定义', unknown: '其他' };
+                const modeParts = Object.entries(stats.byMode)
+                    .map(([m, c]) => `${modeLabels[m] || m} ${c}条`)
+                    .join(' · ');
+                statsEl.textContent = `共 ${stats.total} 条牌谱 · ${modeParts}`;
+            } else {
+                statsEl.textContent = '';
+            }
+        }
+
+        grid.innerHTML = '';
+        if (records.length === 0) {
+            grid.innerHTML = `<div class="workshop-empty">暂无保存的牌谱<br>完成对局后可保存精彩瞬间</div>`;
+        } else {
+            for (const r of records) {
+                const card = document.createElement('div');
+                card.className = 'workshop-record-card';
+                card.innerHTML = `
+                    <div class="workshop-record-name">${this._escapeHtml(r.name)}</div>
+                    <div class="workshop-record-note">${this._escapeHtml(r.note || '')}</div>
+                    <div class="workshop-record-date">${new Date(r.createdAt).toLocaleString('zh-CN')}</div>
+                    <div class="workshop-record-actions">
+                        <button class="btn-workshop-play" data-id="${r.id}">▶ 回放</button>
+                        <button class="btn-workshop-share" data-code="${r.shareCode || ''}">📋 复制分享码</button>
+                        <button class="btn-workshop-delete" data-id="${r.id}">🗑️</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            }
+
+            // 绑定按钮事件
+            grid.querySelectorAll('.btn-workshop-play').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    this._playButtonClick();
+                    const record = ReplayWorkshop.getRecordById(btn.dataset.id);
+                    if (record?.gameData) {
+                        this._startWorkshopReplay(record.gameData);
+                    }
+                });
+            });
+            grid.querySelectorAll('.btn-workshop-share').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    this._playButtonClick();
+                    const code = btn.dataset.code;
+                    if (!code || code === 'null' || code === 'undefined') {
+                        this._showFallbackToast('分享码无效', 'error');
+                        return;
+                    }
+                    const doCopy = navigator.clipboard?.writeText;
+                    if (doCopy) {
+                        doCopy(code).then(() => {
+                            this._showFallbackToast('分享码已复制到剪贴板', 'success');
+                        }).catch(() => {
+                            this._fallbackCopy(code);
+                        });
+                    } else {
+                        this._fallbackCopy(code);
+                    }
+                });
+            });
+            grid.querySelectorAll('.btn-workshop-delete').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    this._playButtonClick();
+                    if (confirm('确定删除这条牌谱吗？此操作不可撤销。')) {
+                        ReplayWorkshop.deleteRecord(btn.dataset.id);
+                        this._renderWorkshop();
+                    }
+                });
+            });
+        }
+
+        // 导入按钮
+        const btnImport = document.getElementById('btn-workshop-import');
+        if (btnImport) {
+            btnImport.onclick = () => {
+                this._playButtonClick();
+                const code = importInput?.value?.trim();
+                if (!code) {
+                    this._showFallbackToast('请输入分享码', 'info');
+                    return;
+                }
+                if (btnImport.disabled) return;
+                btnImport.disabled = true;
+                btnImport.textContent = '⏳ 导入中...';
+                const result = ReplayWorkshop.importShareCode(code);
+                if (result.success) {
+                    this._showFallbackToast('牌谱导入成功', 'success');
+                    if (importInput) importInput.value = '';
+                    this._renderWorkshop();
+                } else {
+                    this._showFallbackToast(result.error || '导入失败', 'error');
+                }
+                btnImport.disabled = false;
+                btnImport.textContent = '📥 导入';
+            };
+        }
+    }
+
+    _startWorkshopReplay(gameData) {
+        const workshop = document.getElementById('workshop-screen');
+        if (workshop) workshop.classList.add('hidden');
+
+        document.getElementById('menu-screen')?.classList.add('hidden');
+        document.getElementById('game-screen')?.classList.add('hidden');
+        document.getElementById('lan-screen')?.classList.add('hidden');
+        document.getElementById('custom-screen')?.classList.add('hidden');
+        document.getElementById('endgame-screen')?.classList.add('hidden');
+        document.getElementById('challenge-screen')?.classList.add('hidden');
+        document.getElementById('replay-screen')?.classList.remove('hidden');
+
+        if (this._replayManager) {
+            this._replayManager.destroy();
+        }
+        this._replayManager = new ReplayManager('replay-container');
+        this._replayManager.startReplay(gameData);
+    }
+
     showAchievements() {
         const panel = document.getElementById('achievement-panel');
         const list = document.getElementById('achievement-list');
-        if (!panel || !list) return;
+        if (!panel || !list || !panel.classList.contains('hidden')) return;
         if (this._achCloseTimer) clearTimeout(this._achCloseTimer);
 
         const achievements = Storage.getAchievements();
@@ -1866,7 +2060,7 @@ class GameApp {
     // ===== 锦标赛模式 =====
     openTournamentSetup() {
         const overlay = document.getElementById('tournament-setup-overlay');
-        if (!overlay) return;
+        if (!overlay || !overlay.classList.contains('hidden')) return;
         overlay.classList.remove('hidden');
         overlay.style.opacity = '0';
         requestAnimationFrame(() => {
@@ -1962,15 +2156,24 @@ class GameApp {
     _transitionToScreen(targetId) {
         const menu = document.getElementById('menu-screen');
         const target = document.getElementById(targetId);
+        const allScreens = [
+            'menu-screen', 'game-screen', 'lan-screen', 'custom-screen',
+            'replay-screen', 'endgame-screen', 'challenge-screen', 'workshop-screen'
+        ];
 
-        if (menu) {
-            menu.style.transition = 'opacity 0.3s ease';
-            menu.style.opacity = '0';
-            setTimeout(() => {
-                menu.classList.add('hidden');
-                menu.style.opacity = '';
-                menu.style.transition = '';
-            }, 300);
+        // 隐藏所有非目标 screen
+        for (const id of allScreens) {
+            if (id === targetId) continue;
+            const el = document.getElementById(id);
+            if (el && !el.classList.contains('hidden')) {
+                el.style.transition = 'opacity 0.3s ease';
+                el.style.opacity = '0';
+                setTimeout(() => {
+                    el.classList.add('hidden');
+                    el.style.opacity = '';
+                    el.style.transition = '';
+                }, 300);
+            }
         }
 
         if (target) {
@@ -2301,6 +2504,8 @@ class GameApp {
 
     // ===== 每日挑战结果面板 =====
     openChallengeResult(result, roundData, stats) {
+        const overlay = document.getElementById('challenge-result-overlay');
+        if (!overlay || !overlay.classList.contains('hidden')) return;
         // 赛季任务：每日挑战上报
         const questCompleted = seasonQuestManager.reportDailyChallenge({
             completed: result.isWin,
@@ -2311,8 +2516,6 @@ class GameApp {
             this._updateSeasonQuestBadge();
         }
 
-        const overlay = document.getElementById('challenge-result-overlay');
-        if (!overlay) return;
         overlay.classList.remove('hidden');
         overlay.style.opacity = '0';
         requestAnimationFrame(() => {
@@ -2418,7 +2621,7 @@ class GameApp {
 
     _showChallengeHistory() {
         const overlay = document.getElementById('challenge-history-overlay');
-        if (!overlay) return;
+        if (!overlay || !overlay.classList.contains('hidden')) return;
         overlay.classList.remove('hidden');
         overlay.style.opacity = '0';
         requestAnimationFrame(() => {

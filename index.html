@@ -120,6 +120,10 @@
                                 <div class="mode-card__icon">📊</div>
                                 <div class="mode-card__title">牌风分析</div>
                             </button>
+                            <button id="btn-workshop" class="mode-card mode-card--ghost">
+                                <div class="mode-card__icon">🎞️</div>
+                                <div class="mode-card__title">牌谱工坊</div>
+                            </button>
                             <button id="btn-tutorial" class="mode-card mode-card--ghost">
                                 <div class="mode-card__icon">📖</div>
                                 <div class="mode-card__title">新手教程</div>
@@ -148,7 +152,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.19</span>
+                <span class="version-info">v1.2.25</span>
             </footer>
         </div>
     </div>
@@ -1483,6 +1487,28 @@
         <button id="btn-back-replay" class="btn-small btn-back btn-back--fixed">← 返回</button>
     </div>
 
+    <!-- 牌谱工坊面板 -->
+    <div id="workshop-screen" class="screen hidden">
+        <div class="workshop-container">
+            <h2>🎞️ 牌谱工坊</h2>
+            <div class="workshop-subtitle">保存、回放与分享精彩对局</div>
+
+            <div class="workshop-import-bar">
+                <input type="text" id="workshop-import-input" placeholder="粘贴分享码导入牌谱..." maxlength="20000">
+                <button id="btn-workshop-import" class="btn-primary">📥 导入</button>
+            </div>
+
+            <div class="workshop-stats" id="workshop-stats">
+                <!-- JS 动态渲染统计 -->
+            </div>
+
+            <div class="workshop-records-grid" id="workshop-records-grid">
+                <!-- JS 动态渲染牌谱列表 -->
+            </div>
+        </div>
+        <button id="btn-back-workshop" class="btn-small btn-back btn-back--fixed">← 返回</button>
+    </div>
+
     <!-- 赛季任务面板 -->
     <div id="season-quest-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="season-quest-title">
         <div class="season-quest-modal">
@@ -1630,21 +1656,44 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.23</div>
-                    <h3>🔧 极限挑战模式深度修复</h3>
+                    <div class="changelog-version-badge">v1.2.25</div>
+                    <h3>🔧 UI/UX/SFX/BGM 全面深度修复（第六轮）</h3>
                     <ul>
-                        <li>🚨 <strong>game-state.js</strong>：修复 <code>_isPatternAllowed</code> 未处理 <code>bombRule='disabled'</code>，AI 在禁炸令中仍可出炸弹</li>
-                        <li>🎯 <strong>bombBeatRocket 检测</strong>：AI 出牌现在也能检测炸弹压王炸；<code>calculateChallengeStars</code> 接收外部标记</li>
-                        <li>🙈 <strong>盲牌斗地主</strong>：<code>disableTracker</code> 真正禁用记牌器；<strong>斗帝之路</strong> <code>mustSpring</code> 强制判定</li>
-                        <li>🛡️ <strong>forceLandlord 完整性</strong>：补全 <code>initialHands</code>、<code>bottomCards</code>、<code>lastPlay</code> 重置</li>
-                        <li>🖥️ <strong>UI 修复</strong>：所有挑战都显示信息栏；<code>#challenge-screen</code> 补全布局样式；结果面板加 <code>_destroyed</code> 检查</li>
-                        <li>🎵 <strong>音频修复</strong>：返回关卡列表时停止 renderer BGM；返回菜单时关闭残留模态框</li>
-                        <li>🧪 <strong>测试</strong>：新增 bombBeatRocket 星级判定测试；同名方法冲突修复为 <code>showExtremeChallengeResult</code></li>
+                        <li>🎞️ <strong>牌谱工坊修复</strong>：菜单隐藏、toast 方法不存在、clipboard 崩溃、分享码有效性校验、删除确认、空输入提示、导入防抖、反春天自动保存、过渡动画</li>
+                        <li>🎵 <strong>音频修复</strong>：audio.js <code>nodeRef</code> 未定义（catch 块引用提前）、极限挑战/残局模式 forceLandlord 分支 BGM 未触发</li>
+                        <li>🖥️ <strong>屏幕切换修复</strong>：<code>_transitionToScreen()</code> 现在隐藏所有非目标屏幕；牌谱工坊回放正确清理旧 <code>ReplayManager</code></li>
+                        <li>🛡️ <strong>模态框修复</strong>：<code>showMenu()</code> 关闭赛季任务/锦标赛配置；ESC 键覆盖所有模态框；重复打开保护；z-index 层级补全</li>
+                        <li>🧠 <strong>渲染器防护</strong>：15 个核心方法添加 <code>_destroyed</code> 检查；成就/任务 toast 数量限制为 3 个</li>
+                        <li>🧪 <strong>测试</strong>：全站 202/202 通过，新增 challenge-mode + replay-workshop 到 test:all</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.24</div>
+                            <h4>🆕 新增：牌谱工坊</h4>
+                            <ul>
+                                <li>🎞️ 牌谱工坊：保存、管理、回放与分享精彩对局牌谱</li>
+                                <li>💾 自动保存：每局结束后自动存入，最多保留 50 条记录</li>
+                                <li>📤 分享码：Base64 分享码，跨设备导入</li>
+                                <li>▶️ 回放支持：工坊内直接回放</li>
+                                <li>📊 分类统计：按模式统计牌谱数量</li>
+                            </ul>
+                        </div>
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.23</div>
+                            <h4>🔧 极限挑战模式深度修复</h4>
+                            <ul>
+                                <li>🚨 game-state.js _isPatternAllowed 未处理 bombRule='disabled'</li>
+                                <li>🎯 bombBeatRocket 检测修复；calculateChallengeStars 外部标记</li>
+                                <li>🙈 盲牌斗地主 disableTracker / 斗帝之路 mustSpring 实现</li>
+                                <li>🛡️ forceLandlord 补全 initialHands / bottomCards / lastPlay</li>
+                                <li>🖥️ UI 修复：信息栏显示、challenge-screen 布局、_destroyed 检查</li>
+                                <li>🎵 音频：返回关卡列表停止 BGM；返回菜单关闭模态框</li>
+                                <li>🧪 新增 bombBeatRocket 星级判定测试</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.22</div>
                             <h4>🔧 极限挑战模式 Bug 修复</h4>

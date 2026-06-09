@@ -2072,6 +2072,7 @@ body[data-theme="purple"] {
     top: 80px;
     left: 50%;
     transform: translateX(-50%);
+    z-index: 500;
     padding: 12px 28px;
     border-radius: 12px;
     background: rgba(0,0,0,0.75);
@@ -2092,6 +2093,7 @@ body[data-theme="purple"] {
     top: 80px;
     left: 50%;
     transform: translateX(-50%);
+    z-index: 500;
     display: flex;
     align-items: center;
     gap: 14px;
@@ -9000,6 +9002,7 @@ body[data-opponent-cards] .opponent-card-stack {
 #settings-overlay {
     position: fixed;
     inset: 0;
+    z-index: 250;
     background: rgba(0,0,0,0.65); /* 加深回退背景 */
     backdrop-filter: blur(8px);
     display: flex;
@@ -10700,6 +10703,7 @@ body[data-commentary="false"] .commentary-bubble {
 #challenge-result-overlay {
     position: fixed;
     inset: 0;
+    z-index: 250;
     background: rgba(0, 0, 0, 0.75);
     display: flex;
     align-items: center;
@@ -10817,6 +10821,7 @@ body[data-commentary="false"] .commentary-bubble {
 #challenge-history-overlay {
     position: fixed;
     inset: 0;
+    z-index: 250;
     background: rgba(0, 0, 0, 0.75);
     display: flex;
     align-items: center;
@@ -11474,5 +11479,215 @@ body[data-commentary="false"] .commentary-bubble {
         flex-direction: column;
         align-items: flex-start;
         gap: 6px;
+    }
+}
+
+/* ===== 牌谱工坊 ===== */
+#workshop-screen {
+    overflow-y: auto;
+    position: relative;
+}
+
+.workshop-container {
+    padding: 32px 20px;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.workshop-container h2 {
+    text-align: center;
+    margin-bottom: 6px;
+    font-size: clamp(1.4rem, 3vw, 1.8rem);
+    font-weight: 800;
+    background: linear-gradient(180deg, #fff 0%, #f0d080 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.workshop-subtitle {
+    text-align: center;
+    opacity: 0.5;
+    margin-bottom: 24px;
+    font-size: 0.9rem;
+    font-weight: 400;
+}
+
+.workshop-import-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.workshop-import-bar input {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(0,0,0,0.25);
+    color: #fff;
+    font-size: 0.95rem;
+    outline: none;
+}
+
+.workshop-import-bar input::placeholder {
+    color: rgba(255,255,255,0.35);
+}
+
+.workshop-import-bar input:focus {
+    border-color: rgba(240,208,128,0.5);
+}
+
+.workshop-import-bar .btn-primary {
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.workshop-stats {
+    text-align: center;
+    font-size: 0.85rem;
+    opacity: 0.55;
+    margin-bottom: 18px;
+}
+
+.workshop-empty {
+    text-align: center;
+    padding: 80px 20px;
+    opacity: 0.4;
+    font-size: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.workshop-empty::before {
+    content: '🎞️';
+    font-size: 3rem;
+    opacity: 0.5;
+    display: block;
+}
+
+.workshop-records-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.workshop-record-card {
+    background: rgba(0,0,0,0.22);
+    border-radius: 16px;
+    padding: 16px 18px;
+    border: 1px solid rgba(255,255,255,0.06);
+    transition: background 0.2s, transform 0.15s;
+}
+
+.workshop-record-card:hover {
+    background: rgba(0,0,0,0.3);
+    transform: translateY(-1px);
+}
+
+.workshop-record-name {
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 4px;
+    color: #fff;
+}
+
+.workshop-record-note {
+    font-size: 0.88rem;
+    opacity: 0.6;
+    margin-bottom: 6px;
+    line-height: 1.4;
+}
+
+.workshop-record-date {
+    font-size: 0.8rem;
+    opacity: 0.4;
+    margin-bottom: 10px;
+}
+
+.workshop-record-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-workshop-play,
+.btn-workshop-share {
+    padding: 7px 14px;
+    border-radius: 10px;
+    border: none;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: filter 0.15s, transform 0.1s;
+    font-family: inherit;
+}
+
+.btn-workshop-play {
+    background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+    color: #fff;
+}
+
+.btn-workshop-share {
+    background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+    color: #fff;
+}
+
+.btn-workshop-play:hover,
+.btn-workshop-share:hover {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
+}
+
+.btn-workshop-play:active,
+.btn-workshop-share:active {
+    transform: translateY(0);
+}
+
+.btn-workshop-delete {
+    margin-left: auto;
+    padding: 7px 12px;
+    border-radius: 10px;
+    border: none;
+    font-size: 0.85rem;
+    cursor: pointer;
+    background: rgba(244,67,54,0.2);
+    color: #f44336;
+    transition: background 0.15s, transform 0.1s;
+    font-family: inherit;
+}
+
+.btn-workshop-delete:hover {
+    background: rgba(244,67,54,0.35);
+    transform: translateY(-1px);
+}
+
+.btn-workshop-delete:active {
+    transform: translateY(0);
+}
+
+/* 响应式 */
+@media (max-width: 560px) {
+    .workshop-import-bar {
+        flex-direction: column;
+    }
+    .workshop-import-bar .btn-primary {
+        width: 100%;
+    }
+    .workshop-record-actions {
+        gap: 6px;
+    }
+    .btn-workshop-play,
+    .btn-workshop-share,
+    .btn-workshop-delete {
+        padding: 6px 10px;
+        font-size: 0.8rem;
     }
 }

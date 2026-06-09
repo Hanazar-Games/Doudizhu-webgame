@@ -117,6 +117,12 @@ class ChallengeMode extends AIMode {
             this.gameState.history = [];
             this.gameState.lastPlay = { playerIndex: -1, cards: [], pattern: null };
 
+            // 手动调度游戏BGM（直接赋值phase绕过了phaseChange事件）
+            this.renderer?.audio?.stopBGM();
+            this._setTimer(() => {
+                if (this.isRunning) this.renderer?.audio?.playGameBGM();
+            }, 500);
+
             // 音效 + 渲染
             this.renderer?.audio?.playDeal();
             this._setTimer(() => this.renderer?.audio?.playNewRound(), 300);
