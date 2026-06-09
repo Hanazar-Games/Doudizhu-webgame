@@ -66,25 +66,55 @@ class ChallengeMode extends AIMode {
         // 应用挑战特殊规则
         this._applyChallengeRules();
 
+        const cfg = this.challenge?.config || {};
+
+        // 盲牌斗地主：禁用记牌器
+        if (cfg.disableTracker) {
+            const btnTracker = this.renderer?.container?.querySelector('#btn-toggle-card-tracker');
+            const tracker = this.renderer?.container?.querySelector('#card-tracker');
+            if (btnTracker) btnTracker.classList.add('hidden');
+            if (tracker) tracker.classList.add('hidden');
+        }
+
         const deck = this.gameState.noShuffle ? this._createOrderedDeck() : this._createShuffledDeck();
         const bottom = deck.slice(51, 54);
         this.gameState.startRound(deck.slice(0, 51), bottom);
 
         // 强制人类为地主（如果挑战配置要求）
-        const cfg = this.challenge?.config || {};
         if (cfg.forceLandlord) {
             this.gameState.landlordIndex = this.humanIndex;
             const landlord = this.gameState.players[this.humanIndex];
-            if (landlord) landlord.isLandlord = true;
-            // 给地主底牌
-            for (const c of bottom) {
-                landlord.hand.push(c);
+            if (landlord) {
+                landlord.isLandlord = true;
+                // 给地主底牌
+                for (const c of bottom) {
+                    landlord.hand.push(c);
+                }
+                landlord.hand.sort((a, b) => b.value - a.value);
             }
-            landlord.hand.sort((a, b) => b.value - a.value);
+            // 保存初始手牌（供回放/教练使用）
+            for (let i = 0; i < 3; i++) {
+                const p = this.gameState.players[i];
+                if (p) {
+                    this.gameState.initialHands[i] = p.hand.map(c => ({
+                        value: c.value,
+                        suit: c.suit?.name || null,
+                        rank: c.rankKey,
+                        displayName: c.displayName,
+                    }));
+                }
+            }
+            this.gameState.bottomCards = bottom.map(c => ({
+                value: c.value,
+                suit: c.suit?.name || null,
+                rank: c.rankKey,
+                displayName: c.displayName,
+            }));
             this.gameState.currentTurn = this.humanIndex;
             this.gameState.phase = PHASE.PLAYING;
             this.gameState.passCount = 0;
             this.gameState.playCounts = [0, 0, 0];
+            this.gameState.history = [];
 
             // 音效 + 渲染
             this.renderer?.audio?.playDeal();
@@ -158,8 +188,9 @@ class ChallengeMode extends AIMode {
         if (idx !== this.humanIndex) return false;
 
         const pattern = Rules.analyze(cards);
+        if (!pattern || !pattern.isValid()) return false;
 
-        // 禁炸令 / 保守派：检查炸弹
+        // 禁炸令 / 保守派：检查炸弹（GameState 已处理，此处仅做额外提示）
         const mods = this.challenge?.ruleMods || {};
         if (mods.bombRule === 'disabled' && (pattern.type === 'BOMB' || pattern.type === 'ROCKET')) {
             this.renderer?.showToast?.('本挑战禁用炸弹！', 'warning');
@@ -197,11 +228,15 @@ class ChallengeMode extends AIMode {
         if (data.playerIndex === this.humanIndex && data.cards && data.cards.length > 0) {
             this.humanStepCount++;
         }
-        // 跟踪火箭状态
+        // 跟踪火箭/炸弹状态，用于检测炸弹压王炸
         if (data.pattern?.type === 'ROCKET') {
             this._lastWasRocket = true;
         } else if (data.pattern?.type === 'BOMB') {
-            // 保留上一家是火箭的状态用于下一家判断
+            if (this._lastWasRocket) {
+                this._bombBeatRocket = true;
+            }
+            // 炸弹之后重置火箭追踪（王炸 → 炸弹 只计一次）
+            this._lastWasRocket = false;
         } else {
             this._lastWasRocket = false;
         }
@@ -220,9 +255,11 @@ class ChallengeMode extends AIMode {
             this.humanIndex
         );
 
-        // 注入炸弹压王炸标记（简化检测）
-        if (this._bombBeatRocket) {
-            // 通过修改 history 中的最后出牌标记来传递信息
+        // 处理 mustSpring 强制春天挑战
+        const cfg = this.challenge?.config || {};
+        if (cfg.mustSpring && result.passed && data.springType !== 'spring') {
+            result.passed = false;
+            result.stars = 0;
         }
 
         if (result.passed) {
@@ -231,7 +268,8 @@ class ChallengeMode extends AIMode {
 
         // 显示挑战结果面板
         if (this.renderer) {
-            this._setTimer(() => {
+            this._resultTimer = this._setTimer(() => {
+                this._resultTimer = null;
                 if (!this.isRunning) return;
                 const overlay = this.renderer.container?.querySelector('#modal-overlay');
                 const content = this.renderer.container?.querySelector('#modal-content');
@@ -255,6 +293,13 @@ class ChallengeMode extends AIMode {
             bestStars: record?.stars || 0,
             hasPassed: !!record?.passed,
         };
+    }
+
+    destroy() {
+        super.destroy();
+        this._resultTimer = null;
+        this._lastWasRocket = false;
+        this._bombBeatRocket = false;
     }
 }
 

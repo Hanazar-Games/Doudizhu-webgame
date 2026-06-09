@@ -406,6 +406,9 @@ class GameState {
             if (this.jokerRule === 'disabled' && (pattern.type === HAND_TYPE.ROCKET || cards.some(c => c.value === 16 || c.value === 17))) {
                 return { success: false, error: '规则：禁用大小王' };
             }
+            if (this.bombRule === 'disabled' && pattern.type === HAND_TYPE.BOMB) {
+                return { success: false, error: '规则：禁用炸弹' };
+            }
             if (this.bombRule === 'strict' && pattern.type === HAND_TYPE.BOMB && cards.length !== 4) {
                 return { success: false, error: '规则：严格炸弹（仅限4张）' };
             }
@@ -448,6 +451,9 @@ class GameState {
         if (this.jokerRule === 'disabled') {
             if (pattern.type === HAND_TYPE.ROCKET) return false;
             if (cards && cards.some(c => c.value === 16 || c.value === 17)) return false;
+        }
+        if (this.bombRule === 'disabled') {
+            if (pattern.type === HAND_TYPE.BOMB) return false;
         }
         if (this.bombRule === 'strict') {
             if (pattern.type === HAND_TYPE.BOMB && cards && cards.length !== 4) return false;

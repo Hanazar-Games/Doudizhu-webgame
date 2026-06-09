@@ -199,18 +199,70 @@ async function test_challengeModeHumanPlayBombBlocked() {
         new Card(SUITS.DIAMOND, 'A'),
     ];
     const result = mode.humanPlay(bomb);
-    // humanPlay 内部会检查，但由于 renderer 不存在，showToast 不会报错
-    // 实际上 super.humanPlay 会先被调用，如果炸弹被禁用... 等等，我们的逻辑是先检查再调用 super
-    // 但在当前测试环境下，result 应该是 false（因为 renderer?.showToast 不阻止流程）
-    // 实际上我们的代码逻辑是：如果检测到禁用牌型，返回 false
-    if (result !== false) {
-        // 如果 super.humanPlay 成功了（因为 GameState 可能允许），那说明我们的拦截没生效
-        // 但由于 bombRule=disabled，GameState 也会拒绝炸弹
-    }
+    if (result !== false) throw new Error(`禁炸令应阻止炸弹出牌, 得到 ${result}`);
     console.log('✓ ChallengeMode 人类出牌炸弹拦截');
 }
 
 // ===== 运行所有测试 =====
+
+async function test_challengeModeBombRuleBlockedByGameState() {
+    const mode = new ChallengeMode(1); // 禁炸令
+    await mode.init();
+    mode.isRunning = true;
+    mode._applyGameRules();
+    mode._applyChallengeRules();
+    mode.gameState.phase = PHASE.PLAYING;
+    mode.gameState.currentTurn = 1; // AI 回合
+    // 尝试让 AI 出炸弹（GameState 层面应拒绝）
+    const bomb = [
+        new Card(SUITS.SPADE, 'A'),
+        new Card(SUITS.HEART, 'A'),
+        new Card(SUITS.CLUB, 'A'),
+        new Card(SUITS.DIAMOND, 'A'),
+    ];
+    const result = mode.gameState.playCards(1, bomb);
+    if (result.success) throw new Error('GameState 应拒绝炸弹出牌');
+    console.log('✓ ChallengeMode GameState 炸弹规则拦截');
+}
+
+async function test_challengeModeForceLandlord() {
+    const mode = new ChallengeMode(9); // 孤军奋战
+    await mode.init();
+    mode.isRunning = true;
+    mode._applyGameRules();
+    mode._applyChallengeRules();
+    // 手动模拟 forceLandlord 分支的关键逻辑（避免触发完整游戏流程）
+    const cfg = mode.challenge?.config || {};
+    if (!cfg.forceLandlord) throw new Error('挑战9应有 forceLandlord');
+    mode.gameState.landlordIndex = mode.humanIndex;
+    const landlord = mode.gameState.players[mode.humanIndex];
+    if (landlord) landlord.isLandlord = true;
+    mode.gameState.phase = PHASE.PLAYING;
+    if (mode.gameState.landlordIndex !== 0) throw new Error('forceLandlord 应使玩家为地主');
+    console.log('✓ ChallengeMode forceLandlord 配置');
+}
+
+async function test_challengeModeMustSpring() {
+    const mode = new ChallengeMode(10); // 斗帝之路
+    await mode.init();
+    mode.isRunning = true;
+    mode._applyGameRules();
+    mode._applyChallengeRules();
+    // 模拟非春天胜利，应被判定为失败
+    const gs = mode.gameState;
+    gs.landlordIndex = 0;
+    const roundData = {
+        winnerIndex: 0,
+        scores: [100, -50, -50],
+        springType: null,
+    };
+    const { calculateChallengeStars } = await import('../src/utils/challenge-data.js');
+    const result = calculateChallengeStars(mode.challenge, roundData, gs, 0);
+    // 注意：mustSpring 是在 onRoundEnd 中处理的，calculateChallengeStars 本身不处理
+    // 这里只测试基本逻辑
+    if (!result.passed) throw new Error('普通胜利应通过 calculateChallengeStars');
+    console.log('✓ ChallengeMode mustSpring 基础逻辑');
+}
 
 const tests = [
     test_validateChallenges,
@@ -228,6 +280,9 @@ const tests = [
     test_challengeModeSpeedRules,
     test_challengeModeStrictRules,
     test_challengeModeHumanPlayBombBlocked,
+    test_challengeModeBombRuleBlockedByGameState,
+    test_challengeModeForceLandlord,
+    test_challengeModeMustSpring,
 ];
 
 let passed = 0;

@@ -237,7 +237,7 @@ class ExtremeChallengeRecordManager {
         try {
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(records));
         } catch (e) {
-            console.warn('[ChallengeRecordManager] 保存失败:', e);
+            console.warn('[ExtremeChallengeRecordManager] 保存失败:', e);
         }
     }
 

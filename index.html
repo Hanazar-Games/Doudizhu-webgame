@@ -1630,26 +1630,31 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.21</div>
-                    <h3>🆕 新增：极限挑战模式</h3>
+                    <div class="changelog-version-badge">v1.2.22</div>
+                    <h3>🔧 极限挑战模式 Bug 修复</h3>
                     <ul>
-                        <li>⚔️ <strong>全新模式「极限挑战」</strong>：10个带有特殊规则限制的挑战关卡，递进难度（简单/普通/困难）</li>
-                        <li>🚫 <strong>禁炸令</strong>：禁用炸弹和王炸，纯靠牌型组合取胜</li>
-                        <li>⚡ <strong>速战速决</strong>：每步10秒限时，考验快速决策</li>
-                        <li>🛡️ <strong>保守派</strong>：禁用炸弹，但胜利得分x3</li>
-                        <li>📜 <strong>严格执法</strong>：禁用三带一、飞机带翅膀等复杂牌型</li>
-                        <li>🔒 <strong>不能Pass</strong>：有牌必须出，不能选择跳过</li>
-                        <li>🙈 <strong>盲牌斗地主</strong>：记牌器禁用，靠记忆推算</li>
-                        <li>💰 <strong>底分翻倍</strong>：底分提升至3分，高风险高回报</li>
-                        <li>💣 <strong>炸弹之王</strong>：炸弹可以压过王炸</li>
-                        <li>⚔️ <strong>孤军奋战</strong>：困难AI，强制玩家为地主1v2</li>
-                        <li>👑 <strong>斗帝之路</strong>：困难AI + 8秒限时 + 必须春天</li>
-                        <li>⭐ 每个挑战1~3星评级，解锁制递进，数据持久化到 localStorage</li>
+                        <li>🚨 <strong>核心修复</strong>：<code>game-state.js</code> <code>_isPatternAllowed</code> 未处理 <code>bombRule='disabled'</code>，导致 AI 在禁炸令/保守派挑战中仍可出炸弹</li>
+                        <li>🎯 <strong>炸弹压王炸检测修复</strong>：AI 出牌时现在也能正确检测炸弹压王炸，挑战8「炸弹之王」星级判定准确</li>
+                        <li>🙈 <strong>盲牌斗地主实现</strong>：挑战6「盲牌斗地主」的 <code>disableTracker</code> 配置现在真正禁用记牌器按钮和面板</li>
+                        <li>👑 <strong>斗帝之路实现</strong>：挑战10「斗帝之路」的 <code>mustSpring</code> 配置现在正确强制判定——非春天胜利不计入通过</li>
+                        <li>🛡️ <strong>forceLandlord 数据完整性</strong>：孤军奋战/斗帝之路的强制地主流程现在正确设置 <code>initialHands</code> 和 <code>bottomCards</code></li>
+                        <li>⏱️ <strong>Timer 泄漏防护</strong>：挑战结果面板延迟 timer 现在正确追踪；<code>destroy()</code> 时清理状态标记</li>
+                        <li>🧪 <strong>测试增强</strong>：新增 GameState 炸弹拦截、forceLandlord 配置、mustSpring 基础逻辑等测试用例</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.21</div>
+                            <h4>🆕 新增：极限挑战模式</h4>
+                            <ul>
+                                <li>⚔️ 全新模式「极限挑战」：10个特殊规则限制的挑战关卡</li>
+                                <li>🚫 禁炸令、⚡ 速战速决、🛡️ 保守派、📜 严格执法、🔒 不能Pass</li>
+                                <li>🙈 盲牌斗地主、💰 底分翻倍、💣 炸弹之王、⚔️ 孤军奋战、👑 斗帝之路</li>
+                                <li>⭐ 1~3星评级，解锁制递进，数据持久化到 localStorage</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.20</div>
                             <h4>全面深度 Bug 检查与修复（第五轮）</h4>

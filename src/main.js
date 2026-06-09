@@ -338,8 +338,10 @@ class GameApp {
 
         // 首次加载：延迟检查是否需要自动弹出公告
         setTimeout(() => this._checkAutoShowChangelog(), 1200);
-        // 更新每日挑战徽章和赛季任务徽章
+        // 更新徽章
         this._updateDailyChallengeBadge();
+        this._updateEndgameBadge();
+        this._updateChallengeBadge();
         this._updateSeasonQuestBadge();
     }
 
