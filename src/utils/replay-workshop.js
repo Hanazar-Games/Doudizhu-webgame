@@ -14,10 +14,18 @@ function encodeShareCode(gameData) {
     try {
         const json = JSON.stringify(gameData);
         // 在浏览器环境使用 btoa，Node 环境使用 Buffer
+        let code;
         if (typeof btoa === 'function') {
-            return btoa(encodeURIComponent(json));
+            code = btoa(encodeURIComponent(json));
+        } else {
+            code = Buffer.from(encodeURIComponent(json)).toString('base64');
         }
-        return Buffer.from(encodeURIComponent(json)).toString('base64');
+        // 分享码长度限制（输入框 maxlength=20000，留足余量）
+        if (code.length > 15000) {
+            console.warn('[ReplayWorkshop] 牌谱数据过大，分享码生成失败');
+            return null;
+        }
+        return code;
     } catch (e) {
         console.warn('[ReplayWorkshop] 编码失败:', e);
         return null;
@@ -81,8 +89,10 @@ const ReplayWorkshop = {
     _saveRecords(records) {
         try {
             localStorage.setItem(WORKSHOP_KEY, JSON.stringify(records));
+            return true;
         } catch (e) {
             console.warn('[ReplayWorkshop] 保存失败:', e);
+            return false;
         }
     },
 
@@ -96,7 +106,8 @@ const ReplayWorkshop = {
         records.unshift(record);
         // 最多保留50条
         if (records.length > 50) records.length = 50;
-        this._saveRecords(records);
+        const ok = this._saveRecords(records);
+        if (!ok) return null;
         return record;
     },
 
@@ -111,6 +122,9 @@ const ReplayWorkshop = {
             return { success: false, error: '无效的分享码' };
         }
         const record = this.saveGame(gameData, '导入的牌谱');
+        if (!record) {
+            return { success: false, error: '保存失败，本地存储可能已满' };
+        }
         return { success: true, record };
     },
 

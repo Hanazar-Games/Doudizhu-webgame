@@ -505,8 +505,9 @@ class LANMode extends BaseMode {
     }
 
     _applySync(data) {
-        if (!data) return;
+        if (!data || typeof data !== 'object') return;
         const gs = this.gameState;
+        const oldPhase = gs.phase;
 
         // --- 核心状态 ---
         if (data.phase != null) gs.phase = data.phase;
@@ -569,7 +570,7 @@ class LANMode extends BaseMode {
             };
         }
 
-        if (data.history != null) {
+        if (Array.isArray(data.history)) {
             gs.history = data.history.map(h => {
                 const cards = this._deserializeDeck(h.cards);
                 return {
@@ -621,6 +622,11 @@ class LANMode extends BaseMode {
             if (gs.players[i]) {
                 gs.players[i].isLandlord = i === gs.landlordIndex;
             }
+        }
+
+        // phase 变化时补发事件，确保非 host 客户端 BGM/逻辑同步
+        if (gs.phase !== oldPhase) {
+            gs.emit('phaseChange', { phase: gs.phase, currentTurn: gs.currentTurn });
         }
 
         // 触发渲染更新

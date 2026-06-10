@@ -3329,7 +3329,11 @@ class Renderer {
     }
 
     showAchievementUnlock(achievements) {
-        if (!this.container || !achievements?.length) return;
+        if (!achievements?.length) return;
+        if (!this.container) {
+            window.gameApp?._showFallbackToast?.('🏆 解锁了 ' + achievements.length + ' 个成就', 'success');
+            return;
+        }
         const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
         achievements.slice(0, 3).forEach((ach, i) => {
             this._setTimer(() => {
@@ -3361,7 +3365,11 @@ class Renderer {
     }
 
     showQuestCompleted(quests) {
-        if (!this.container || !quests?.length) return;
+        if (!quests?.length) return;
+        if (!this.container) {
+            window.gameApp?._showFallbackToast?.('📜 完成了 ' + quests.length + ' 个任务', 'success');
+            return;
+        }
         const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[m]);
         quests.slice(0, 3).forEach((q, i) => {
             this._setTimer(() => {

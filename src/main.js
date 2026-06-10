@@ -1368,6 +1368,8 @@ class GameApp {
                 const wsRecord = ReplayWorkshop.saveGame(fullGame);
                 if (wsRecord) {
                     this.renderer?.showToast?.('📜 精彩对局已保存到牌谱工坊', 'info', 2000);
+                } else {
+                    this.renderer?.showToast?.('牌谱保存失败，本地存储可能已满', 'warning', 2000);
                 }
             }
 
@@ -1840,7 +1842,7 @@ class GameApp {
                     <div class="workshop-record-date">${new Date(r.createdAt).toLocaleString('zh-CN')}</div>
                     <div class="workshop-record-actions">
                         <button class="btn-workshop-play" data-id="${r.id}">▶ 回放</button>
-                        <button class="btn-workshop-share" data-code="${r.shareCode || ''}">📋 复制分享码</button>
+                        <button class="btn-workshop-share" data-code="${r.shareCode || ''}" ${!r.shareCode ? 'disabled title="牌谱数据过大，无法生成分享码"' : ''}>📋 复制分享码</button>
                         <button class="btn-workshop-delete" data-id="${r.id}">🗑️</button>
                     </div>
                 `;

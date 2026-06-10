@@ -11673,6 +11673,12 @@ body[data-commentary="false"] .commentary-bubble {
     transform: translateY(0);
 }
 
+.btn-workshop-share:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    filter: grayscale(0.6);
+}
+
 /* 响应式 */
 @media (max-width: 560px) {
     .workshop-import-bar {
