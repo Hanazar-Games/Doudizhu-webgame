@@ -34,6 +34,7 @@ class GameApp {
         this.settings = Storage.getSettings();
         this.stats = { gamesPlayed: 0, wins: 0, losses: 0, totalScore: 0, streak: 0, ...Storage.getStats() };
         this.playStyle = new PlayStyleAnalyzer();
+        this._screenTimers = new Map();
         this._syncVersionDisplay();
         this.init();
     }
@@ -462,8 +463,8 @@ class GameApp {
     _playMenuBGM(delay = 300) {
         if (this.renderer) return;
         this._syncAudioSettings(this.menuAudio);
-        // 如果已经在播放菜单 BGM，避免中断重启
-        if (this.menuAudio?._currentBGM === 'menu') return;
+        // 如果菜单 BGM 正在播放或即将播放，避免中断重启
+        if (this.menuAudio?._currentBGM === 'menu' && (this.menuAudio?._bgmNodes?.length > 0 || this.menuAudio?._bgmTimer)) return;
         this.menuAudio?.stopBGM();
         if (this._menuBgmTimer) clearTimeout(this._menuBgmTimer);
         this._menuBgmTimer = setTimeout(() => {
@@ -1664,7 +1665,6 @@ class GameApp {
         this._playMenuBGM();
 
         // 淡出当前屏幕
-        if (!this._screenTimers) this._screenTimers = new Map();
         const endgame = document.getElementById('endgame-screen');
         const challenge = document.getElementById('challenge-screen');
         const workshop = document.getElementById('workshop-screen');
@@ -1672,7 +1672,7 @@ class GameApp {
             if (s && !s.classList.contains('hidden')) {
                 const id = s.id;
                 const oldTimer = this._screenTimers.get(id);
-                if (oldTimer) clearTimeout(oldTimer);
+                if (oldTimer) { clearTimeout(oldTimer); this._screenTimers.delete(id); }
                 s.style.opacity = '1';
                 s.style.transition = 'opacity 0.3s ease';
                 s.style.opacity = '0';
@@ -2162,12 +2162,26 @@ class GameApp {
 
     // ---- 通用页面过渡 ----
     _transitionToScreen(targetId) {
-        if (!this._screenTimers) this._screenTimers = new Map();
         const target = document.getElementById(targetId);
         const allScreens = [
             'menu-screen', 'game-screen', 'lan-screen', 'custom-screen',
             'replay-screen', 'endgame-screen', 'challenge-screen', 'workshop-screen'
         ];
+
+        // 关闭可能遮挡的模态框和面板（静默隐藏，不播放音效）
+        const overlays = [
+            'settings-overlay', 'changelog-overlay', 'play-style-overlay',
+            'season-quest-overlay', 'tournament-setup-overlay', 'achievement-panel',
+            'challenge-result-overlay', 'challenge-history-overlay'
+        ];
+        for (const oid of overlays) {
+            const oel = document.getElementById(oid);
+            if (oel && !oel.classList.contains('hidden')) {
+                oel.classList.add('hidden');
+                oel.style.opacity = '';
+                oel.style.transition = '';
+            }
+        }
 
         // 隐藏所有非目标 screen，取消旧 timer 防止竞态
         for (const id of allScreens) {
@@ -2175,7 +2189,7 @@ class GameApp {
             const el = document.getElementById(id);
             if (el && !el.classList.contains('hidden')) {
                 const oldTimer = this._screenTimers.get(id);
-                if (oldTimer) clearTimeout(oldTimer);
+                if (oldTimer) { clearTimeout(oldTimer); this._screenTimers.delete(id); }
                 el.style.transition = 'opacity 0.3s ease';
                 el.style.opacity = '0';
                 const timer = setTimeout(() => {
