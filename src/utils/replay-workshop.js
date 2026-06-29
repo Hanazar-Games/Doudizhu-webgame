@@ -45,7 +45,6 @@ function decodeShareCode(code) {
         }
         return JSON.parse(decoded);
     } catch (e) {
-        console.warn('[ReplayWorkshop] 解码失败:', e);
         return null;
     }
 }

@@ -953,8 +953,8 @@ class Renderer {
         }
 
         const result = this.mode?.humanPlay(cards);
-        if (result && !result.success) {
-            this.showToast(result.error || '出牌失败', 'error');
+        if (!result || result.success === false) {
+            this.showToast(result?.error || '出牌失败', 'error');
             this._shakeSelection();
             this._haptic(30);
         } else {

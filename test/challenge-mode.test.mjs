@@ -6,6 +6,7 @@ import { Card, SUITS } from '../src/core/card.js';
 import { Rules } from '../src/core/rules.js';
 import { GameState, PHASE } from '../src/core/game-state.js';
 import { ChallengeMode } from '../src/modes/challenge-mode.js';
+import { Renderer } from '../src/ui/renderer.js';
 import {
     CHALLENGES,
     validateChallenges,
@@ -135,6 +136,50 @@ function test_calculateStars_spring() {
     console.log('✓ calculateStars 春天3星');
 }
 
+function test_calculateStars_countsHistoryWithoutType() {
+    const challenge = CHALLENGES[0]; // 禁炸令：有炸弹时不应拿到“无炸弹对局”2星
+    const gs = new GameState();
+    gs.landlordIndex = 0;
+    const bomb = [
+        new Card(SUITS.SPADE, 'A'),
+        new Card(SUITS.HEART, 'A'),
+        new Card(SUITS.CLUB, 'A'),
+        new Card(SUITS.DIAMOND, 'A'),
+    ];
+    gs.history = [
+        { cards: bomb, pattern: Rules.analyze(bomb) },
+    ];
+    const roundData = {
+        winnerIndex: 0,
+        scores: [100, -50, -50],
+        springType: null,
+    };
+    const result = calculateChallengeStars(challenge, roundData, gs, 0);
+    if (!result.passed) throw new Error('应判定为通过');
+    if (result.stars !== 1) throw new Error(`无 type 字段的炸弹也应被统计，期望1星，得到${result.stars}`);
+    console.log('✓ calculateStars 兼容无 type 的 history 炸弹统计');
+}
+
+function test_calculateStars_onlyStraightWithoutType() {
+    const challenge = CHALLENGES[3]; // 严格执法：纯顺子胜利 2星
+    const gs = new GameState();
+    gs.landlordIndex = 0;
+    const suits = [SUITS.SPADE, SUITS.HEART, SUITS.CLUB, SUITS.DIAMOND, SUITS.SPADE];
+    const straight = ['3', '4', '5', '6', '7'].map((r, i) => new Card(suits[i], r));
+    gs.history = [
+        { cards: straight, pattern: Rules.analyze(straight) },
+    ];
+    const roundData = {
+        winnerIndex: 0,
+        scores: [100, -50, -50],
+        springType: null,
+    };
+    const result = calculateChallengeStars(challenge, roundData, gs, 0);
+    if (!result.passed) throw new Error('应判定为通过');
+    if (result.stars !== 2) throw new Error(`无 type 字段的纯顺子应得2星，得到${result.stars}`);
+    console.log('✓ calculateStars 兼容无 type 的 history 纯顺子统计');
+}
+
 // ===== ChallengeMode 测试 =====
 
 async function test_challengeModeInit() {
@@ -201,6 +246,35 @@ async function test_challengeModeHumanPlayBombBlocked() {
     const result = mode.humanPlay(bomb);
     if (result !== false) throw new Error(`禁炸令应阻止炸弹出牌, 得到 ${result}`);
     console.log('✓ ChallengeMode 人类出牌炸弹拦截');
+}
+
+function test_rendererDoPlayTreatsFalseAsFailure() {
+    const renderer = Object.create(Renderer.prototype);
+    const card = new Card(SUITS.SPADE, 'A');
+    const pattern = Rules.analyze([card]);
+    let toastType = null;
+    let cleared = false;
+    let hidden = false;
+    let shaken = false;
+
+    renderer.gameState = { phase: PHASE.PLAYING };
+    renderer.mode = { humanPlay: () => false };
+    renderer._isHumanPlayTurn = () => true;
+    renderer._getSelectedCards = () => [card];
+    renderer._getPlayableSelection = () => ({ cards: [card], pattern, optimized: false, dropped: 0 });
+    renderer.showToast = (msg, type) => { toastType = type; };
+    renderer._shakeSelection = () => { shaken = true; };
+    renderer._haptic = () => {};
+    renderer.clearSelection = () => { cleared = true; };
+    renderer.hidePlayControls = () => { hidden = true; };
+    renderer._clearHint = () => {};
+
+    renderer._doPlay();
+
+    if (toastType !== 'error') throw new Error('humanPlay=false 应显示错误 toast');
+    if (!shaken) throw new Error('humanPlay=false 应触发选牌抖动');
+    if (cleared || hidden) throw new Error('humanPlay=false 不应清空选牌或隐藏出牌按钮');
+    console.log('✓ Renderer _doPlay 正确处理 false 失败返回');
 }
 
 // ===== 运行所有测试 =====
@@ -291,12 +365,15 @@ const tests = [
     test_calculateStars_win,
     test_calculateStars_loss,
     test_calculateStars_spring,
+    test_calculateStars_countsHistoryWithoutType,
+    test_calculateStars_onlyStraightWithoutType,
     () => new ChallengeMode(1).init().then(() => console.log('✓ ChallengeMode 初始化')),
     test_challengeModeInit,
     test_challengeModeApplyRules,
     test_challengeModeSpeedRules,
     test_challengeModeStrictRules,
     test_challengeModeHumanPlayBombBlocked,
+    test_rendererDoPlayTreatsFalseAsFailure,
     test_challengeModeBombRuleBlockedByGameState,
     test_challengeModeForceLandlord,
     test_challengeModeMustSpring,

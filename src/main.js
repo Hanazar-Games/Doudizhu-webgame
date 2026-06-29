@@ -1319,7 +1319,7 @@ class GameApp {
         // 赛季任务上报
         const modeName = this.currentMode?.modeName || 'unknown';
         const questCompleted = seasonQuestManager.reportGame({
-            isWin,
+            isWin: isHumanWin,
             isLandlord: humanIdx === gs?.landlordIndex,
             bombCount: bombsPlayed,
             hasRocket: rocketPlayed,
@@ -1421,7 +1421,7 @@ class GameApp {
                 isWin: isHumanWin,
                 isLandlord,
                 isSpring: data.springType === 'spring',
-                isAntiSpring: data.springType === 'antiSpring',
+                isAntiSpring: data.springType === 'anti_spring',
                 bombs: bombs,
                 rocket: rocketPlayed,
                 maxCombo,

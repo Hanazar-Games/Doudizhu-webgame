@@ -152,7 +152,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.28</span>
+                <span class="version-info">v1.2.29</span>
             </footer>
         </div>
     </div>
@@ -1656,20 +1656,31 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.25</div>
-                    <h3>🔧 UI/UX/SFX/BGM 全面深度修复（第六轮）</h3>
+                    <div class="changelog-version-badge">v1.2.29</div>
+                    <h3>🔧 总体 Bug / UIUX / SFX / BGM 深度修复</h3>
                     <ul>
-                        <li>🎞️ <strong>牌谱工坊修复</strong>：菜单隐藏、toast 方法不存在、clipboard 崩溃、分享码有效性校验、删除确认、空输入提示、导入防抖、反春天自动保存、过渡动画</li>
-                        <li>🎵 <strong>音频修复</strong>：audio.js <code>nodeRef</code> 未定义（catch 块引用提前）、极限挑战/残局模式 forceLandlord 分支 BGM 未触发</li>
-                        <li>🖥️ <strong>屏幕切换修复</strong>：<code>_transitionToScreen()</code> 现在隐藏所有非目标屏幕；牌谱工坊回放正确清理旧 <code>ReplayManager</code></li>
-                        <li>🛡️ <strong>模态框修复</strong>：<code>showMenu()</code> 关闭赛季任务/锦标赛配置；ESC 键覆盖所有模态框；重复打开保护；z-index 层级补全</li>
-                        <li>🧠 <strong>渲染器防护</strong>：15 个核心方法添加 <code>_destroyed</code> 检查；成就/任务 toast 数量限制为 3 个</li>
-                        <li>🧪 <strong>测试</strong>：全站 202/202 通过，新增 challenge-mode + replay-workshop 到 test:all</li>
+                        <li>🚨 <strong>结算致命修复</strong>：修复赛季任务上报引用不存在的 <code>isWin</code>，避免胜负结算后统计、回放、复盘链路被异常中断</li>
+                        <li>📊 <strong>牌风数据修复</strong>：修复反春天字段拼写不一致，牌风分析现在能正确累计反春天表现</li>
+                        <li>⚔️ <strong>极限挑战修复</strong>：星级统计不再依赖不存在的 <code>history.type</code> 字段，炸弹、纯顺子、总出牌数评级恢复准确</li>
+                        <li>🎯 <strong>交互修复</strong>：极限挑战规则拦截返回 <code>false</code> 时，出牌按钮不再误判成功、清空选牌或隐藏控制区</li>
+                        <li>🧪 <strong>测试补强</strong>：新增挑战星级 history 兼容测试与 Renderer 失败反馈测试；赛季任务和牌谱导入的预期失败路径不再污染控制台</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.25</div>
+                            <h4>🔧 UI/UX/SFX/BGM 全面深度修复（第六轮）</h4>
+                            <ul>
+                                <li>🎞️ 牌谱工坊修复：菜单隐藏、toast 方法不存在、clipboard 崩溃、分享码有效性校验、删除确认、空输入提示、导入防抖、反春天自动保存、过渡动画</li>
+                                <li>🎵 音频修复：audio.js <code>nodeRef</code> 未定义；极限挑战/残局模式 forceLandlord 分支 BGM 未触发</li>
+                                <li>🖥️ 屏幕切换修复：<code>_transitionToScreen()</code> 隐藏所有非目标屏幕；牌谱工坊回放正确清理旧 <code>ReplayManager</code></li>
+                                <li>🛡️ 模态框修复：<code>showMenu()</code> 关闭赛季任务/锦标赛配置；ESC 键覆盖所有模态框；重复打开保护；z-index 层级补全</li>
+                                <li>🧠 渲染器防护：15 个核心方法添加 <code>_destroyed</code> 检查；成就/任务 toast 数量限制为 3 个</li>
+                                <li>🧪 测试：全站 202/202 通过，新增 challenge-mode + replay-workshop 到 test:all</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.24</div>
                             <h4>🆕 新增：牌谱工坊</h4>

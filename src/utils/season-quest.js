@@ -165,6 +165,9 @@ class SeasonQuestManager {
     }
 
     _load() {
+        if (typeof localStorage === 'undefined') {
+            return null;
+        }
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
             if (raw) {
@@ -178,6 +181,9 @@ class SeasonQuestManager {
     }
 
     _save() {
+        if (typeof localStorage === 'undefined') {
+            return;
+        }
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(this._data));
         } catch (e) {

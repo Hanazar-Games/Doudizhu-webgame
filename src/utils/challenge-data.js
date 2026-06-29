@@ -278,27 +278,30 @@ function calculateChallengeStars(challenge, roundData, gameState, humanIndex, ex
         (roundData.winnerIndex !== gs.landlordIndex && humanIndex !== gs.landlordIndex)
     );
 
-    // 统计本局是否有炸弹被打出
+    // 统计本局出牌行为。GameState.history 不保证带有 type 字段，
+    // 因此以 cards + pattern 判定真实出牌，避免挑战星级统计漏算。
     const history = gs.history || [];
+    const playedActions = history.filter(h =>
+        Array.isArray(h.cards) &&
+        h.cards.length > 0 &&
+        h.pattern?.type &&
+        h.pattern.type !== 'PASS'
+    );
     let bombPlayed = false;
-    let totalPlays = 0;
-    for (const h of history) {
-        if (h.type === 'play' && h.cards && h.cards.length > 0) {
-            totalPlays++;
-            const pat = h.pattern;
-            if (pat && (pat.type === 'BOMB' || pat.type === 'ROCKET')) {
-                bombPlayed = true;
-            }
+    for (const h of playedActions) {
+        const pat = h.pattern;
+        if (pat && (pat.type === 'BOMB' || pat.type === 'ROCKET')) {
+            bombPlayed = true;
         }
     }
+    const totalPlays = playedActions.length;
 
     // 炸弹压王炸标记由外部传入（history 中无法准确判断上家牌型）
     const bombBeatRocket = extraFlags.bombBeatRocket || false;
 
     // 检测是否有纯顺子出牌（严格模式下有用）
     const straightTypes = ['STRAIGHT', 'DOUBLE_STRAIGHT', 'TRIPLE_STRAIGHT'];
-    const onlyStraightPlays = totalPlays > 0 && history
-        .filter(h => h.type === 'play' && h.pattern)
+    const onlyStraightPlays = totalPlays > 0 && playedActions
         .every(h => straightTypes.includes(h.pattern.type));
 
     const humanScore = roundData.scores?.[humanIndex] ?? 0;
