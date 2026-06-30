@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a5f2a">
+    <title>正在返回斗地主</title>
+    <script>
+        (function () {
+            var repoName = 'Doudizhu-webgame';
+            var parts = window.location.pathname.split('/').filter(Boolean);
+            var basePath = parts[0] === repoName ? '/' + repoName + '/' : '/';
+            window.location.replace(window.location.origin + basePath + window.location.search + window.location.hash);
+        }());
+    </script>
+</head>
+<body>
+    <p>正在返回游戏首页...</p>
+    <p><a href="./">返回游戏首页</a></p>
+</body>
+</html>

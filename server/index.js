@@ -76,9 +76,13 @@ app.get('/api/rooms', (req, res) => {
 
 // 生产模式：服务静态文件
 if (!isDev) {
-    app.use(express.static(resolve(__dirname, '../dist')));
-    app.get('*', (req, res) => {
-        res.sendFile(resolve(__dirname, '../dist/index.html'));
+    const distDir = resolve(__dirname, '../dist');
+    app.use(express.static(distDir));
+    app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api/') || req.path.includes('.')) {
+            return next();
+        }
+        res.sendFile(resolve(distDir, 'index.html'));
     });
 }
 
