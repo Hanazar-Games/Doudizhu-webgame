@@ -127,6 +127,7 @@ export const Storage = {
             voiceAnnounce: false,
             enableDealSound: true,
             enablePlaySound: true,
+            enableCallSound: true,
             enableBombSound: true,
             enableWinSound: true,
             enableTickSound: true,

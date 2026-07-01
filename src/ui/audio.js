@@ -32,8 +32,9 @@ class AudioManager {
         // 监听页面可见性变化，后台时暂停 BGM 防止叠音
         this._visHandler = () => {
             if (document.hidden) {
-                this._wasPlayingBGM = !!this._currentBGM;
+                const bgmBeforeHide = this._currentBGM;
                 this.stopBGM();
+                this._wasPlayingBGM = bgmBeforeHide === 'menu' || bgmBeforeHide === 'game';
             } else if (this._wasPlayingBGM && this.bgmEnabled) {
                 this._wasPlayingBGM = false;
                 if (this._currentBGM === 'menu') this.playMenuBGM();

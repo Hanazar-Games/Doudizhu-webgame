@@ -978,6 +978,7 @@ test('Storage.getSettings merges missing keys with defaults', () => {
     assert(s.playerName === 'Test', 'preserves existing');
     assert(typeof s.difficulty === 'string', 'fills default difficulty');
     assert(typeof s.bgmVolume === 'number', 'fills default bgmVolume');
+    assert(s.enableCallSound === true, 'fills default enableCallSound');
     global.localStorage.removeItem('ddz_settings');
 });
 
