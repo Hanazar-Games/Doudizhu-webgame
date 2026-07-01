@@ -659,6 +659,31 @@ class Renderer {
             // 暂停状态下屏蔽游戏操作
             if (this._isPaused) return;
 
+            // 全局快捷键（不限制游戏阶段）
+            if (e.key === 'm' || e.key === 'M') {
+                e.preventDefault();
+                const enabled = window.gameApp?.toggleSound?.() ?? this.audio.toggle();
+                this.showToast(enabled ? '🔊 音效已开启' : '🔇 音效已关闭');
+                // 同步到全局设置
+                if (window.gameApp && !window.gameApp.toggleSound) {
+                    window.gameApp.settings.soundEnabled = enabled;
+                    Storage.saveSettings(window.gameApp.settings);
+                }
+                const btn = document.getElementById('btn-sound-toggle');
+                if (btn && !window.gameApp?._syncSoundToggleButton) btn.textContent = enabled ? '🔊' : '🔇';
+                return;
+            }
+            if (e.key === '=' || e.key === '+') {
+                e.preventDefault();
+                this._zoomTable(0.1);
+                return;
+            }
+            if (e.key === '-' || e.key === '_') {
+                e.preventDefault();
+                this._zoomTable(-0.1);
+                return;
+            }
+
             const phase = this.gameState?.phase;
             const isMyTurn = this.gameState && this.mode && this.gameState.currentTurn === this.mode.humanIndex;
 
@@ -717,27 +742,6 @@ class Renderer {
                 }
             }
 
-            // 全局快捷键（不限制游戏阶段）
-            if (e.key === 'm' || e.key === 'M') {
-                e.preventDefault();
-                const enabled = this.audio.toggle();
-                this.showToast(enabled ? '🔊 音效已开启' : '🔇 音效已关闭');
-                // 同步到全局设置
-                if (window.gameApp) {
-                    window.gameApp.settings.soundEnabled = enabled;
-                    Storage.saveSettings(window.gameApp.settings);
-                }
-                const btn = document.getElementById('btn-sound-toggle');
-                if (btn) btn.textContent = enabled ? '🔊' : '🔇';
-            }
-            if (e.key === '=' || e.key === '+') {
-                e.preventDefault();
-                this._zoomTable(0.1);
-            }
-            if (e.key === '-' || e.key === '_') {
-                e.preventDefault();
-                this._zoomTable(-0.1);
-            }
         };
         document.addEventListener('keydown', this._keyboardHandler);
     }

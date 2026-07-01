@@ -57,7 +57,7 @@ class AudioManager {
                 chat: s.enableChatSound !== false,
             };
         } catch (e) {
-            this._sfxSettings = { deal: true, play: true, bomb: true, win: true, tick: true, chat: true };
+            this._sfxSettings = { deal: true, play: true, call: true, bomb: true, win: true, tick: true, chat: true };
         }
     }
 
@@ -150,7 +150,7 @@ class AudioManager {
         gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 
         osc.connect(gain);
-        gain.connect(this._getMasterCompressor());
+        gain.connect(this._getMasterCompressor() || this.ctx.destination);
 
         try {
             osc.start(t);
@@ -256,9 +256,11 @@ class AudioManager {
     async _createBGMGain() {
         if (!(await this._ensureContext())) return null;
         if (!this._bgmGain) {
+            const master = this._getMasterCompressor();
+            if (!master) return null;
             this._bgmGain = this.ctx.createGain();
             this._bgmGain.gain.value = 0.08 * this.bgmVolume;
-            this._bgmGain.connect(this._getMasterCompressor());
+            this._bgmGain.connect(master);
         }
         return this._bgmGain;
     }
@@ -840,8 +842,16 @@ class AudioManager {
         this.enabled = !this.enabled;
         if (!this.enabled) {
             this.stopBGM();
+        } else {
+            this.resumeCurrentBGM();
         }
         return this.enabled;
+    }
+
+    resumeCurrentBGM() {
+        if (!this.enabled || !this.bgmEnabled) return;
+        if (this._currentBGM === 'menu') this.playMenuBGM();
+        else if (this._currentBGM === 'game') this.playGameBGM();
     }
 
     toggleBGM() {

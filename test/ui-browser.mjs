@@ -321,6 +321,27 @@ async function run() {
         for (const id of headerBtns) {
             await assertExists(page, `#${id}`, '游戏页头部按钮');
         }
+        await page.click('#btn-sound-toggle');
+        await page.waitForTimeout(delays.short);
+        let soundState = await page.$eval('#btn-sound-toggle', (el) => ({
+            text: el.textContent,
+            pressed: el.getAttribute('aria-pressed'),
+            label: el.getAttribute('aria-label'),
+        }));
+        if (soundState.text !== '🔇' || soundState.pressed !== 'false' || soundState.label !== '开启音效') {
+            throw new Error(`音效按钮关闭状态异常: ${JSON.stringify(soundState)}`);
+        }
+        await page.keyboard.press('m');
+        await page.waitForTimeout(delays.short);
+        soundState = await page.$eval('#btn-sound-toggle', (el) => ({
+            text: el.textContent,
+            pressed: el.getAttribute('aria-pressed'),
+            label: el.getAttribute('aria-label'),
+        }));
+        if (soundState.text !== '🔊' || soundState.pressed !== 'true' || soundState.label !== '关闭音效') {
+            throw new Error(`音效按钮开启状态异常: ${JSON.stringify(soundState)}`);
+        }
+        console.log('  ✅ 音效按钮状态/aria 同步');
 
         // ===== 4. 暂停 overlay =====
         console.log('\n--- 4. 暂停 overlay ---');

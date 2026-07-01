@@ -99,6 +99,31 @@ test('AudioManager does not replay one-shot result BGM after visibility resumes'
     audio.destroy();
 });
 
+test('AudioManager sound toggle resumes looping BGM only', () => {
+    const audio = new AudioManager();
+    let menuRestarts = 0;
+    audio.playMenuBGM = () => {
+        menuRestarts++;
+        audio._currentBGM = 'menu';
+    };
+    audio._currentBGM = 'menu';
+
+    assert(audio.toggle() === false, 'expected toggle to disable audio');
+    assert(audio.toggle() === true, 'expected toggle to enable audio');
+    assert(menuRestarts === 1, 'expected menu BGM to resume once');
+
+    let winRestarts = 0;
+    audio.playWinBGM = () => {
+        winRestarts++;
+        audio._currentBGM = 'win';
+    };
+    audio._currentBGM = 'win';
+    assert(audio.toggle() === false, 'expected second disable');
+    assert(audio.toggle() === true, 'expected second enable');
+    assert(winRestarts === 0, 'expected one-shot win BGM not to resume');
+    audio.destroy();
+});
+
 console.log(`\n====================`);
 console.log(`AudioManager: Passed ${passed}, Failed ${failed}`);
 console.log(`====================`);

@@ -287,13 +287,7 @@ class GameApp {
 
         // 游戏内音效开关（所有模式通用）
         document.getElementById('btn-sound-toggle')?.addEventListener('click', () => {
-            const audio = this._getActiveAudio();
-            audio?.playButtonClick();
-            const enabled = audio?.toggle();
-            const btn = document.getElementById('btn-sound-toggle');
-            if (btn) btn.textContent = enabled ? '🔊' : '🔇';
-            this.settings.soundEnabled = enabled;
-            Storage.saveSettings(this.settings);
+            this.toggleSound();
         });
 
         // 全屏切换
@@ -446,6 +440,27 @@ class GameApp {
         audio.setVoiceVolume(this.settings.voiceVolume ?? 0.7);
     }
 
+    _syncSoundToggleButton(enabled = this.settings.soundEnabled !== false) {
+        const btn = document.getElementById('btn-sound-toggle');
+        if (!btn) return;
+        btn.textContent = enabled ? '🔊' : '🔇';
+        btn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+        btn.setAttribute('title', enabled ? '关闭音效' : '开启音效');
+        btn.setAttribute('aria-label', enabled ? '关闭音效' : '开启音效');
+    }
+
+    toggleSound() {
+        const audio = this._getActiveAudio();
+        audio?.playButtonClick();
+        const enabled = audio?.toggle() ?? !(this.settings.soundEnabled !== false);
+        this.settings.soundEnabled = enabled;
+        Storage.saveSettings(this.settings);
+        if (this.menuAudio && this.menuAudio !== audio) this._syncAudioSettings(this.menuAudio);
+        if (this.renderer?.audio && this.renderer.audio !== audio) this._syncAudioSettings(this.renderer.audio);
+        this._syncSoundToggleButton(enabled);
+        return enabled;
+    }
+
     _configureRendererAudio(renderer) {
         this._syncAudioSettings(renderer?.audio);
         // 初始化评论系统开关
@@ -559,6 +574,7 @@ class GameApp {
         if (sfxSlider) sfxSlider.value = this.settings.sfxVolume ?? 0.5;
         if (sfxVal) sfxVal.textContent = Math.round((this.settings.sfxVolume ?? 0.5) * 100) + '%';
 
+        this._syncSoundToggleButton();
         this._syncUXSettingControls();
         this._applyUXSettings();
     }
@@ -989,6 +1005,7 @@ class GameApp {
         if (sfxSlider) sfxSlider.value = this.settings.sfxVolume ?? 0.5;
         if (sfxVal) sfxVal.textContent = Math.round((this.settings.sfxVolume ?? 0.5) * 100) + '%';
 
+        this._syncSoundToggleButton();
         this._syncUXSettingControls();
         this._syncAudioSettings(this.menuAudio);
         if (this.renderer?.audio) this._syncAudioSettings(this.renderer.audio);

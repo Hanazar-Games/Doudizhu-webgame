@@ -152,7 +152,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.30</span>
+                <span class="version-info">v1.2.31</span>
             </footer>
         </div>
     </div>
@@ -1192,7 +1192,7 @@
             <span id="mode-display">人机对战</span>
             <div class="header-controls">
                 <button id="btn-pause" class="btn-small" title="暂停" aria-label="暂停游戏">⏸</button>
-                <button id="btn-sound-toggle" class="btn-small" title="音效开关" aria-label="音效开关" aria-pressed="true">🔊</button>
+                <button id="btn-sound-toggle" class="btn-small" title="关闭音效" aria-label="关闭音效" aria-pressed="true">🔊</button>
                 <button id="btn-fullscreen" class="btn-small" title="全屏" aria-label="切换全屏">⛶</button>
             </div>
         </div>
@@ -1661,18 +1661,29 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.30</div>
-                    <h3>🎧 UI/UX/SFX/BGM 体验修复</h3>
+                    <div class="changelog-version-badge">v1.2.31</div>
+                    <h3>🎧 音频开关与状态恢复深度修复</h3>
                     <ul>
-                        <li>🎵 <strong>BGM 修复</strong>：页面切到后台再返回时，菜单/牌局背景音乐现在能按原场景恢复，不会静默丢失</li>
-                        <li>🔊 <strong>SFX 设置补全</strong>：恢复“叫分音效”独立开关，和已有音频代码、历史公告保持一致</li>
-                        <li>♿ <strong>音量控件改进</strong>：BGM / SFX / 语音滑块补全 label 关联，键盘和读屏操作更清楚</li>
-                        <li>🧪 <strong>自查补强</strong>：默认设置测试覆盖叫分音效开关，防止设置面板再次缺项</li>
+                        <li>🔊 <strong>总音效开关修复</strong>：游戏内按钮或快捷键关闭后再次开启，会恢复菜单/牌局循环 BGM，不再只恢复静态开关状态</li>
+                        <li>♿ <strong>按钮状态同步</strong>：音效按钮现在同步 <code>aria-pressed</code>、标题和读屏文案，关闭/开启状态更清楚</li>
+                        <li>🎵 <strong>一次性音乐保护</strong>：胜利/失败结算音乐仍不会因恢复音效而重复播放</li>
+                        <li>🛡️ <strong>音频底层防护</strong>：Web Audio 节点连接增加空 compressor 回退，降低边界状态下静音或异常风险</li>
+                        <li>🧪 <strong>测试补强</strong>：新增总音效开关恢复 BGM 的回归测试</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.30</div>
+                            <h4>🎧 UI/UX/SFX/BGM 体验修复</h4>
+                            <ul>
+                                <li>🎵 <strong>BGM 修复</strong>：页面切到后台再返回时，菜单/牌局背景音乐现在能按原场景恢复，不会静默丢失</li>
+                                <li>🔊 <strong>SFX 设置补全</strong>：恢复“叫分音效”独立开关，和已有音频代码、历史公告保持一致</li>
+                                <li>♿ <strong>音量控件改进</strong>：BGM / SFX / 语音滑块补全 label 关联，键盘和读屏操作更清楚</li>
+                                <li>🧪 <strong>自查补强</strong>：默认设置测试覆盖叫分音效开关，防止设置面板再次缺项</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.29</div>
                             <h4>🔧 总体 Bug / UIUX / SFX / BGM 深度修复</h4>
