@@ -5160,7 +5160,7 @@ select:focus-visible {
 }
 
 #ddz-table {
-    grid-template-rows: 170px 1fr 340px;
+    grid-template-rows: 150px 1fr 390px;
     grid-template-columns: 200px 1fr 200px;
     max-width: 1280px;
     height: 100%;
@@ -5393,8 +5393,10 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 
 #player-right .played-area {
     order: 2;
-    min-height: 116px;
+    min-height: 34px;
     margin: 0 0 2px;
+    z-index: 1;
+    pointer-events: none;
 }
 
 #player-right .hand-hint {
@@ -5403,11 +5405,16 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 
 #player-right .hand-front {
     order: 4;
-    min-height: 118px;
-    width: min(100%, 900px);
-    margin-top: 60px;
+    min-height: 220px;
+    width: min(96vw, 1680px);
+    margin-top: 8px;
+    z-index: 12;
+    overflow-x: auto;
+    overflow-y: visible;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(240,192,64,0.45) rgba(255,255,255,0.08);
     cursor: pointer;
-    touch-action: pan-y; /* 保留垂直滚动，避免完全阻断 */
+    touch-action: pan-x pan-y;
     user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
@@ -5546,13 +5553,21 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 /* 桌面端手牌尺寸 */
 @media (min-width: 901px) {
     #player-right .hand-front .card {
-        width: calc(82px * var(--ddz-card-scale, 1));
-        height: calc(114px * var(--ddz-card-scale, 1));
-        margin-left: -52px;
+        width: calc(122px * var(--ddz-card-scale, 1));
+        height: calc(170px * var(--ddz-card-scale, 1));
+        margin-left: -55px;
         flex-shrink: 0;
     }
     #player-right .hand-front .card:first-child {
         margin-left: 0;
+    }
+}
+
+@media (min-width: 1500px) {
+    #player-right .hand-front .card {
+        width: calc(150px * var(--ddz-card-scale, 1));
+        height: calc(210px * var(--ddz-card-scale, 1));
+        margin-left: -42px;
     }
 }
 
@@ -5812,9 +5827,9 @@ body[data-motion="fancy"] .table-aura {
 }
 
 #controls-area {
+    top: calc(100% - 520px);
     padding: 10px 20px 14px;
-    background:
-        linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0.30) 54%, transparent);
+    background: transparent;
 }
 
 #call-controls,
@@ -6213,6 +6228,59 @@ body[data-motion="fancy"] .table-aura {
 
     .btn-panel-toggle {
         padding: 6px 8px;
+    }
+}
+
+@media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+    #ddz-table {
+        grid-template-rows: 58px minmax(72px, 1fr) 136px;
+        padding: 6px 8px 88px;
+    }
+
+    #ddz-table::before {
+        inset: 6px 8px 88px;
+    }
+
+    #player-right {
+        gap: 2px;
+        padding-bottom: 0;
+    }
+
+    #player-right .played-area {
+        min-height: 16px;
+        margin: 0;
+    }
+
+    #player-right .hand-front {
+        min-height: 96px;
+        margin-top: 0;
+    }
+
+    #player-right .hand-front .card {
+        width: calc(86px * var(--ddz-card-scale, 1));
+        height: calc(120px * var(--ddz-card-scale, 1));
+        margin-left: -36px;
+    }
+
+    #controls-area {
+        top: auto;
+        bottom: 148px;
+        padding: 6px 10px calc(10px + env(safe-area-inset-bottom));
+    }
+
+    #call-controls,
+    #play-controls {
+        padding: 6px;
+    }
+
+    #call-controls button,
+    #play-controls button {
+        min-height: 36px;
+        padding: 7px 12px;
+    }
+
+    #game-info {
+        display: none;
     }
 }
 

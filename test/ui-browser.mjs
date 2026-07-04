@@ -321,6 +321,30 @@ async function run() {
         for (const id of headerBtns) {
             await assertExists(page, `#${id}`, '游戏页头部按钮');
         }
+        const handMetrics = await page.$eval('#player-right .hand-front', (hand) => {
+            const cards = Array.from(hand.querySelectorAll('.card'));
+            const first = cards[0]?.getBoundingClientRect();
+            const last = cards[cards.length - 1]?.getBoundingClientRect();
+            const handRect = hand.getBoundingClientRect();
+            const controlsBg = getComputedStyle(document.getElementById('controls-area')).backgroundColor;
+            return {
+                count: cards.length,
+                cardWidth: first?.width || 0,
+                firstLeft: first?.left ?? 0,
+                lastRight: last?.right ?? 0,
+                viewportWidth: window.innerWidth,
+                handHeight: handRect.height,
+                controlsBg,
+            };
+        });
+        if (handMetrics.cardWidth < 118) throw new Error(`玩家手牌过小: ${JSON.stringify(handMetrics)}`);
+        if (handMetrics.firstLeft < -1 || handMetrics.lastRight > handMetrics.viewportWidth + 1) {
+            throw new Error(`玩家手牌被裁切: ${JSON.stringify(handMetrics)}`);
+        }
+        if (handMetrics.controlsBg !== 'rgba(0, 0, 0, 0)' && handMetrics.controlsBg !== 'transparent') {
+            throw new Error(`控制层出现遮挡背景: ${JSON.stringify(handMetrics)}`);
+        }
+        console.log(`  ✅ 玩家手牌放大且无遮挡: ${Math.round(handMetrics.cardWidth)}px`);
         await page.click('#btn-sound-toggle');
         await page.waitForTimeout(delays.short);
         let soundState = await page.$eval('#btn-sound-toggle', (el) => ({
@@ -503,6 +527,22 @@ async function run() {
         if (playedAreaOverflow === true) throw new Error('出牌区水平溢出');
         if (playedAreaOverflow === null) throw new Error('出牌区未找到');
         console.log(`  ✅ 出牌区水平未溢出`);
+
+        const mobileOverlap = await mobilePage.evaluate(() => {
+            const controls = document.querySelector('#call-controls:not(.hidden), #play-controls:not(.hidden)');
+            const hand = document.querySelector('#player-right .hand-front');
+            if (!controls || !hand) return null;
+            const c = controls.getBoundingClientRect();
+            const h = hand.getBoundingClientRect();
+            return {
+                controlsBottom: c.bottom,
+                handTop: h.top,
+                overlap: c.bottom > h.top - 4,
+            };
+        });
+        if (!mobileOverlap) throw new Error('横屏控制区或手牌区未找到');
+        if (mobileOverlap.overlap) throw new Error(`横屏控制区压住手牌: ${JSON.stringify(mobileOverlap)}`);
+        console.log('  ✅ 横屏控制区不压手牌');
 
         // 检查手牌区高度
         const handHeight = await mobilePage.evaluate(() => {
