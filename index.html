@@ -152,7 +152,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.32</span>
+                <span class="version-info">v1.2.33</span>
             </footer>
         </div>
     </div>
@@ -1661,19 +1661,29 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.32</div>
-                    <h3>🃏 手牌放大与遮挡修复</h3>
+                    <div class="changelog-version-badge">v1.2.33</div>
+                    <h3>🃏 大牌手牌滚动修复</h3>
                     <ul>
-                        <li>🃏 <strong>玩家手牌放大</strong>：桌面端玩家牌从 82×114 提升到 122×170，宽屏进一步提升到 150×210，可见牌面显著变大</li>
-                        <li>🧱 <strong>黑色横条修复</strong>：移除控制层整条半透明背景，只保留按钮组自身背景，不再挡住手牌</li>
-                        <li>📐 <strong>布局防裁切</strong>：手牌区加宽加高，减少重叠并提高层级，首尾牌不会被桌面边界裁掉</li>
-                        <li>📱 <strong>移动横屏修复</strong>：低高度横屏单独调整控制区位置并隐藏冗余提示，避免按钮或快捷键提示压住手牌</li>
-                        <li>🧪 <strong>测试补强</strong>：UI 回归新增手牌尺寸、裁切、控制层透明和移动横屏不重叠断言</li>
+                        <li>🃏 <strong>真正大牌模式</strong>：桌面玩家手牌提升到 184×256，宽屏提升到 220×306，牌面面积约为旧版 5 倍以上</li>
+                        <li>↔️ <strong>横向滚动承载</strong>：17 张手牌不再被强行压进一屏，改为大牌横向浏览，首张牌保持完整可见</li>
+                        <li>📐 <strong>底部牌区加高</strong>：玩家区域为大牌重新分配高度，减少牌面、提示和控制按钮之间的拥挤</li>
+                        <li>🧪 <strong>测试补强</strong>：UI 回归改为检查大牌尺寸、横向滚动启用、首张不裁切和控制层透明</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.32</div>
+                            <h4>🃏 手牌放大与遮挡修复</h4>
+                            <ul>
+                                <li>🃏 <strong>玩家手牌放大</strong>：桌面端玩家牌从 82×114 提升到 122×170，宽屏进一步提升到 150×210，可见牌面显著变大</li>
+                                <li>🧱 <strong>黑色横条修复</strong>：移除控制层整条半透明背景，只保留按钮组自身背景，不再挡住手牌</li>
+                                <li>📐 <strong>布局防裁切</strong>：手牌区加宽加高，减少重叠并提高层级，首尾牌不会被桌面边界裁掉</li>
+                                <li>📱 <strong>移动横屏修复</strong>：低高度横屏单独调整控制区位置并隐藏冗余提示，避免按钮或快捷键提示压住手牌</li>
+                                <li>🧪 <strong>测试补强</strong>：UI 回归新增手牌尺寸、裁切、控制层透明和移动横屏不重叠断言</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.31</div>
                             <h4>🎧 音频开关与状态恢复深度修复</h4>

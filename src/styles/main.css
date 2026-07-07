@@ -5160,7 +5160,7 @@ select:focus-visible {
 }
 
 #ddz-table {
-    grid-template-rows: 150px 1fr 390px;
+    grid-template-rows: 140px 1fr 430px;
     grid-template-columns: 200px 1fr 200px;
     max-width: 1280px;
     height: 100%;
@@ -5405,8 +5405,8 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 
 #player-right .hand-front {
     order: 4;
-    min-height: 220px;
-    width: min(96vw, 1680px);
+    min-height: 300px;
+    width: min(98vw, 1840px);
     margin-top: 8px;
     z-index: 12;
     overflow-x: auto;
@@ -5418,6 +5418,7 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
     user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
+    justify-content: flex-start;
 }
 
 #player-right .hand-front.range-selecting {
@@ -5553,9 +5554,9 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 /* 桌面端手牌尺寸 */
 @media (min-width: 901px) {
     #player-right .hand-front .card {
-        width: calc(122px * var(--ddz-card-scale, 1));
-        height: calc(170px * var(--ddz-card-scale, 1));
-        margin-left: -55px;
+        width: calc(184px * var(--ddz-card-scale, 1));
+        height: calc(256px * var(--ddz-card-scale, 1));
+        margin-left: -70px;
         flex-shrink: 0;
     }
     #player-right .hand-front .card:first-child {
@@ -5565,9 +5566,9 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 
 @media (min-width: 1500px) {
     #player-right .hand-front .card {
-        width: calc(150px * var(--ddz-card-scale, 1));
-        height: calc(210px * var(--ddz-card-scale, 1));
-        margin-left: -42px;
+        width: calc(220px * var(--ddz-card-scale, 1));
+        height: calc(306px * var(--ddz-card-scale, 1));
+        margin-left: -74px;
     }
 }
 
@@ -5827,7 +5828,7 @@ body[data-motion="fancy"] .table-aura {
 }
 
 #controls-area {
-    top: calc(100% - 520px);
+    top: calc(100% - 570px);
     padding: 10px 20px 14px;
     background: transparent;
 }

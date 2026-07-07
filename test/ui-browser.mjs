@@ -326,25 +326,47 @@ async function run() {
             const first = cards[0]?.getBoundingClientRect();
             const last = cards[cards.length - 1]?.getBoundingClientRect();
             const handRect = hand.getBoundingClientRect();
-            const controlsBg = getComputedStyle(document.getElementById('controls-area')).backgroundColor;
+            const controlsArea = document.getElementById('controls-area');
+            const controlsBg = getComputedStyle(controlsArea).backgroundColor;
+            const visibleControlRects = Array.from(controlsArea.querySelectorAll('#call-controls:not(.hidden), #play-controls:not(.hidden), #game-info'))
+                .map((el) => el.getBoundingClientRect())
+                .filter((rect) => rect.width > 0 && rect.height > 0);
+            const controlsBottom = visibleControlRects.length ? Math.max(...visibleControlRects.map((rect) => rect.bottom)) : 0;
             return {
                 count: cards.length,
                 cardWidth: first?.width || 0,
+                cardHeight: first?.height || 0,
+                firstTop: first?.top ?? 0,
                 firstLeft: first?.left ?? 0,
                 lastRight: last?.right ?? 0,
                 viewportWidth: window.innerWidth,
                 handHeight: handRect.height,
+                handClientWidth: hand.clientWidth,
+                handScrollWidth: hand.scrollWidth,
+                handOverflowX: getComputedStyle(hand).overflowX,
+                controlsBottom,
                 controlsBg,
             };
         });
-        if (handMetrics.cardWidth < 118) throw new Error(`玩家手牌过小: ${JSON.stringify(handMetrics)}`);
-        if (handMetrics.firstLeft < -1 || handMetrics.lastRight > handMetrics.viewportWidth + 1) {
-            throw new Error(`玩家手牌被裁切: ${JSON.stringify(handMetrics)}`);
+        if (handMetrics.cardWidth < 180 || handMetrics.cardHeight < 250) {
+            throw new Error(`玩家手牌未达到大牌尺寸: ${JSON.stringify(handMetrics)}`);
+        }
+        if (handMetrics.handScrollWidth <= handMetrics.handClientWidth) {
+            throw new Error(`大牌模式缺少横向滚动空间: ${JSON.stringify(handMetrics)}`);
+        }
+        if (handMetrics.handOverflowX !== 'auto' && handMetrics.handOverflowX !== 'scroll') {
+            throw new Error(`大牌模式横向滚动未启用: ${JSON.stringify(handMetrics)}`);
+        }
+        if (handMetrics.firstLeft < -1 || handMetrics.firstLeft > 80) {
+            throw new Error(`玩家首张手牌起始位置异常: ${JSON.stringify(handMetrics)}`);
+        }
+        if (handMetrics.controlsBottom > handMetrics.firstTop - 8) {
+            throw new Error(`桌面控制区压住手牌: ${JSON.stringify(handMetrics)}`);
         }
         if (handMetrics.controlsBg !== 'rgba(0, 0, 0, 0)' && handMetrics.controlsBg !== 'transparent') {
             throw new Error(`控制层出现遮挡背景: ${JSON.stringify(handMetrics)}`);
         }
-        console.log(`  ✅ 玩家手牌放大且无遮挡: ${Math.round(handMetrics.cardWidth)}px`);
+        console.log(`  ✅ 玩家手牌大牌滚动且无遮挡: ${Math.round(handMetrics.cardWidth)}×${Math.round(handMetrics.cardHeight)}px`);
         await page.click('#btn-sound-toggle');
         await page.waitForTimeout(delays.short);
         let soundState = await page.$eval('#btn-sound-toggle', (el) => ({
