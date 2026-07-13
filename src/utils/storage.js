@@ -131,7 +131,7 @@ export const Storage = {
             enableBombSound: true,
             enableWinSound: true,
             enableTickSound: true,
-            enableChatSound: true,
+            enableChatSound: false,
 
             // ====== 视觉主题 (10项) ======
             theme: 'green',
@@ -218,8 +218,8 @@ export const Storage = {
             // ====== 面板开关 (6项) ======
             enableCardTracker: true,
             enableAutoHint: true,
-            enableChat: true,
-            enableEmoji: true,
+            enableChat: false,
+            enableEmoji: false,
             enableReplay: true,
             enableStats: true,
             enableAchievements: true,

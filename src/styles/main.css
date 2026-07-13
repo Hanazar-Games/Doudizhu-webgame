@@ -20,6 +20,9 @@ body {
     --accent-color: #f0c040;
     --accent-gradient: linear-gradient(135deg, #f0c040 0%, #d4a017 100%);
     --card-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    --ddz-card-enter-stagger: 12;
+    --ddz-hover-lift: 5px;
+    --ddz-selected-lift: 16px;
 }
 
 /* 红木主题 */
@@ -73,6 +76,14 @@ body[data-theme="purple"] {
 }
 
 .hidden {
+    display: none !important;
+}
+
+.chat-bubble,
+.commentary-bubble,
+#btn-toggle-chat,
+#chat-panel,
+#quick-phrases {
     display: none !important;
 }
 
@@ -5200,7 +5211,7 @@ select:focus-visible {
     background: radial-gradient(ellipse at center, rgba(240,192,64,0.16), transparent 64%);
     filter: blur(10px);
     opacity: 0.7;
-    animation: tableBreath 4.8s ease-in-out infinite;
+    animation: none;
 }
 
 @keyframes tableBreath {
@@ -5405,69 +5416,18 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 
 #player-right .hand-front {
     order: 4;
-    min-height: 300px;
+    min-height: 240px;
     width: min(98vw, 1840px);
     margin-top: 8px;
     z-index: 12;
-    overflow-x: auto;
+    overflow-x: clip;
     overflow-y: visible;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(240,192,64,0.45) rgba(255,255,255,0.08);
     cursor: pointer;
-    touch-action: pan-x pan-y;
+    touch-action: manipulation;
     user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
-    justify-content: flex-start;
-}
-
-#player-right .hand-front.can-scroll {
-    --hand-scroll-progress: 0;
-    mask-image:
-        linear-gradient(to right,
-            transparent 0,
-            #000 28px,
-            #000 calc(100% - 28px),
-            transparent 100%);
-    -webkit-mask-image:
-        linear-gradient(to right,
-            transparent 0,
-            #000 28px,
-            #000 calc(100% - 28px),
-            transparent 100%);
-}
-
-#player-right .hand-front.can-scroll.at-start {
-    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
-}
-
-#player-right .hand-front.can-scroll.at-end {
-    mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 100%);
-    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 100%);
-}
-
-#player-right .hand-front.can-scroll.at-start.at-end {
-    mask-image: none;
-    -webkit-mask-image: none;
-}
-
-#player-right .hand-front.can-scroll::before {
-    content: '';
-    position: absolute;
-    left: 20px;
-    right: 20px;
-    bottom: 0;
-    height: 3px;
-    border-radius: 999px;
-    background:
-        linear-gradient(to right,
-            rgba(240,192,64,0.85) 0,
-            rgba(240,192,64,0.85) calc(var(--hand-scroll-progress, 0) * 100%),
-            rgba(255,255,255,0.12) calc(var(--hand-scroll-progress, 0) * 100%),
-            rgba(255,255,255,0.12) 100%);
-    pointer-events: none;
-    opacity: 0.78;
+    justify-content: center;
 }
 
 #player-right .hand-front.range-selecting {
@@ -5552,8 +5512,28 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
     color: rgba(255,255,255,0.85);
     font-weight: 700;
     font-size: 0.95rem;
-    animation: passFade 0.5s ease both;
+    animation: passFade 0.24s ease both;
     border: 1px solid rgba(255,255,255,0.10);
+}
+
+.low-card-reminder {
+    position: absolute;
+    left: 50%;
+    top: 60px;
+    z-index: 34;
+    max-width: min(220px, 70vw);
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(18, 24, 18, 0.82);
+    border: 1px solid rgba(240,192,64,0.38);
+    color: #ffe28a;
+    font-size: 0.82rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.24);
+    pointer-events: none;
 }
 
 @keyframes passFade {
@@ -5596,16 +5576,17 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 
 .card {
     transform-origin: center bottom;
-    transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.18s ease;
+    transition: transform 0.12s ease, filter 0.12s ease;
     will-change: transform;
+    z-index: var(--hand-index, 1);
 }
 
 /* 桌面端手牌尺寸 */
 @media (min-width: 901px) {
     #player-right .hand-front .card {
-        width: calc(184px * var(--ddz-card-scale, 1));
-        height: calc(256px * var(--ddz-card-scale, 1));
-        margin-left: -70px;
+        width: calc(144px * var(--ddz-card-scale, 1));
+        height: calc(200px * var(--ddz-card-scale, 1));
+        margin-left: calc(-91px * var(--ddz-card-scale, 1));
         flex-shrink: 0;
     }
     #player-right .hand-front .card:first-child {
@@ -5615,9 +5596,9 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 
 @media (min-width: 1500px) {
     #player-right .hand-front .card {
-        width: calc(220px * var(--ddz-card-scale, 1));
-        height: calc(306px * var(--ddz-card-scale, 1));
-        margin-left: -74px;
+        width: calc(158px * var(--ddz-card-scale, 1));
+        height: calc(220px * var(--ddz-card-scale, 1));
+        margin-left: calc(-92px * var(--ddz-card-scale, 1));
     }
 }
 
@@ -5636,14 +5617,14 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 }
 
 .hand-front .card:hover {
-    transform: translateY(calc(-1 * var(--ddz-hover-lift, 7px))) scale(1.025);
+    transform: translateY(calc(-1 * var(--ddz-hover-lift, 5px))) scale(1.012);
     filter: brightness(1.04);
     z-index: 20;
 }
 
 .hand-front .card.selected,
 .hand-front .card.selected:hover {
-    transform: translateY(calc(-1 * var(--ddz-selected-lift, 12px))) scale(1.022);
+    transform: translateY(calc(-1 * var(--ddz-selected-lift, 16px))) scale(1.012);
     z-index: 30;
 }
 
@@ -5831,7 +5812,7 @@ body[data-hand-arrangement="stack"] #player-right .hand-front {
 }
 
 body[data-hand-arrangement] #player-right .hand-front {
-    justify-content: flex-start;
+    justify-content: center;
 }
 
 body[data-density="compact"] #ddz-table {
@@ -6308,12 +6289,14 @@ body[data-motion="fancy"] .table-aura {
     #player-right .hand-front {
         min-height: 96px;
         margin-top: 0;
+        overflow-x: clip;
+        justify-content: center;
     }
 
     #player-right .hand-front .card {
-        width: calc(86px * var(--ddz-card-scale, 1));
-        height: calc(120px * var(--ddz-card-scale, 1));
-        margin-left: -36px;
+        width: calc(74px * var(--ddz-card-scale, 1));
+        height: calc(104px * var(--ddz-card-scale, 1));
+        margin-left: calc(-50px * var(--ddz-card-scale, 1));
     }
 
     #controls-area {
@@ -6640,7 +6623,7 @@ body[data-motion="fancy"] .table-aura {
 
 /* 玩家区域active-turn增强脉冲 */
 .player-area.active-turn .player-avatar {
-    animation: activeTurnAvatar 2s ease-in-out infinite;
+    animation: none;
 }
 
 @keyframes activeTurnAvatar {

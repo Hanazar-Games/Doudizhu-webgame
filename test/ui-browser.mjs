@@ -303,6 +303,16 @@ async function run() {
             if (label !== '30%') throw new Error(`BGM 滑块 label 异常: ${label}`);
             console.log(`  ✅ BGM 滑块 label: ${label}`);
         }
+        const voiceAndChatSettingsGone = await page.evaluate(() => {
+            const text = document.querySelector('#settings-overlay')?.textContent || '';
+            return !text.includes('语音播报') &&
+                !text.includes('语音包') &&
+                !text.includes('聊天音效') &&
+                !text.includes('快捷聊天') &&
+                !text.includes('战斗解说');
+        });
+        if (!voiceAndChatSettingsGone) throw new Error('语音/聊天/解说设置仍然可见');
+        console.log('  ✅ 语音/聊天/解说设置已移除');
         const wheelZoomLabel = await page.evaluate(() => Array.from(document.querySelectorAll('.toggle-switch-label'))
             .some(el => el.textContent.trim() === 'Ctrl/⌘滚轮缩放'));
         if (!wheelZoomLabel) throw new Error('Ctrl/⌘滚轮缩放设置文案缺失');
@@ -325,7 +335,7 @@ async function run() {
         for (const id of headerBtns) {
             await assertExists(page, `#${id}`, '游戏页头部按钮');
         }
-        const handMetrics = await page.$eval('#player-right .hand-front', (hand) => {
+        const readHandMetrics = async () => page.$eval('#player-right .hand-front', (hand) => {
             const cards = Array.from(hand.querySelectorAll('.card'));
             const first = cards[0]?.getBoundingClientRect();
             const last = cards[cards.length - 1]?.getBoundingClientRect();
@@ -348,36 +358,34 @@ async function run() {
                 handClientWidth: hand.clientWidth,
                 handScrollWidth: hand.scrollWidth,
                 handOverflowX: getComputedStyle(hand).overflowX,
-                canScrollClass: hand.classList.contains('can-scroll'),
-                atStartClass: hand.classList.contains('at-start'),
-                scrollProgress: getComputedStyle(hand).getPropertyValue('--hand-scroll-progress').trim(),
                 controlsBottom,
                 controlsBg,
             };
         });
-        if (handMetrics.cardWidth < 180 || handMetrics.cardHeight < 250) {
-            throw new Error(`玩家手牌未达到大牌尺寸: ${JSON.stringify(handMetrics)}`);
-        }
-        if (handMetrics.handScrollWidth <= handMetrics.handClientWidth) {
-            throw new Error(`大牌模式缺少横向滚动空间: ${JSON.stringify(handMetrics)}`);
-        }
-        if (handMetrics.handOverflowX !== 'auto' && handMetrics.handOverflowX !== 'scroll') {
-            throw new Error(`大牌模式横向滚动未启用: ${JSON.stringify(handMetrics)}`);
-        }
-        if (!handMetrics.canScrollClass || !handMetrics.atStartClass || handMetrics.scrollProgress !== '0.0000') {
-            throw new Error(`手牌滚动状态初始化异常: ${JSON.stringify(handMetrics)}`);
-        }
-        if (handMetrics.firstLeft < -1 || handMetrics.firstLeft > 80) {
-            throw new Error(`玩家首张手牌起始位置异常: ${JSON.stringify(handMetrics)}`);
-        }
-        if (handMetrics.controlsBottom > handMetrics.firstTop - 8) {
-            throw new Error(`桌面控制区压住手牌: ${JSON.stringify(handMetrics)}`);
-        }
-        if (handMetrics.controlsBg !== 'rgba(0, 0, 0, 0)' && handMetrics.controlsBg !== 'transparent') {
-            throw new Error(`控制层出现遮挡背景: ${JSON.stringify(handMetrics)}`);
-        }
-        console.log(`  ✅ 玩家手牌大牌滚动且无遮挡: ${Math.round(handMetrics.cardWidth)}×${Math.round(handMetrics.cardHeight)}px`);
-        const wheelScroll = await page.$eval('#player-right .hand-front', async (hand) => {
+        const assertHandOnScreen = (metrics, label) => {
+            if (metrics.cardWidth < 140 || metrics.cardHeight < 195) {
+                throw new Error(`${label}玩家手牌过小: ${JSON.stringify(metrics)}`);
+            }
+            if (metrics.handScrollWidth > metrics.handClientWidth + 1) {
+                throw new Error(`${label}玩家手牌产生水平溢出: ${JSON.stringify(metrics)}`);
+            }
+            if (metrics.handOverflowX !== 'clip' && metrics.handOverflowX !== 'hidden') {
+                throw new Error(`${label}玩家手牌未禁止水平溢出: ${JSON.stringify(metrics)}`);
+            }
+            if (metrics.firstLeft < -1 || metrics.lastRight > metrics.viewportWidth + 1) {
+                throw new Error(`${label}玩家手牌超出视口: ${JSON.stringify(metrics)}`);
+            }
+            if (metrics.controlsBottom > metrics.firstTop - 8) {
+                throw new Error(`${label}桌面控制区压住手牌: ${JSON.stringify(metrics)}`);
+            }
+            if (metrics.controlsBg !== 'rgba(0, 0, 0, 0)' && metrics.controlsBg !== 'transparent') {
+                throw new Error(`${label}控制层出现遮挡背景: ${JSON.stringify(metrics)}`);
+            }
+        };
+        let handMetrics = await readHandMetrics();
+        assertHandOnScreen(handMetrics, '初始');
+        console.log(`  ✅ 玩家17张手牌完整在屏内: ${Math.round(handMetrics.cardWidth)}×${Math.round(handMetrics.cardHeight)}px`);
+        const wheelState = await page.$eval('#player-right .hand-front', async (hand) => {
             document.documentElement.style.setProperty('--ddz-card-scale', '1');
             hand.dispatchEvent(new WheelEvent('wheel', {
                 deltaY: 420,
@@ -387,18 +395,14 @@ async function run() {
             await new Promise(resolve => requestAnimationFrame(resolve));
             return {
                 scrollLeft: hand.scrollLeft,
-                progress: getComputedStyle(hand).getPropertyValue('--hand-scroll-progress').trim(),
                 cardScale: getComputedStyle(document.documentElement).getPropertyValue('--ddz-card-scale').trim(),
-                atStart: hand.classList.contains('at-start'),
             };
         });
-        if (wheelScroll.scrollLeft <= 0 || wheelScroll.atStart || parseFloat(wheelScroll.progress) <= 0) {
-            throw new Error(`手牌滚轮横向滚动失效: ${JSON.stringify(wheelScroll)}`);
-        }
-        if (wheelScroll.cardScale !== '1') {
-            throw new Error(`普通滚轮不应缩放手牌: ${JSON.stringify(wheelScroll)}`);
+        if (wheelState.scrollLeft !== 0 || wheelState.cardScale !== '1') {
+            throw new Error(`普通滚轮不应滚动或缩放屏内手牌: ${JSON.stringify(wheelState)}`);
         }
         const ctrlWheelZoom = await page.$eval('#player-right .hand-front', async (hand) => {
+            document.documentElement.style.setProperty('--ddz-card-scale', '0.9');
             hand.dispatchEvent(new WheelEvent('wheel', {
                 deltaY: -120,
                 ctrlKey: true,
@@ -408,12 +412,41 @@ async function run() {
             await new Promise(resolve => requestAnimationFrame(resolve));
             return getComputedStyle(document.documentElement).getPropertyValue('--ddz-card-scale').trim();
         });
-        if (parseFloat(ctrlWheelZoom) <= 1) {
-            throw new Error(`Ctrl滚轮缩放失效: ${ctrlWheelZoom}`);
+        if (parseFloat(ctrlWheelZoom) <= 0.9 || parseFloat(ctrlWheelZoom) > 1) {
+            throw new Error(`Ctrl滚轮缩放边界异常: ${ctrlWheelZoom}`);
         }
-        await page.$eval('#player-right .hand-front', (hand) => { hand.scrollLeft = 0; });
         await page.evaluate(() => document.documentElement.style.setProperty('--ddz-card-scale', '1'));
-        console.log(`  ✅ 鼠标滚轮浏览与Ctrl缩放互不冲突: scrollLeft=${Math.round(wheelScroll.scrollLeft)}`);
+        console.log('  ✅ 普通滚轮不溢出，Ctrl缩放不会超过屏幕上限');
+        await page.click('#call-controls button[data-call="3"]');
+        await page.waitForTimeout(delays.long);
+        handMetrics = await readHandMetrics();
+        if (handMetrics.count < 20) throw new Error(`叫地主后手牌未增加到底牌: ${JSON.stringify(handMetrics)}`);
+        assertHandOnScreen(handMetrics, '地主20张');
+        console.log('  ✅ 地主20张手牌完整在屏内');
+        const exposedClickPoint = await page.$eval('#player-right .hand-front .card:nth-child(10)', (card) => {
+            const rect = card.getBoundingClientRect();
+            return { x: rect.left + 14, y: rect.top + 28 };
+        });
+        await page.mouse.click(exposedClickPoint.x, exposedClickPoint.y);
+        await page.waitForTimeout(delays.short);
+        const selectedMetrics = await page.$eval('#player-right .hand-front .card.selected', (card) => {
+            const rect = card.getBoundingClientRect();
+            return {
+                left: rect.left,
+                right: rect.right,
+                top: rect.top,
+                bottom: rect.bottom,
+                viewportWidth: window.innerWidth,
+                viewportHeight: window.innerHeight,
+            };
+        });
+        if (selectedMetrics.left < -1 || selectedMetrics.right > selectedMetrics.viewportWidth + 1 || selectedMetrics.top < -1) {
+            throw new Error(`选中牌后牌面超出屏幕: ${JSON.stringify(selectedMetrics)}`);
+        }
+        console.log('  ✅ 选牌抬起后仍在屏内');
+        const noChatUi = await page.evaluate(() => !document.querySelector('#btn-toggle-chat, #chat-panel, #quick-phrases'));
+        if (!noChatUi) throw new Error('聊天入口仍然存在');
+        console.log('  ✅ 聊天/快捷短语入口已移除');
         await page.click('#btn-sound-toggle');
         await page.waitForTimeout(delays.short);
         let soundState = await page.$eval('#btn-sound-toggle', (el) => ({
@@ -572,10 +605,29 @@ async function run() {
         await mobilePage.waitForTimeout(delays.long);
         await screenshot(mobilePage, '14-game-mobile-landscape');
 
-        // 检查手牌区是否可见
-        const cards = await mobilePage.$$('.hand-front .card');
-        if (cards.length < 17) throw new Error(`横屏手牌数量异常: ${cards.length} 张 (期望 >=17)`);
-        console.log(`  ✅ 横屏手牌可见: ${cards.length} 张`);
+        // 检查手牌区是否可见且不水平超屏
+        const mobileHand = await mobilePage.evaluate(() => {
+            const hand = document.querySelector('#player-right .hand-front');
+            const cards = Array.from(hand?.querySelectorAll('.card') || []);
+            const first = cards[0]?.getBoundingClientRect();
+            const last = cards[cards.length - 1]?.getBoundingClientRect();
+            return {
+                count: cards.length,
+                firstLeft: first?.left ?? 0,
+                lastRight: last?.right ?? 0,
+                viewportWidth: window.innerWidth,
+                scrollWidth: hand?.scrollWidth || 0,
+                clientWidth: hand?.clientWidth || 0,
+            };
+        });
+        if (mobileHand.count < 17) throw new Error(`横屏手牌数量异常: ${JSON.stringify(mobileHand)}`);
+        if (mobileHand.firstLeft < -1 || mobileHand.lastRight > mobileHand.viewportWidth + 1) {
+            throw new Error(`横屏手牌超出屏幕: ${JSON.stringify(mobileHand)}`);
+        }
+        if (mobileHand.scrollWidth > mobileHand.clientWidth + 1) {
+            throw new Error(`横屏手牌产生水平溢出: ${JSON.stringify(mobileHand)}`);
+        }
+        console.log(`  ✅ 横屏手牌完整在屏内: ${mobileHand.count} 张`);
 
         // 检查按钮文字是否溢出
         const playBtnOverflow = await mobilePage.evaluate(() => {

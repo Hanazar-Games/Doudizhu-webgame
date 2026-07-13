@@ -152,7 +152,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.35</span>
+                <span class="version-info">v1.2.36</span>
             </footer>
         </div>
     </div>
@@ -236,11 +236,6 @@
                     <input type="range" class="settings-slider-input" id="cfg-sfx-volume" min="0" max="1" step="0.1" value="0.5">
                     <span class="volume-value" id="cfg-sfx-volume-value">50%</span>
                 </div>
-                <div class="volume-control">
-                    <label for="cfg-voice-volume">语音</label>
-                    <input type="range" class="settings-slider-input" id="cfg-voice-volume" data-setting="voiceVolume" min="0" max="1" step="0.1" value="0.7">
-                    <span class="volume-value" id="cfg-voice-volume-value" data-setting-output="voiceVolume">70%</span>
-                </div>
                 <div class="settings-grid settings-grid--spaced">
                     <label class="setting-row">背景音乐
                         <select data-setting="bgmTrack">
@@ -248,14 +243,6 @@
                             <option value="calm">舒缓</option>
                             <option value="intense">紧张</option>
                             <option value="none">静音</option>
-                        </select>
-                    </label>
-                    <label class="setting-row">语音包
-                        <select data-setting="voicePack">
-                            <option value="default">默认女声</option>
-                            <option value="male">男声</option>
-                            <option value="cute">萌系</option>
-                            <option value="none">关闭</option>
                         </select>
                     </label>
                 </div>
@@ -269,11 +256,6 @@
                         <input type="checkbox"  data-setting="sfxEnabled" checked>
                         <span class="toggle-switch-track"></span>
                         <span class="toggle-switch-label">SFX开关</span>
-                    </label>
-                    <label class="toggle-switch-wrap">
-                        <input type="checkbox"  data-setting="voiceAnnounce">
-                        <span class="toggle-switch-track"></span>
-                        <span class="toggle-switch-label">语音播报</span>
                     </label>
                     <label class="toggle-switch-wrap">
                         <input type="checkbox"  data-setting="enableDealSound" checked>
@@ -301,19 +283,9 @@
                         <span class="toggle-switch-label">胜利音效</span>
                     </label>
                     <label class="toggle-switch-wrap">
-                        <input type="checkbox"  data-setting="enableCommentary" checked>
-                        <span class="toggle-switch-track"></span>
-                        <span class="toggle-switch-label">战斗解说</span>
-                    </label>
-                    <label class="toggle-switch-wrap">
                         <input type="checkbox"  data-setting="enableTickSound" checked>
                         <span class="toggle-switch-track"></span>
                         <span class="toggle-switch-label">倒计时滴答</span>
-                    </label>
-                    <label class="toggle-switch-wrap">
-                        <input type="checkbox"  data-setting="enableChatSound" checked>
-                        <span class="toggle-switch-track"></span>
-                        <span class="toggle-switch-label">聊天音效</span>
                     </label>
                 </div>
 
@@ -1011,16 +983,6 @@
                         <span class="toggle-switch-label">智能提示</span>
                     </label>
                         <label class="toggle-switch-wrap">
-                        <input type="checkbox"  data-setting="enableChat" checked>
-                        <span class="toggle-switch-track"></span>
-                        <span class="toggle-switch-label">快捷聊天</span>
-                    </label>
-                        <label class="toggle-switch-wrap">
-                        <input type="checkbox"  data-setting="enableEmoji" checked>
-                        <span class="toggle-switch-track"></span>
-                        <span class="toggle-switch-label">表情反馈</span>
-                    </label>
-                        <label class="toggle-switch-wrap">
                         <input type="checkbox"  data-setting="enableReplay" checked>
                         <span class="toggle-switch-track"></span>
                         <span class="toggle-switch-label">牌局回放</span>
@@ -1206,7 +1168,6 @@
             <div id="side-panels">
                 <button id="btn-toggle-card-tracker" class="btn-panel-toggle" title="记牌器">🃏 记牌</button>
                 <button id="btn-toggle-history" class="btn-panel-toggle" title="出牌历史">📜 历史</button>
-                <button id="btn-toggle-chat" class="btn-panel-toggle" title="发送快捷短语">💬 聊天</button>
                 <div id="card-tracker" class="side-panel hidden">
                     <h4>记牌器</h4>
                     <div class="tracker-grid" id="tracker-content"></div>
@@ -1214,15 +1175,6 @@
                 <div id="play-history" class="side-panel hidden">
                     <h4>出牌历史</h4>
                     <div class="history-list" id="history-content"></div>
-                </div>
-                <div id="chat-panel" class="side-panel hidden">
-                    <h4>聊天</h4>
-                    <div class="quick-phrases" id="quick-phrases"></div>
-                    <div class="chat-list" id="chat-content"></div>
-                    <div class="chat-input-area">
-                        <input type="text" id="chat-input" placeholder="输入消息..." maxlength="100">
-                        <button id="btn-chat-send">发送</button>
-                    </div>
                 </div>
             </div>
             
@@ -1661,18 +1613,30 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.35</div>
-                    <h3>🖱️ 手牌滚轮冲突修复</h3>
+                    <div class="changelog-version-badge">v1.2.36</div>
+                    <h3>🃏 屏内手牌与静默牌局优化</h3>
                     <ul>
-                        <li>🖱️ <strong>滚轮行为拆分</strong>：普通滚轮现在只横向浏览大牌手牌，不再同时触发牌面缩放</li>
-                        <li>⌨️ <strong>缩放手势明确</strong>：牌面缩放改为 <code>Ctrl/⌘ + 滚轮</code>，避免和浏览手牌抢同一个操作</li>
-                        <li>⚙️ <strong>设置文案同步</strong>：交互设置里的“滚轮缩放”改为“Ctrl/⌘滚轮缩放”，和真实操作一致</li>
-                        <li>🧪 <strong>测试补强</strong>：UI 回归新增普通滚轮不缩放、Ctrl 滚轮才缩放的冲突断言</li>
+                        <li>🃏 <strong>手牌不再超屏</strong>：玩家 17 张与地主 20 张手牌都收拢在屏幕内，不再依赖横向滚动浏览</li>
+                        <li>✅ <strong>选牌安全区修复</strong>：选中牌抬起后仍保持在视口内，避免顶部或左右被裁掉</li>
+                        <li>🔇 <strong>静默牌局</strong>：移除聊天、快捷短语、语音播报、战斗解说入口和气泡，只保留必要 SFX/BGM</li>
+                        <li>⚠️ <strong>少牌提醒</strong>：玩家少于 3 张牌时显示“我就剩 X 张牌了”式提醒，替代无关对话</li>
+                        <li>🎞️ <strong>动画降噪</strong>：减少持续呼吸、头像脉冲、选牌和过牌动画强度，整体 UI 更稳</li>
+                        <li>🧪 <strong>测试补强</strong>：UI 回归新增屏内手牌、20 张地主手牌、选牌不出屏、聊天语音入口移除和移动横屏不溢出断言</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.35</div>
+                            <h4>🖱️ 手牌滚轮冲突修复</h4>
+                            <ul>
+                                <li>🖱️ <strong>滚轮行为拆分</strong>：普通滚轮现在只横向浏览大牌手牌，不再同时触发牌面缩放</li>
+                                <li>⌨️ <strong>缩放手势明确</strong>：牌面缩放改为 <code>Ctrl/⌘ + 滚轮</code>，避免和浏览手牌抢同一个操作</li>
+                                <li>⚙️ <strong>设置文案同步</strong>：交互设置里的“滚轮缩放”改为“Ctrl/⌘滚轮缩放”，和真实操作一致</li>
+                                <li>🧪 <strong>测试补强</strong>：UI 回归新增普通滚轮不缩放、Ctrl 滚轮才缩放的冲突断言</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.34</div>
                             <h4>↔️ 大牌手牌浏览优化</h4>

@@ -22,12 +22,13 @@ class Renderer {
         this.mode = null;
         this.audio = new AudioManager();
         this.anim = new Animations(document.body);
-        this.commentary = new CommentaryEngine(document.body);
+        this.commentary = null;
 
         // UI状态
         this.selectedCards = new Set();
         this.hintCards = [];
         this._selectionHistory = []; // 选牌历史，用于撤销
+        this._lowCardReminderShown = new Set();
 
         this._controlListeners = [];
         this._initLayout();
@@ -136,7 +137,6 @@ class Renderer {
         // 隐藏侧边面板，防止它们出现在其他屏幕上
         this.container?.querySelector('#card-tracker')?.classList.add('hidden');
         this.container?.querySelector('#play-history')?.classList.add('hidden');
-        this.container?.querySelector('#chat-panel')?.classList.add('hidden');
         // 强制恢复 body transform，防止 screenShake 残留偏移
         document.body.style.transform = '';
         // 清理拖拽选择监听器
@@ -229,7 +229,6 @@ class Renderer {
             <div id="side-panels">
                 <button id="btn-toggle-card-tracker" class="btn-panel-toggle" title="打开记牌器">🃏 记牌器</button>
                 <button id="btn-toggle-history" class="btn-panel-toggle" title="查看出牌历史">📜 历史</button>
-                <button id="btn-toggle-chat" class="btn-panel-toggle" title="发送快捷短语">💬 聊天</button>
                 <div id="card-tracker" class="side-panel hidden">
                     <h4>记牌器</h4>
                     <div class="tracker-grid" id="tracker-content"></div>
@@ -240,15 +239,6 @@ class Renderer {
                     <div class="history-actions">
                         <button id="btn-export-history" class="btn-small">📋 导出</button>
                         <button id="btn-clear-history" class="btn-small">🗑️ 清空</button>
-                    </div>
-                </div>
-                <div id="chat-panel" class="side-panel hidden">
-                    <h4>聊天</h4>
-                    <div class="quick-phrases" id="quick-phrases"></div>
-                    <div class="chat-list" id="chat-content"></div>
-                    <div class="chat-input-area">
-                        <input type="text" id="chat-input" placeholder="输入消息..." maxlength="100">
-                        <button id="btn-chat-send">发送</button>
                     </div>
                 </div>
             </div>
@@ -402,17 +392,14 @@ class Renderer {
     }
 
     _bindPanelToggles() {
-        this._initQuickPhrases();
-
         const btnTracker = this.container.querySelector('#btn-toggle-card-tracker');
         const btnHistory = this.container.querySelector('#btn-toggle-history');
-        const btnChat = this.container.querySelector('#btn-toggle-chat');
         const tracker = this.container.querySelector('#card-tracker');
         const history = this.container.querySelector('#play-history');
-        const chat = this.container.querySelector('#chat-panel');
 
         const _toggleSidePanel = (panel, others, btn) => {
             this.audio.playButtonClick();
+            if (!panel) return;
             const wasHidden = panel.classList.contains('hidden');
             // 先关闭其他面板（带动画）
             for (const other of others) {
@@ -439,45 +426,12 @@ class Renderer {
             }
         };
 
-        const trackerHandler = () => _toggleSidePanel(tracker, [history, chat], btnTracker);
-        const historyHandler = () => _toggleSidePanel(history, [tracker, chat], btnHistory);
-        const chatHandler = () => {
-            _toggleSidePanel(chat, [tracker, history], btnChat);
-            if (chat && !chat.classList.contains('hidden') && !chat.classList.contains('panel-exit')) {
-                this._setTimer(() => chatInput?.focus(), 100);
-            }
-        };
+        const trackerHandler = () => _toggleSidePanel(tracker, [history], btnTracker);
+        const historyHandler = () => _toggleSidePanel(history, [tracker], btnHistory);
         this._addControlListener(btnTracker, 'click', trackerHandler);
         this._bindRipple(btnTracker);
         this._addControlListener(btnHistory, 'click', historyHandler);
         this._bindRipple(btnHistory);
-        this._addControlListener(btnChat, 'click', chatHandler);
-        this._bindRipple(btnChat);
-
-        // 聊天输入
-        const chatInput = this.container.querySelector('#chat-input');
-        const btnSend = this.container.querySelector('#btn-chat-send');
-
-        const sendChat = () => {
-            const text = chatInput?.value?.trim();
-            if (!text) return;
-            this.audio.playButtonClick();
-            this._sendChatMessage(text);
-            chatInput.value = '';
-        };
-
-        this._addControlListener(btnSend, 'click', sendChat);
-        const chatKeydownHandler = (e) => {
-            if (e.key === 'Enter') sendChat();
-        };
-        const chatFocusHandler = () => {
-            this._setTimer(() => {
-                if (this._destroyed) return;
-                chatInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 300);
-        };
-        this._addControlListener(chatInput, 'keydown', chatKeydownHandler);
-        this._addControlListener(chatInput, 'focus', chatFocusHandler);
 
         // 导出出牌历史
         const btnExportHistory = this.container.querySelector('#btn-export-history');
@@ -507,69 +461,13 @@ class Renderer {
 
     _initEmptyStates() {
         const historyContent = this.container.querySelector('#history-content');
-        const chatContent = this.container.querySelector('#chat-content');
         if (historyContent && !historyContent.children.length) {
             historyContent.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📜</div>暂无出牌记录</div>';
         }
-        if (chatContent && !chatContent.children.length) {
-            chatContent.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div>暂无消息，发送一条快捷短语吧</div>';
-        }
-    }
-
-    _initQuickPhrases() {
-        const container = this.container.querySelector('#quick-phrases');
-        if (!container) return;
-
-        const phrases = [
-            { text: '快点吧，我等到花儿都谢了', icon: '⏰' },
-            { text: '你的牌打得也太好了', icon: '👏' },
-            { text: '不要走，决战到天亮', icon: '🌙' },
-            { text: '和你合作真是太愉快了', icon: '🤝' },
-            { text: '王炸！', icon: '💥' },
-            { text: '炸弹！', icon: '💣' },
-            { text: '这牌没法打了', icon: '😭' },
-            { text: '十七张牌你能秒我？', icon: '🃏' },
-        ];
-
-        phrases.forEach((p, i) => {
-            const btn = document.createElement('button');
-            btn.textContent = p.icon;
-            btn.title = p.text;
-            btn.style.opacity = '0';
-            btn.style.transform = 'scale(0.5)';
-            btn.style.transition = `all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${i * 50}ms`;
-            const handler = () => {
-                this.audio.playButtonClick();
-                this._sendChatMessage(p.text);
-            };
-            this._addControlListener(btn, 'click', handler);
-            container.appendChild(btn);
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    btn.style.opacity = '1';
-                    btn.style.transform = 'scale(1)';
-                });
-            });
-        });
     }
 
     _sendChatMessage(text) {
-        this.audio.playChat();
-        // 如果是LAN模式，通过WebSocket发送
-        if (this.mode?.modeName === 'lan' && this.mode._send) {
-            this.mode._send({
-                type: 'chat',
-                text,
-                playerName: this.gameState?.players[this.mode?.humanIndex]?.name || '玩家',
-                broadcast: true,
-            });
-        }
-        // 本地显示
-        this._addChatMessage({
-            sender: this.gameState?.players[this.mode?.humanIndex]?.name || '我',
-            text,
-            isSelf: true,
-        });
+        return;
     }
 
     _addChatMessage(msg) {
@@ -604,12 +502,7 @@ class Renderer {
     }
 
     receiveChat(data) {
-        if (data.playerIndex === this.mode?.humanIndex) return;
-        this._addChatMessage({
-            sender: data.playerName || `玩家${data.playerIndex + 1}`,
-            text: data.text,
-            isSelf: false,
-        });
+        return;
     }
 
     _bindKeyboard() {
@@ -1558,7 +1451,7 @@ class Renderer {
                 e.preventDefault();
                 const delta = e.deltaY < 0 ? 0.05 : -0.05;
                 const current = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ddz-card-scale')) || 1;
-                const next = Math.max(0.7, Math.min(1.5, current + delta));
+                const next = Math.max(0.7, Math.min(1, current + delta));
                 document.documentElement.style.setProperty('--ddz-card-scale', String(next));
                 updateState();
                 return;
@@ -1593,6 +1486,9 @@ class Renderer {
         if (!this.gameState) return;
         // 重新渲染前清除选择状态，避免 DOM 与 selectedCards 不一致
         this.clearSelection();
+        if (this.gameState.players?.every(player => player?.hand?.length > 5)) {
+            this._lowCardReminderShown?.clear();
+        }
         // 清理旧的手牌 click 监听器，防止 renderHands 多次调用时 _controlListeners 累积
         if (this._controlListeners) {
             const toRemove = [];
@@ -1701,6 +1597,7 @@ class Renderer {
                     const card = sorted[j];
                     const el = this._createCardElement(card);
                     // margin-left 由 CSS 控制，支持响应式调整
+                    el.style.setProperty('--hand-index', j + 1);
 
                     // 发牌入场动画
                     el.style.opacity = '0';
@@ -2396,6 +2293,9 @@ class Renderer {
         if (count) count.textContent = data.remaining;
         area?.classList.toggle('low-cards', this.gameState?.phase === PHASE.PLAYING && data.remaining <= 5);
         area?.classList.toggle('danger-cards', this.gameState?.phase === PHASE.PLAYING && data.remaining <= 2);
+        if (data.remaining > 0 && data.remaining < 3) {
+            this.showLowCardReminder(data.playerIndex, data.remaining);
+        }
 
         // 音效 + 特效（权重分级）
         const pattern = data.pattern;
@@ -2497,33 +2397,44 @@ class Renderer {
         this._addHistory({playerIndex, cards: [], pattern: {type: 'PASS'}, pass: true});
     }
 
-    // AI/玩家快捷短语气泡
+    // AI/玩家快捷短语已禁用，避免牌局中出现闲聊干扰。
     showChatBubble(playerIndex, text) {
+        return;
+    }
+
+    showLowCardReminder(playerIndex, count) {
         if (this._destroyed) return;
+        if (!Number.isFinite(count) || count <= 0 || count >= 3) return;
+        const key = `${playerIndex}:${count}`;
+        if (this._lowCardReminderShown?.has(key)) return;
+        this._lowCardReminderShown?.add(key);
+
         const area = this._getPlayerArea(playerIndex);
         if (!area) return;
+        const player = this.gameState?.players?.[playerIndex];
+        const isHuman = playerIndex === this.mode?.humanIndex;
 
         const bubble = document.createElement('div');
-        bubble.className = 'chat-bubble';
+        bubble.className = 'low-card-reminder';
         bubble.dataset.animFx = 'true';
-        bubble.textContent = text;
+        bubble.textContent = isHuman ? `我就剩${count}张牌了` : `${player?.name || '对手'}就剩${count}张牌了`;
         bubble.style.opacity = '0';
-        bubble.style.transform = 'translateX(-50%) scale(0.5)';
-        bubble.style.transition = 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        bubble.style.transform = 'translateX(-50%) translateY(6px)';
+        bubble.style.transition = 'opacity 0.18s ease-out, transform 0.18s ease-out';
         area.appendChild(bubble);
 
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 bubble.style.opacity = '1';
-                bubble.style.transform = 'translateX(-50%) scale(1)';
+                bubble.style.transform = 'translateX(-50%) translateY(0)';
             });
         });
 
         this._setTimer(() => {
-            bubble.style.transition = 'opacity 0.3s ease';
+            bubble.style.transition = 'opacity 0.18s ease';
             bubble.style.opacity = '0';
-            this._setTimer(() => bubble.remove(), 300);
-        }, 2000);
+            this._setTimer(() => bubble.remove(), 180);
+        }, 1500);
     }
 
     highlightTurn(playerIndex) {

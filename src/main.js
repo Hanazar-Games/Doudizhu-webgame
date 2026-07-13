@@ -692,7 +692,7 @@ class GameApp {
                 showPlayPreview: true, gestureEnabled: true, swipeToSelect: true,
                 longPressHint: false, hapticEnabled: true,
                 // 辅助
-                showTutorial: true, showShortcuts: true, showTableAura: true, enableCommentary: true,
+                showTutorial: true, showShortcuts: true, showTableAura: true, enableCommentary: false,
                 opponentCards: 'stack', autoOpenTracker: false, autoOpenHistory: false,
                 hintDetail: 'type', sortOrder: 'auto', showRemainingCount: true,
                 showWinProbability: false, showBestMove: false, handAnalysis: false,
@@ -700,8 +700,8 @@ class GameApp {
                 highlightPlayable: true, showPatternName: true, showPlayerStats: false,
                 showOpponentCall: true,
                 // 面板
-                enableCardTracker: true, enableAutoHint: true, enableChat: true,
-                enableEmoji: true, enableReplay: true, enableStats: true,
+                enableCardTracker: true, enableAutoHint: true, enableChat: false,
+                enableEmoji: false, enableReplay: true, enableStats: true,
                 enableAchievements: true,
                 // 无障碍
                 reduceMotion: false, largeClickTargets: false, highVisibility: false,
