@@ -152,7 +152,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.33</span>
+                <span class="version-info">v1.2.34</span>
             </footer>
         </div>
     </div>
@@ -1661,18 +1661,28 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.33</div>
-                    <h3>🃏 大牌手牌滚动修复</h3>
+                    <div class="changelog-version-badge">v1.2.34</div>
+                    <h3>↔️ 大牌手牌浏览优化</h3>
                     <ul>
-                        <li>🃏 <strong>真正大牌模式</strong>：桌面玩家手牌提升到 184×256，宽屏提升到 220×306，牌面面积约为旧版 5 倍以上</li>
-                        <li>↔️ <strong>横向滚动承载</strong>：17 张手牌不再被强行压进一屏，改为大牌横向浏览，首张牌保持完整可见</li>
-                        <li>📐 <strong>底部牌区加高</strong>：玩家区域为大牌重新分配高度，减少牌面、提示和控制按钮之间的拥挤</li>
-                        <li>🧪 <strong>测试补强</strong>：UI 回归改为检查大牌尺寸、横向滚动启用、首张不裁切和控制层透明</li>
+                        <li>🖱️ <strong>滚轮横向浏览</strong>：桌面端鼠标滚轮现在可直接推动大牌手牌横向移动，不用精准拖动滚动条</li>
+                        <li>↔️ <strong>滚动边界反馈</strong>：手牌溢出时加入首尾渐隐，帮助判断左右还有没有牌</li>
+                        <li>📊 <strong>浏览进度反馈</strong>：手牌底部加入细进度条，快速感知当前浏览位置</li>
+                        <li>🧪 <strong>测试补强</strong>：UI 回归新增滚动状态初始化、滚轮横向滚动和进度变化断言</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.33</div>
+                            <h4>🃏 大牌手牌滚动修复</h4>
+                            <ul>
+                                <li>🃏 <strong>真正大牌模式</strong>：桌面玩家手牌提升到 184×256，宽屏提升到 220×306，牌面面积约为旧版 5 倍以上</li>
+                                <li>↔️ <strong>横向滚动承载</strong>：17 张手牌不再被强行压进一屏，改为大牌横向浏览，首张牌保持完整可见</li>
+                                <li>📐 <strong>底部牌区加高</strong>：玩家区域为大牌重新分配高度，减少牌面、提示和控制按钮之间的拥挤</li>
+                                <li>🧪 <strong>测试补强</strong>：UI 回归改为检查大牌尺寸、横向滚动启用、首张不裁切和控制层透明</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.32</div>
                             <h4>🃏 手牌放大与遮挡修复</h4>

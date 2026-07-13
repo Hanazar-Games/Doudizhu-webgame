@@ -344,6 +344,9 @@ async function run() {
                 handClientWidth: hand.clientWidth,
                 handScrollWidth: hand.scrollWidth,
                 handOverflowX: getComputedStyle(hand).overflowX,
+                canScrollClass: hand.classList.contains('can-scroll'),
+                atStartClass: hand.classList.contains('at-start'),
+                scrollProgress: getComputedStyle(hand).getPropertyValue('--hand-scroll-progress').trim(),
                 controlsBottom,
                 controlsBg,
             };
@@ -357,6 +360,9 @@ async function run() {
         if (handMetrics.handOverflowX !== 'auto' && handMetrics.handOverflowX !== 'scroll') {
             throw new Error(`大牌模式横向滚动未启用: ${JSON.stringify(handMetrics)}`);
         }
+        if (!handMetrics.canScrollClass || !handMetrics.atStartClass || handMetrics.scrollProgress !== '0.0000') {
+            throw new Error(`手牌滚动状态初始化异常: ${JSON.stringify(handMetrics)}`);
+        }
         if (handMetrics.firstLeft < -1 || handMetrics.firstLeft > 80) {
             throw new Error(`玩家首张手牌起始位置异常: ${JSON.stringify(handMetrics)}`);
         }
@@ -367,6 +373,24 @@ async function run() {
             throw new Error(`控制层出现遮挡背景: ${JSON.stringify(handMetrics)}`);
         }
         console.log(`  ✅ 玩家手牌大牌滚动且无遮挡: ${Math.round(handMetrics.cardWidth)}×${Math.round(handMetrics.cardHeight)}px`);
+        const wheelScroll = await page.$eval('#player-right .hand-front', async (hand) => {
+            hand.dispatchEvent(new WheelEvent('wheel', {
+                deltaY: 420,
+                bubbles: true,
+                cancelable: true,
+            }));
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            return {
+                scrollLeft: hand.scrollLeft,
+                progress: getComputedStyle(hand).getPropertyValue('--hand-scroll-progress').trim(),
+                atStart: hand.classList.contains('at-start'),
+            };
+        });
+        if (wheelScroll.scrollLeft <= 0 || wheelScroll.atStart || parseFloat(wheelScroll.progress) <= 0) {
+            throw new Error(`手牌滚轮横向滚动失效: ${JSON.stringify(wheelScroll)}`);
+        }
+        await page.$eval('#player-right .hand-front', (hand) => { hand.scrollLeft = 0; });
+        console.log(`  ✅ 鼠标滚轮可横向浏览手牌: scrollLeft=${Math.round(wheelScroll.scrollLeft)}`);
         await page.click('#btn-sound-toggle');
         await page.waitForTimeout(delays.short);
         let soundState = await page.$eval('#btn-sound-toggle', (el) => ({

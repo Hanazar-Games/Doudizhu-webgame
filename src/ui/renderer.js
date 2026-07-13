@@ -145,6 +145,10 @@ class Renderer {
             handContainer._dragCleanup();
             handContainer._dragCleanup = null;
         }
+        if (handContainer?._scrollCleanup) {
+            handContainer._scrollCleanup();
+            handContainer._scrollCleanup = null;
+        }
         if (handContainer?._dragTimer) {
             clearTimeout(handContainer._dragTimer);
             handContainer._dragTimer = null;
@@ -167,6 +171,10 @@ class Renderer {
         if (oldHand?._dragCleanup) {
             oldHand._dragCleanup();
             oldHand._dragCleanup = null;
+        }
+        if (oldHand?._scrollCleanup) {
+            oldHand._scrollCleanup();
+            oldHand._scrollCleanup = null;
         }
         // 清理旧的事件监听器，防止 _initLayout 多次调用时累积
         if (this._controlListeners) {
@@ -1538,6 +1546,47 @@ class Renderer {
         };
     }
 
+    _bindHandScrollEnhancement(handContainer) {
+        if (!handContainer) return;
+        if (handContainer._scrollCleanup) {
+            handContainer._scrollCleanup();
+            handContainer._scrollCleanup = null;
+        }
+
+        const updateState = () => {
+            const maxScroll = Math.max(0, handContainer.scrollWidth - handContainer.clientWidth);
+            const progress = maxScroll > 0 ? handContainer.scrollLeft / maxScroll : 0;
+            handContainer.style.setProperty('--hand-scroll-progress', progress.toFixed(4));
+            handContainer.classList.toggle('can-scroll', maxScroll > 2);
+            handContainer.classList.toggle('at-start', handContainer.scrollLeft <= 2);
+            handContainer.classList.toggle('at-end', maxScroll <= 2 || handContainer.scrollLeft >= maxScroll - 2);
+        };
+
+        const onWheel = (e) => {
+            const maxScroll = handContainer.scrollWidth - handContainer.clientWidth;
+            if (maxScroll <= 2) return;
+            const primaryDelta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+            if (Math.abs(primaryDelta) < 1) return;
+            const before = handContainer.scrollLeft;
+            handContainer.scrollLeft = Math.max(0, Math.min(maxScroll, before + primaryDelta));
+            if (handContainer.scrollLeft !== before) {
+                e.preventDefault();
+                updateState();
+            }
+        };
+
+        handContainer.addEventListener('scroll', updateState, { passive: true });
+        handContainer.addEventListener('wheel', onWheel, { passive: false });
+        window.addEventListener('resize', updateState);
+        requestAnimationFrame(updateState);
+
+        handContainer._scrollCleanup = () => {
+            handContainer.removeEventListener('scroll', updateState);
+            handContainer.removeEventListener('wheel', onWheel);
+            window.removeEventListener('resize', updateState);
+        };
+    }
+
     // 渲染玩家手牌（正面，仅自己）
     renderHands() {
         if (this._destroyed) return;
@@ -1688,6 +1737,7 @@ class Renderer {
 
                 // 绑定拖拽选择（滑动选牌）
                 this._bindDragSelection(handContainer);
+                this._bindHandScrollEnhancement(handContainer);
             }
 
             // 更新玩家信息

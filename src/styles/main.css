@@ -5421,6 +5421,55 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
     justify-content: flex-start;
 }
 
+#player-right .hand-front.can-scroll {
+    --hand-scroll-progress: 0;
+    mask-image:
+        linear-gradient(to right,
+            transparent 0,
+            #000 28px,
+            #000 calc(100% - 28px),
+            transparent 100%);
+    -webkit-mask-image:
+        linear-gradient(to right,
+            transparent 0,
+            #000 28px,
+            #000 calc(100% - 28px),
+            transparent 100%);
+}
+
+#player-right .hand-front.can-scroll.at-start {
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+}
+
+#player-right .hand-front.can-scroll.at-end {
+    mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 100%);
+}
+
+#player-right .hand-front.can-scroll.at-start.at-end {
+    mask-image: none;
+    -webkit-mask-image: none;
+}
+
+#player-right .hand-front.can-scroll::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    bottom: 0;
+    height: 3px;
+    border-radius: 999px;
+    background:
+        linear-gradient(to right,
+            rgba(240,192,64,0.85) 0,
+            rgba(240,192,64,0.85) calc(var(--hand-scroll-progress, 0) * 100%),
+            rgba(255,255,255,0.12) calc(var(--hand-scroll-progress, 0) * 100%),
+            rgba(255,255,255,0.12) 100%);
+    pointer-events: none;
+    opacity: 0.78;
+}
+
 #player-right .hand-front.range-selecting {
     cursor: grabbing;
 }
@@ -5779,6 +5828,10 @@ body[data-hand-arrangement="straight"] #player-right .hand-front {
 body[data-hand-arrangement="stack"] #player-right .hand-front {
     justify-content: center;
     gap: 4px;
+}
+
+body[data-hand-arrangement] #player-right .hand-front {
+    justify-content: flex-start;
 }
 
 body[data-density="compact"] #ddz-table {
