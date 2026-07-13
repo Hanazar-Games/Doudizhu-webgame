@@ -380,19 +380,8 @@ class Renderer {
                     this.audio.playCardDeselect();
                 }
             };
-            // 滚轮缩放
-            const wheelHandler = (e) => {
-                const settings = Storage.getSettings();
-                if (settings.wheelZoom !== true) return;
-                e.preventDefault();
-                const delta = e.deltaY < 0 ? 0.05 : -0.05;
-                const current = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ddz-card-scale')) || 1;
-                const next = Math.max(0.7, Math.min(1.5, current + delta));
-                document.documentElement.style.setProperty('--ddz-card-scale', String(next));
-            };
             this._addControlListener(handContainer, 'dblclick', dblclickHandler);
             this._addControlListener(handContainer, 'contextmenu', contextmenuHandler);
-            this._addControlListener(handContainer, 'wheel', wheelHandler, { passive: false });
         }
 
         // 游戏头部按钮（返回菜单、暂停）——不在 this.container 内，用 document 查询
@@ -1563,6 +1552,17 @@ class Renderer {
         };
 
         const onWheel = (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                const settings = Storage.getSettings();
+                if (settings.wheelZoom !== true) return;
+                e.preventDefault();
+                const delta = e.deltaY < 0 ? 0.05 : -0.05;
+                const current = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ddz-card-scale')) || 1;
+                const next = Math.max(0.7, Math.min(1.5, current + delta));
+                document.documentElement.style.setProperty('--ddz-card-scale', String(next));
+                updateState();
+                return;
+            }
             const maxScroll = handContainer.scrollWidth - handContainer.clientWidth;
             if (maxScroll <= 2) return;
             const primaryDelta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;

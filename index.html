@@ -152,7 +152,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.34</span>
+                <span class="version-info">v1.2.35</span>
             </footer>
         </div>
     </div>
@@ -857,7 +857,7 @@
                         <label class="toggle-switch-wrap">
                         <input type="checkbox"  data-setting="wheelZoom" checked>
                         <span class="toggle-switch-track"></span>
-                        <span class="toggle-switch-label">滚轮缩放</span>
+                        <span class="toggle-switch-label">Ctrl/⌘滚轮缩放</span>
                     </label>
                         <label class="toggle-switch-wrap">
                         <input type="checkbox"  data-setting="autoArrange" checked>
@@ -1661,18 +1661,28 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.34</div>
-                    <h3>↔️ 大牌手牌浏览优化</h3>
+                    <div class="changelog-version-badge">v1.2.35</div>
+                    <h3>🖱️ 手牌滚轮冲突修复</h3>
                     <ul>
-                        <li>🖱️ <strong>滚轮横向浏览</strong>：桌面端鼠标滚轮现在可直接推动大牌手牌横向移动，不用精准拖动滚动条</li>
-                        <li>↔️ <strong>滚动边界反馈</strong>：手牌溢出时加入首尾渐隐，帮助判断左右还有没有牌</li>
-                        <li>📊 <strong>浏览进度反馈</strong>：手牌底部加入细进度条，快速感知当前浏览位置</li>
-                        <li>🧪 <strong>测试补强</strong>：UI 回归新增滚动状态初始化、滚轮横向滚动和进度变化断言</li>
+                        <li>🖱️ <strong>滚轮行为拆分</strong>：普通滚轮现在只横向浏览大牌手牌，不再同时触发牌面缩放</li>
+                        <li>⌨️ <strong>缩放手势明确</strong>：牌面缩放改为 <code>Ctrl/⌘ + 滚轮</code>，避免和浏览手牌抢同一个操作</li>
+                        <li>⚙️ <strong>设置文案同步</strong>：交互设置里的“滚轮缩放”改为“Ctrl/⌘滚轮缩放”，和真实操作一致</li>
+                        <li>🧪 <strong>测试补强</strong>：UI 回归新增普通滚轮不缩放、Ctrl 滚轮才缩放的冲突断言</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.34</div>
+                            <h4>↔️ 大牌手牌浏览优化</h4>
+                            <ul>
+                                <li>🖱️ <strong>滚轮横向浏览</strong>：桌面端鼠标滚轮现在可直接推动大牌手牌横向移动，不用精准拖动滚动条</li>
+                                <li>↔️ <strong>滚动边界反馈</strong>：手牌溢出时加入首尾渐隐，帮助判断左右还有没有牌</li>
+                                <li>📊 <strong>浏览进度反馈</strong>：手牌底部加入细进度条，快速感知当前浏览位置</li>
+                                <li>🧪 <strong>测试补强</strong>：UI 回归新增滚动状态初始化、滚轮横向滚动和进度变化断言</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.33</div>
                             <h4>🃏 大牌手牌滚动修复</h4>

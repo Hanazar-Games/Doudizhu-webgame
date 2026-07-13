@@ -303,6 +303,10 @@ async function run() {
             if (label !== '30%') throw new Error(`BGM 滑块 label 异常: ${label}`);
             console.log(`  ✅ BGM 滑块 label: ${label}`);
         }
+        const wheelZoomLabel = await page.evaluate(() => Array.from(document.querySelectorAll('.toggle-switch-label'))
+            .some(el => el.textContent.trim() === 'Ctrl/⌘滚轮缩放'));
+        if (!wheelZoomLabel) throw new Error('Ctrl/⌘滚轮缩放设置文案缺失');
+        console.log('  ✅ 滚轮缩放设置文案同步');
 
         // 关闭设置
         await page.click('#btn-close-settings');
@@ -374,6 +378,7 @@ async function run() {
         }
         console.log(`  ✅ 玩家手牌大牌滚动且无遮挡: ${Math.round(handMetrics.cardWidth)}×${Math.round(handMetrics.cardHeight)}px`);
         const wheelScroll = await page.$eval('#player-right .hand-front', async (hand) => {
+            document.documentElement.style.setProperty('--ddz-card-scale', '1');
             hand.dispatchEvent(new WheelEvent('wheel', {
                 deltaY: 420,
                 bubbles: true,
@@ -383,14 +388,32 @@ async function run() {
             return {
                 scrollLeft: hand.scrollLeft,
                 progress: getComputedStyle(hand).getPropertyValue('--hand-scroll-progress').trim(),
+                cardScale: getComputedStyle(document.documentElement).getPropertyValue('--ddz-card-scale').trim(),
                 atStart: hand.classList.contains('at-start'),
             };
         });
         if (wheelScroll.scrollLeft <= 0 || wheelScroll.atStart || parseFloat(wheelScroll.progress) <= 0) {
             throw new Error(`手牌滚轮横向滚动失效: ${JSON.stringify(wheelScroll)}`);
         }
+        if (wheelScroll.cardScale !== '1') {
+            throw new Error(`普通滚轮不应缩放手牌: ${JSON.stringify(wheelScroll)}`);
+        }
+        const ctrlWheelZoom = await page.$eval('#player-right .hand-front', async (hand) => {
+            hand.dispatchEvent(new WheelEvent('wheel', {
+                deltaY: -120,
+                ctrlKey: true,
+                bubbles: true,
+                cancelable: true,
+            }));
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            return getComputedStyle(document.documentElement).getPropertyValue('--ddz-card-scale').trim();
+        });
+        if (parseFloat(ctrlWheelZoom) <= 1) {
+            throw new Error(`Ctrl滚轮缩放失效: ${ctrlWheelZoom}`);
+        }
         await page.$eval('#player-right .hand-front', (hand) => { hand.scrollLeft = 0; });
-        console.log(`  ✅ 鼠标滚轮可横向浏览手牌: scrollLeft=${Math.round(wheelScroll.scrollLeft)}`);
+        await page.evaluate(() => document.documentElement.style.setProperty('--ddz-card-scale', '1'));
+        console.log(`  ✅ 鼠标滚轮浏览与Ctrl缩放互不冲突: scrollLeft=${Math.round(wheelScroll.scrollLeft)}`);
         await page.click('#btn-sound-toggle');
         await page.waitForTimeout(delays.short);
         let soundState = await page.$eval('#btn-sound-toggle', (el) => ({
