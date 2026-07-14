@@ -152,7 +152,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.36</span>
+                <span class="version-info">v1.2.37</span>
             </footer>
         </div>
     </div>
@@ -1613,20 +1613,31 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.36</div>
-                    <h3>🃏 屏内手牌与静默牌局优化</h3>
+                    <div class="changelog-version-badge">v1.2.37</div>
+                    <h3>🔧 静默牌局收尾与少牌提醒自查</h3>
                     <ul>
-                        <li>🃏 <strong>手牌不再超屏</strong>：玩家 17 张与地主 20 张手牌都收拢在屏幕内，不再依赖横向滚动浏览</li>
-                        <li>✅ <strong>选牌安全区修复</strong>：选中牌抬起后仍保持在视口内，避免顶部或左右被裁掉</li>
-                        <li>🔇 <strong>静默牌局</strong>：移除聊天、快捷短语、语音播报、战斗解说入口和气泡，只保留必要 SFX/BGM</li>
-                        <li>⚠️ <strong>少牌提醒</strong>：玩家少于 3 张牌时显示“我就剩 X 张牌了”式提醒，替代无关对话</li>
-                        <li>🎞️ <strong>动画降噪</strong>：减少持续呼吸、头像脉冲、选牌和过牌动画强度，整体 UI 更稳</li>
-                        <li>🧪 <strong>测试补强</strong>：UI 回归新增屏内手牌、20 张地主手牌、选牌不出屏、聊天语音入口移除和移动横屏不溢出断言</li>
+                        <li>🧹 <strong>死路径清理</strong>：移除渲染器内残留的评论引擎引用、聊天消息渲染函数和语音滑块绑定</li>
+                        <li>🌐 <strong>LAN 兼容修复</strong>：旧客户端发来的聊天消息现在会被安全忽略，不再调用已移除的聊天 UI</li>
+                        <li>⚠️ <strong>少牌提醒自查</strong>：新增 UI 回归验证“我就剩 2 张牌了”提醒确实显示</li>
+                        <li>🔇 <strong>静默体验加固</strong>：继续确保牌局不出现闲聊、快捷短语、语音或解说气泡干扰</li>
+                        <li>🧪 <strong>全链路验证</strong>：重新覆盖 UI、移动横屏、SFX/BGM、LAN、挑战、回放和 console error 检查</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.36</div>
+                            <h4>🃏 屏内手牌与静默牌局优化</h4>
+                            <ul>
+                                <li>🃏 <strong>手牌不再超屏</strong>：玩家 17 张与地主 20 张手牌都收拢在屏幕内，不再依赖横向滚动浏览</li>
+                                <li>✅ <strong>选牌安全区修复</strong>：选中牌抬起后仍保持在视口内，避免顶部或左右被裁掉</li>
+                                <li>🔇 <strong>静默牌局</strong>：移除聊天、快捷短语、语音播报、战斗解说入口和气泡，只保留必要 SFX/BGM</li>
+                                <li>⚠️ <strong>少牌提醒</strong>：玩家少于 3 张牌时显示“我就剩 X 张牌了”式提醒，替代无关对话</li>
+                                <li>🎞️ <strong>动画降噪</strong>：减少持续呼吸、头像脉冲、选牌和过牌动画强度，整体 UI 更稳</li>
+                                <li>🧪 <strong>测试补强</strong>：UI 回归新增屏内手牌、20 张地主手牌、选牌不出屏、聊天语音入口移除和移动横屏不溢出断言</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.35</div>
                             <h4>🖱️ 手牌滚轮冲突修复</h4>

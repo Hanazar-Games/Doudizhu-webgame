@@ -136,7 +136,6 @@ class GameApp {
         };
         bindVolume('cfg-bgm-volume', 'cfg-bgm-volume-value', 'bgmVolume', 'setBGMVolume');
         bindVolume('cfg-sfx-volume', 'cfg-sfx-volume-value', 'sfxVolume', 'setSFXVolume', true);
-        bindVolume('cfg-voice-volume', 'cfg-voice-volume-value', 'voiceVolume', 'setVoiceVolume');
         this._bindUXSettings();
         this._hideUnimplementedSettings();
 
@@ -464,9 +463,6 @@ class GameApp {
     _configureRendererAudio(renderer) {
         this._syncAudioSettings(renderer?.audio);
         // 初始化评论系统开关
-        if (renderer?.commentary) {
-            renderer.commentary.setEnabled(this.settings.enableCommentary !== false);
-        }
         return renderer;
     }
 
@@ -629,14 +625,6 @@ class GameApp {
                     const audio = this._getActiveAudio();
                     if (audio) audio.sfxEnabled = control.checked;
                 }
-                // === 即时同步评论系统开关 ===
-                if (key === 'enableCommentary') {
-                    document.body.dataset.commentary = control.checked ? 'true' : 'false';
-                    if (this.renderer?.commentary) {
-                        this.renderer.commentary.setEnabled(control.checked);
-                    }
-                }
-
                 // === 音效反馈 ===
                 const audio = this._getActiveAudio();
                 if (control.type === 'checkbox') {
@@ -1070,7 +1058,6 @@ class GameApp {
         body.dataset.opponentCards = s.opponentCards || 'stack';
         body.dataset.showShortcuts = s.showShortcuts === false ? 'false' : 'true';
         body.dataset.tableAura = s.showTableAura === false ? 'false' : 'true';
-        body.dataset.commentary = s.enableCommentary === false ? 'false' : 'true';
         body.dataset.cardStyle = s.cardStyle || 'modern';
         body.dataset.cardBack = s.cardBackStyle || 'classic';
         body.dataset.fontSize = s.fontSize || 'medium';

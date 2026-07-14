@@ -9,7 +9,6 @@ import { GameState, PHASE } from '../core/game-state.js';
 import { AIPlayer } from '../players/ai-player.js';
 import { AudioManager } from './audio.js';
 import { Animations } from './animations.js';
-import { CommentaryEngine } from './commentary.js';
 import { Storage } from '../utils/storage.js';
 import { CHALLENGES } from '../utils/challenge-data.js';
 
@@ -132,8 +131,6 @@ class Renderer {
         for (const id of this._activeTimers) clearTimeout(id);
         this._activeTimers.clear();
         // 清理评论系统
-        this.commentary?.destroy();
-        this.commentary = null;
         // 隐藏侧边面板，防止它们出现在其他屏幕上
         this.container?.querySelector('#card-tracker')?.classList.add('hidden');
         this.container?.querySelector('#play-history')?.classList.add('hidden');
@@ -466,51 +463,12 @@ class Renderer {
         }
     }
 
-    _sendChatMessage(text) {
-        return;
-    }
-
-    _addChatMessage(msg) {
-        const content = this.container.querySelector('#chat-content');
-        if (!content) return;
-
-        // 移除空状态提示
-        const emptyEl = content.querySelector('.empty-state');
-        if (emptyEl) emptyEl.remove();
-
-        const entry = document.createElement('div');
-        entry.className = 'chat-message';
-        entry.style.opacity = '0';
-        entry.style.transform = 'translateX(-12px)';
-        entry.style.transition = 'opacity 0.25s ease-out, transform 0.25s ease-out';
-        const senderSpan = document.createElement('span');
-        senderSpan.className = 'chat-sender';
-        senderSpan.textContent = msg.sender + ':';
-        entry.appendChild(senderSpan);
-        entry.appendChild(document.createTextNode(msg.text));
-        content.appendChild(entry);
-        requestAnimationFrame(() => {
-            entry.style.opacity = '1';
-            entry.style.transform = 'translateX(0)';
-        });
-        content.scrollTop = content.scrollHeight;
-
-        // 限制消息数
-        while (content.children.length > 50) {
-            content.removeChild(content.firstChild);
-        }
-    }
-
-    receiveChat(data) {
-        return;
-    }
-
     _bindKeyboard() {
         this._keyboardHandler = (e) => {
             // 只在游戏界面响应
             if (document.getElementById('game-screen')?.classList.contains('hidden')) return;
 
-            // 忽略输入框中的按键（聊天、输入等）
+            // 忽略输入框中的按键
             const target = e.target;
             if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
                 return;
@@ -1081,11 +1039,6 @@ class Renderer {
             const isDanger = this.gameState?.phase === PHASE.PLAYING && player.hand.length <= 2;
             humanArea.classList.toggle('low-cards', isLow);
             humanArea.classList.toggle('danger-cards', isDanger);
-            // 紧张时刻评论（只触发一次）
-            if (isLow && !this._tenseCommentTriggered) {
-                this._tenseCommentTriggered = true;
-                this.commentary?.trigger('tense');
-            }
         }
     }
 
@@ -2159,7 +2112,6 @@ class Renderer {
         this._comboData = null;
         this._selectionHistory = [];
         this._tenseCommentTriggered = false;
-        this.commentary?.resetCombo();
 
         const area = this._getPlayerArea(data.landlordIndex);
         area?.querySelector('.player-badge')?.classList.add('landlord');
@@ -2190,7 +2142,6 @@ class Renderer {
         }
         this.showToast(toastText);
         this.audio.playLandlordConfirm();
-        this.commentary?.trigger('callLandlord');
 
         // 重新渲染所有玩家手牌（地主获得底牌后数量变化，人类玩家需要看到新牌）
         this.renderHands();
@@ -2239,11 +2190,6 @@ class Renderer {
             this._comboData = { playerIndex: data.playerIndex, count: 1 };
         }
 
-        // 评论系统：连击追踪与触发
-        const combo = this.commentary?.trackPlay(data.playerIndex) ?? 0;
-        if (combo >= 2 && combo <= 5) {
-            this.commentary?.trigger('combo', { combo });
-        }
 
         // 旧牌退场动画（避免暴力清除导致闪断）
         const oldCards = playedArea.querySelectorAll('.table-play-card');
@@ -2312,7 +2258,6 @@ class Renderer {
             this.anim.explode(centerX, centerY, true);
             this.anim.screenShake(6, 500);
             if (!isLite) this.anim.bounceText(centerX, centerY - 40, '💥 炸弹！', '#ff4444');
-            this.commentary?.trigger('bomb');
         } else if (pattern.type === 'ROCKET') {
             this.audio.playRocket();
             this.anim.rocketFly(playRect.left, playRect.top + playRect.height, playRect.left + 200, playRect.top - 100);
@@ -2321,20 +2266,16 @@ class Renderer {
                 this.anim.flashScreen('rgba(255,255,255,0.15)', 300);
                 this.anim.bounceText(centerX, centerY - 40, '🚀 火箭！', '#ff8c00');
             }
-            this.commentary?.trigger('rocket');
         } else if (pattern.type === 'STRAIGHT') {
             this.audio.playStraight();
             if (!isLite) this.anim.glowBurst(centerX, centerY, 'rgba(100,200,255,0.4)');
-            this.commentary?.trigger('straight');
         } else if (pattern.type?.includes('TRIPLE_STRAIGHT')) {
             this.audio.playPlane();
             if (!isLite) this.anim.glowBurst(centerX, centerY, 'rgba(255,100,200,0.4)');
             // 轻量模式下 sparkleBurst 粒子数减半
             if (!isLite) this.anim.sparkleBurst(centerX, centerY, isAI ? 5 : 10);
-            this.commentary?.trigger('plane');
         } else if (pattern.type === 'PAIR') {
             this.audio.playPair();
-            this.commentary?.trigger('pair');
         } else if (pattern.type === 'TRIPLE' || pattern.type?.includes('TRIPLE_WITH')) {
             this.audio.playTriple();
             if (!isLite) this.anim.pulseRing(centerX, centerY, '#f0c040', 60);
@@ -2342,7 +2283,6 @@ class Renderer {
             this.audio.playFourWithTwo();
         } else if (pattern.type === 'SINGLE') {
             this.audio.playSingle();
-            this.commentary?.trigger('single');
         } else {
             this.audio.playPlay();
         }
@@ -2391,7 +2331,6 @@ class Renderer {
         this.audio.playPass();
         // 只有人类玩家过牌时触发评论（避免AI频繁过牌干扰）
         if (playerIndex === this.mode?.humanIndex) {
-            this.commentary?.trigger('pass');
         }
         this.audio.playPassTurn();
         this._addHistory({playerIndex, cards: [], pattern: {type: 'PASS'}, pass: true});
@@ -2725,7 +2664,6 @@ class Renderer {
 
         // 胜利/失败庆祝动画
         if (isHumanWin) {
-            this.commentary?.trigger('win');
             this._setTimer(() => {
                 if (this._destroyed) return;
                 this.anim.winCelebrate(data.isLandlordWin, data.winnerIndex);
@@ -2733,7 +2671,6 @@ class Renderer {
                 this.anim.goldRain();
             }, 300);
         } else {
-            this.commentary?.trigger('lose');
             // 人类输了：简单闪光
             this._setTimer(() => {
                 if (this._destroyed) return;
@@ -2743,7 +2680,6 @@ class Renderer {
 
         // 春天/反春天特效
         if (data.springType) {
-            this.commentary?.trigger(data.springType === 'spring' ? 'spring' : 'antiSpring');
             this._setTimer(() => {
                 if (this._destroyed) return;
                 this.audio.playSpring();

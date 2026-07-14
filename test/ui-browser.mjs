@@ -447,6 +447,15 @@ async function run() {
         const noChatUi = await page.evaluate(() => !document.querySelector('#btn-toggle-chat, #chat-panel, #quick-phrases'));
         if (!noChatUi) throw new Error('聊天入口仍然存在');
         console.log('  ✅ 聊天/快捷短语入口已移除');
+        const lowCardReminder = await page.evaluate(async () => {
+            window.gameApp?.renderer?.showLowCardReminder?.(0, 2);
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            return document.querySelector('.low-card-reminder')?.textContent || '';
+        });
+        if (!lowCardReminder.includes('我就剩2张牌了')) {
+            throw new Error(`少牌提醒未显示或文案异常: ${lowCardReminder}`);
+        }
+        console.log('  ✅ 少牌提醒文案显示正常');
         await page.click('#btn-sound-toggle');
         await page.waitForTimeout(delays.short);
         let soundState = await page.$eval('#btn-sound-toggle', (el) => ({

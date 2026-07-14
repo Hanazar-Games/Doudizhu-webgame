@@ -252,9 +252,7 @@ class LANMode extends BaseMode {
                 this._showToast('房间已关闭: ' + (msg.reason || ''));
                 break;
             case 'chat':
-                if (this.renderer) {
-                    this.renderer.receiveChat(msg);
-                }
+                // 聊天/快捷短语已移除，兼容旧客户端消息但不展示。
                 break;
             case 'error':
                 console.error('[LANMode]', msg.message);
