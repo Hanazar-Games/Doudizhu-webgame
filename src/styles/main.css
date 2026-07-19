@@ -5624,25 +5624,25 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 
 .hand-front .card.selected,
 .hand-front .card.selected:hover {
-    transform: translateY(calc(-1 * var(--ddz-selected-lift, 16px))) scale(1.012);
-    z-index: 30;
+    transform: translateY(calc(-1 * var(--ddz-selected-lift, 8px))) scale(1.006);
+    z-index: 0;
 }
 
 .card.selected .card-inner {
     transform: none !important;
     border: 2px solid var(--accent-color);
     box-shadow:
-        0 18px 34px rgba(0,0,0,0.34),
-        0 0 0 4px rgba(240,192,64,0.16),
+        0 8px 18px rgba(0,0,0,0.22),
+        0 0 0 2px rgba(240,192,64,0.12),
         inset 0 1px 0 rgba(255,255,255,0.95);
 }
 
 .card.selected::before {
     content: '';
     position: absolute;
-    inset: -7px -5px;
+    inset: -3px -3px;
     border-radius: 12px;
-    border: 1px solid rgba(240,192,64,0.45);
+    border: 1px solid rgba(240,192,64,0.38);
     pointer-events: none;
 }
 

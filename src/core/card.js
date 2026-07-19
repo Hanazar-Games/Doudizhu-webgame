@@ -101,9 +101,26 @@ class Card {
         return arr;
     }
 
-    // 按斗地主点数排序（升序）
+    // 按斗地主点数排序（升序），同点数再用固定花色顺序兜底，避免每局同点数牌乱跳
     static sortByValue(cards) {
-        return [...cards].sort((a, b) => a.value - b.value);
+        return [...cards].sort(Card.compareByValue);
+    }
+
+    static compareByValue(a, b) {
+        if (a.value !== b.value) return a.value - b.value;
+        return Card._suitOrder(a) - Card._suitOrder(b);
+    }
+
+    static _suitOrder(card) {
+        if (card.rankKey === 'JOKER_SMALL') return 4;
+        if (card.rankKey === 'JOKER_BIG') return 5;
+        const order = {
+            spade: 0,
+            heart: 1,
+            club: 2,
+            diamond: 3,
+        };
+        return order[card.suit?.name] ?? 6;
     }
 
     /**

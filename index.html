@@ -152,7 +152,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.37</span>
+                <span class="version-info">v1.2.39</span>
             </footer>
         </div>
     </div>
@@ -657,11 +657,11 @@
                         </label>
                         <label class="setting-slider">
                         <span class="slider-label-row">选牌上浮<span class="setting-value-output" data-setting-output="selectedLift"></span></span>
-                            <input type="range" class="settings-slider-input" min="4" max="24" step="1" data-setting="selectedLift" value="12">
+                            <input type="range" class="settings-slider-input" min="4" max="24" step="1" data-setting="selectedLift" value="8">
                         </label>
                         <label class="setting-slider">
                         <span class="slider-label-row">悬停上浮<span class="setting-value-output" data-setting-output="hoverLift"></span></span>
-                            <input type="range" class="settings-slider-input" min="0" max="16" step="1" data-setting="hoverLift" value="7">
+                            <input type="range" class="settings-slider-input" min="0" max="16" step="1" data-setting="hoverLift" value="5">
                         </label>
                         <label class="setting-slider">
                         <span class="slider-label-row">面板透明度<span class="setting-value-output" data-setting-output="panelOpacity"></span></span>
@@ -817,11 +817,6 @@
                         <span class="toggle-switch-label">一键出牌</span>
                     </label>
                         <label class="toggle-switch-wrap">
-                        <input type="checkbox"  data-setting="smartSort" checked>
-                        <span class="toggle-switch-track"></span>
-                        <span class="toggle-switch-label">智能排序</span>
-                    </label>
-                        <label class="toggle-switch-wrap">
                         <input type="checkbox"  data-setting="rightClickCancel" checked>
                         <span class="toggle-switch-track"></span>
                         <span class="toggle-switch-label">右键取消选牌</span>
@@ -893,9 +888,8 @@
                         </label>
                         <label class="setting-row">手牌排序
                             <select data-setting="sortOrder">
-                                <option value="value">按点数</option>
+                                <option value="value" selected>标准点数</option>
                                 <option value="suit">按花色</option>
-                                <option value="auto" selected>智能</option>
                             </select>
                         </label>
                     </div>
@@ -1613,19 +1607,41 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.37</div>
-                    <h3>🔧 静默牌局收尾与少牌提醒自查</h3>
+                    <div class="changelog-version-badge">v1.2.39</div>
+                    <h3>🃏 选牌命中与手牌顺序再优化</h3>
                     <ul>
-                        <li>🧹 <strong>死路径清理</strong>：移除渲染器内残留的评论引擎引用、聊天消息渲染函数和语音滑块绑定</li>
-                        <li>🌐 <strong>LAN 兼容修复</strong>：旧客户端发来的聊天消息现在会被安全忽略，不再调用已移除的聊天 UI</li>
-                        <li>⚠️ <strong>少牌提醒自查</strong>：新增 UI 回归验证“我就剩 2 张牌了”提醒确实显示</li>
-                        <li>🔇 <strong>静默体验加固</strong>：继续确保牌局不出现闲聊、快捷短语、语音或解说气泡干扰</li>
-                        <li>🧪 <strong>全链路验证</strong>：重新覆盖 UI、移动横屏、SFX/BGM、LAN、挑战、回放和 console error 检查</li>
+                        <li>🃏 <strong>选中牌不挡邻牌</strong>：已选牌保持在普通手牌下方，相邻牌的外露区域可以继续点击选择</li>
+                        <li>🔢 <strong>手牌标准整理</strong>：全局排序统一为 <code>3 4 5 6 7 8 9 10 J Q K A 2 小王 大王</code>，同点数也按固定花色顺序稳定排列</li>
+                        <li>🎨 <strong>选牌 UI 降噪</strong>：降低默认选牌/悬停上浮和高亮阴影，让大牌面不再互相压迫</li>
+                        <li>⚙️ <strong>设置项纠偏</strong>：移除容易误触的智能分组排序入口，默认排序显示为标准点数</li>
+                        <li>🧪 <strong>回归补强</strong>：新增相邻选牌命中、手牌自然升序和设置默认值自查</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.38</div>
+                            <h4>🃏 手牌层级与标准排序修复</h4>
+                            <ul>
+                                <li>🃏 <strong>选牌层级修复</strong>：已选牌现在压在相邻手牌下方，不再挡住继续选择其他牌</li>
+                                <li>🔢 <strong>标准手牌顺序</strong>：玩家手牌固定按 <code>3 4 5 6 7 8 9 10 J Q K A 2 小王 大王</code> 整理</li>
+                                <li>🎨 <strong>UI 降噪</strong>：收轻选牌高亮阴影和抬起反馈，减少大手牌下的视觉遮挡感</li>
+                                <li>⚙️ <strong>隐藏设置纠偏</strong>：智能分组排序默认关闭，避免不可见设置继续影响实战手牌</li>
+                                <li>🧪 <strong>回归补强</strong>：新增手牌顺序与相邻牌可点击性的浏览器自查</li>
+                            </ul>
+                        </div>
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.37</div>
+                            <h4>🔧 静默牌局收尾与少牌提醒自查</h4>
+                            <ul>
+                                <li>🧹 <strong>死路径清理</strong>：移除渲染器内残留的评论引擎引用、聊天消息渲染函数和语音滑块绑定</li>
+                                <li>🌐 <strong>LAN 兼容修复</strong>：旧客户端发来的聊天消息现在会被安全忽略，不再调用已移除的聊天 UI</li>
+                                <li>⚠️ <strong>少牌提醒自查</strong>：新增 UI 回归验证“我就剩 2 张牌了”提醒确实显示</li>
+                                <li>🔇 <strong>静默体验加固</strong>：继续确保牌局不出现闲聊、快捷短语、语音或解说气泡干扰</li>
+                                <li>🧪 <strong>全链路验证</strong>：重新覆盖 UI、移动横屏、SFX/BGM、LAN、挑战、回放和 console error 检查</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.36</div>
                             <h4>🃏 屏内手牌与静默牌局优化</h4>

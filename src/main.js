@@ -663,7 +663,7 @@ class GameApp {
                 colorblindMode: false, colorblindType: 'none',
                 // 布局
                 tableScale: 1, cardScale: 1, playedCardScale: 1, replayCardScale: 1,
-                playedOverlap: 16, selectedLift: 12, hoverLift: 7, panelOpacity: 80,
+                playedOverlap: 16, selectedLift: 8, hoverLift: 5, panelOpacity: 80,
                 handArrangement: 'fan', playedCardArrangement: 'straight',
                 // 动画
                 animSpeed: 1.0, particleIntensity: 'normal', particleCount: 50,
@@ -675,14 +675,14 @@ class GameApp {
                 clickToSelect: true, doubleClickToPlay: false, spaceConfirm: true,
                 autoHint: true, smartDiscard: true, playConfirm: false, passConfirm: false,
                 confirmOnBomb: false, dragThreshold: 7, oneClickPlay: false,
-                smartSort: true, rightClickCancel: true, wheelZoom: true,
+                smartSort: false, rightClickCancel: true, wheelZoom: true,
                 autoArrange: true, autoSortAfterPlay: false, stickySelection: false,
                 showPlayPreview: true, gestureEnabled: true, swipeToSelect: true,
                 longPressHint: false, hapticEnabled: true,
                 // 辅助
                 showTutorial: true, showShortcuts: true, showTableAura: true, enableCommentary: false,
                 opponentCards: 'stack', autoOpenTracker: false, autoOpenHistory: false,
-                hintDetail: 'type', sortOrder: 'auto', showRemainingCount: true,
+                hintDetail: 'type', sortOrder: 'value', showRemainingCount: true,
                 showWinProbability: false, showBestMove: false, handAnalysis: false,
                 showOpponentTendency: false, showDangerCards: false,
                 highlightPlayable: true, showPatternName: true, showPlayerStats: false,
@@ -1099,8 +1099,8 @@ class GameApp {
         // === CSS Variables ===
         root.style.setProperty('--ddz-table-scale', String(s.tableScale ?? 1));
         root.style.setProperty('--ddz-card-scale', String(s.cardScale ?? 1));
-        root.style.setProperty('--ddz-selected-lift', `${s.selectedLift ?? 12}px`);
-        root.style.setProperty('--ddz-hover-lift', `${s.hoverLift ?? 7}px`);
+        root.style.setProperty('--ddz-selected-lift', `${s.selectedLift ?? 8}px`);
+        root.style.setProperty('--ddz-hover-lift', `${s.hoverLift ?? 5}px`);
         root.style.setProperty('--ddz-play-overlap', `${s.playedOverlap ?? 16}px`);
         root.style.setProperty('--ddz-played-card-scale', String(s.playedCardScale ?? 1));
         root.style.setProperty('--ddz-drag-threshold', `${s.dragThreshold ?? 7}`);

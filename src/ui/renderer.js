@@ -1736,7 +1736,7 @@ class Renderer {
     }
 
     _sortHand(cards) {
-        return Storage.getSettings().smartSort !== false ? Card.sortSmart(cards) : Card.sortByValue(cards);
+        return Card.sortByValue(cards);
     }
 
     _haptic(ms = 15) {

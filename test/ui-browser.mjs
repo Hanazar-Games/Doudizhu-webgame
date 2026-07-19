@@ -317,6 +317,23 @@ async function run() {
             .some(el => el.textContent.trim() === 'Ctrl/⌘滚轮缩放'));
         if (!wheelZoomLabel) throw new Error('Ctrl/⌘滚轮缩放设置文案缺失');
         console.log('  ✅ 滚轮缩放设置文案同步');
+        await page.fill('#settings-search-input', '');
+        await page.waitForTimeout(delays.short);
+        const handSortSettings = await page.evaluate(() => {
+            const sort = document.querySelector('[data-setting="sortOrder"]');
+            const text = document.querySelector('#settings-overlay')?.textContent || '';
+            return {
+                sortValue: sort?.value || '',
+                hasSmartSortToggle: text.includes('智能分组排序'),
+            };
+        });
+        if (handSortSettings.sortValue !== 'value') {
+            throw new Error(`手牌排序默认项不是标准点数: ${JSON.stringify(handSortSettings)}`);
+        }
+        if (handSortSettings.hasSmartSortToggle) {
+            throw new Error('智能分组排序入口仍然可见');
+        }
+        console.log('  ✅ 手牌排序默认标准点数，智能分组入口已移除');
 
         // 关闭设置
         await page.click('#btn-close-settings');
@@ -423,6 +440,13 @@ async function run() {
         if (handMetrics.count < 20) throw new Error(`叫地主后手牌未增加到底牌: ${JSON.stringify(handMetrics)}`);
         assertHandOnScreen(handMetrics, '地主20张');
         console.log('  ✅ 地主20张手牌完整在屏内');
+        const handValues = await page.$$eval('#player-right .hand-front .card', (cards) => cards.map((card) => Number(card.dataset.value)));
+        for (let i = 1; i < handValues.length; i++) {
+            if (handValues[i] < handValues[i - 1]) {
+                throw new Error(`手牌未按 3-大王 升序整理: ${handValues.join(',')}`);
+            }
+        }
+        console.log('  ✅ 手牌顺序为 3 4 5 6 7 8 9 10 J Q K A 2 小王 大王');
         const exposedClickPoint = await page.$eval('#player-right .hand-front .card:nth-child(10)', (card) => {
             const rect = card.getBoundingClientRect();
             return { x: rect.left + 14, y: rect.top + 28 };
@@ -444,6 +468,30 @@ async function run() {
             throw new Error(`选中牌后牌面超出屏幕: ${JSON.stringify(selectedMetrics)}`);
         }
         console.log('  ✅ 选牌抬起后仍在屏内');
+        const adjacentClickPoint = await page.$eval('#player-right .hand-front .card:nth-child(11)', (card) => {
+            const rect = card.getBoundingClientRect();
+            const x = rect.left + 14;
+            const y = rect.top + 28;
+            const hitCard = document.elementFromPoint(x, y)?.closest?.('.card');
+            const cards = Array.from(card.parentElement.querySelectorAll('.card'));
+            return {
+                x,
+                y,
+                expectedIndex: 10,
+                hitIndex: hitCard ? cards.indexOf(hitCard) : -1,
+                hitSelected: hitCard?.classList.contains('selected') || false,
+            };
+        });
+        if (adjacentClickPoint.hitIndex !== adjacentClickPoint.expectedIndex) {
+            throw new Error(`已选牌挡住了相邻手牌命中区域: ${JSON.stringify(adjacentClickPoint)}`);
+        }
+        await page.mouse.click(adjacentClickPoint.x, adjacentClickPoint.y);
+        await page.waitForTimeout(delays.short);
+        const selectedCount = await page.$$eval('#player-right .hand-front .card.selected', (cards) => cards.length);
+        if (selectedCount < 2) {
+            throw new Error(`已选牌挡住了相邻手牌点击: selected=${selectedCount}`);
+        }
+        console.log('  ✅ 已选牌不再挡住相邻牌点击');
         const noChatUi = await page.evaluate(() => !document.querySelector('#btn-toggle-chat, #chat-panel, #quick-phrases'));
         if (!noChatUi) throw new Error('聊天入口仍然存在');
         console.log('  ✅ 聊天/快捷短语入口已移除');
@@ -527,10 +575,21 @@ async function run() {
 
         // ===== 5. 自定义模式 =====
         console.log('\n--- 5. 自定义模式 ---');
-        await page.click('#btn-custom-mode');
-        await page.waitForTimeout(delays.medium);
+        const openCustomScreen = async () => {
+            await page.click('#btn-custom-mode');
+            try {
+                await page.waitForSelector('#custom-screen:not(.hidden) #btn-back-custom', { state: 'visible', timeout: 5000 });
+            } catch (err) {
+                await page.waitForLoadState('networkidle').catch(() => {});
+                await dismissOverlays(page);
+                await page.click('#btn-custom-mode');
+                await page.waitForSelector('#custom-screen:not(.hidden) #btn-back-custom', { state: 'visible', timeout: 5000 });
+            }
+        };
+        await openCustomScreen();
+        await page.waitForTimeout(delays.short);
         await screenshot(page, '06-custom-mode');
-        await page.click('#btn-back-custom');
+        await page.click('#custom-screen:not(.hidden) #btn-back-custom');
         await page.waitForTimeout(delays.short);
 
         // ===== 6. LAN 模式 =====

@@ -67,6 +67,20 @@ test('Card sorting by value', () => {
     assert(sorted[2].value === 15);
 });
 
+test('Card sorting by standard Dou Dizhu order with stable suits', () => {
+    const sorted = Card.sortByValue([
+        new Card(null, 'JOKER_BIG'),
+        new Card(SUITS.DIAMOND, '3'),
+        new Card(SUITS.SPADE, '3'),
+        new Card(null, 'JOKER_SMALL'),
+        new Card(SUITS.HEART, '3'),
+        new Card(SUITS.CLUB, '3'),
+        new Card(SUITS.SPADE, '2'),
+    ]);
+    assert(sorted.map(c => c.rankKey).join(',') === '3,3,3,3,2,JOKER_SMALL,JOKER_BIG');
+    assert(sorted.slice(0, 4).map(c => c.suit.name).join(',') === 'spade,heart,club,diamond');
+});
+
 // ===== Rules Tests =====
 test('Rules.analyze SINGLE', () => {
     const p = Rules.analyze(makeCards(['3']));
