@@ -996,6 +996,14 @@ test('Storage.getSettings merges missing keys with defaults', () => {
     global.localStorage.removeItem('ddz_settings');
 });
 
+test('Storage.getSettings clamps legacy hand scale to the on-screen safe range', () => {
+    global.localStorage.setItem('ddz_settings', JSON.stringify({ cardScale: 1.2 }));
+    assert(Storage.getSettings().cardScale === 1, 'legacy scale above 1 should be clamped');
+    global.localStorage.setItem('ddz_settings', JSON.stringify({ cardScale: 0.4 }));
+    assert(Storage.getSettings().cardScale === 0.7, 'scale below 0.7 should be clamped');
+    global.localStorage.removeItem('ddz_settings');
+});
+
 test('Storage.resetSettings clears only settings key', () => {
     global.localStorage.setItem('ddz_settings', JSON.stringify({ playerName: 'Test' }));
     global.localStorage.setItem('ddz_stats', JSON.stringify({ gamesPlayed: 5 }));

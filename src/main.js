@@ -909,45 +909,102 @@ class GameApp {
         const panel = document.querySelector('.settings-panel');
         if (!panel) return;
         const countEl = document.getElementById('settings-search-count');
+        const details = Array.from(panel.querySelectorAll('.advanced-settings'));
 
         if (!query) {
-            // 显示所有（保留用户手动展开/折叠的状态）
+            // 清除搜索时恢复搜索前的展开状态，避免一次搜索永久展开大量分类。
             panel.querySelectorAll('.setting-hidden').forEach(el => el.classList.remove('setting-hidden'));
             panel.querySelectorAll('.setting-search-match').forEach(el => el.classList.remove('setting-search-match'));
+            if (this._settingsSearchOpenState) {
+                details.forEach(detail => {
+                    if (this._settingsSearchOpenState.has(detail)) {
+                        detail.open = this._settingsSearchOpenState.get(detail);
+                    }
+                });
+                this._settingsSearchOpenState = null;
+            }
+            const input = document.getElementById('settings-search-input');
+            if (!input?.value) input?.closest('.settings-search')?.classList.remove('has-value');
             if (countEl) countEl.textContent = '';
             return;
         }
 
         const q = query.toLowerCase();
-        let matchCount = 0;
+        if (!this._settingsSearchOpenState) {
+            this._settingsSearchOpenState = new Map(details.map(detail => [detail, detail.open]));
+        }
 
-        // 收集所有可搜索元素
+        // data-search 为缩写、同义词提供额外索引（例如“音量”可命中 BGM/SFX）。
         const searchable = [];
         panel.querySelectorAll('.setting-row, .toggle-switch-wrap, .setting-slider, .volume-control').forEach(el => {
-            const text = el.textContent.toLowerCase();
+            if (el.dataset.unimplemented === 'true' || el.closest('[data-unimplemented="true"]')) return;
+            const text = `${el.textContent} ${el.dataset.search || ''}`.toLowerCase();
             searchable.push({ el, text });
         });
 
-        // 先全部隐藏
-        searchable.forEach(({ el }) => el.classList.add('setting-hidden'));
+        panel.querySelectorAll('.setting-hidden').forEach(el => el.classList.remove('setting-hidden'));
         panel.querySelectorAll('.setting-search-match').forEach(el => el.classList.remove('setting-search-match'));
+        searchable.forEach(({ el }) => el.classList.add('setting-hidden'));
+        const matches = new Set();
 
-        // 显示匹配的
         searchable.forEach(({ el, text }) => {
             if (text.includes(q)) {
                 el.classList.remove('setting-hidden');
                 el.classList.add('setting-search-match');
-                matchCount++;
-                // 展开父级 details
-                let parent = el.parentElement;
-                while (parent && parent !== panel) {
-                    if (parent.tagName === 'DETAILS') parent.open = true;
-                    parent = parent.parentElement;
-                }
+                matches.add(el);
             }
         });
 
-        if (countEl) countEl.textContent = matchCount > 0 ? `${matchCount} 项匹配` : '无匹配';
+        // 分类标题可直接搜索；命中标题时展示该分类内全部已实现设置。
+        details.forEach(detail => {
+            const summaryMatches = (detail.querySelector('summary')?.textContent || '').toLowerCase().includes(q);
+            if (summaryMatches) {
+                searchable.forEach(({ el }) => {
+                    if (detail.contains(el)) {
+                        el.classList.remove('setting-hidden');
+                        el.classList.add('setting-search-match');
+                        matches.add(el);
+                    }
+                });
+            }
+            const hasMatch = searchable.some(({ el }) => detail.contains(el) && matches.has(el));
+            detail.classList.toggle('setting-hidden', !hasMatch && !summaryMatches);
+            if (hasMatch || summaryMatches) detail.open = true;
+        });
+
+        // 基础/音频是非 details 分组：只在标题或其直属设置命中时显示。
+        panel.querySelectorAll('.settings-section-title').forEach(title => {
+            const groupNodes = [];
+            let node = title.nextElementSibling;
+            while (node && !node.classList.contains('settings-section-title') && !node.classList.contains('advanced-settings')) {
+                groupNodes.push(node);
+                node = node.nextElementSibling;
+            }
+            const titleMatches = title.textContent.toLowerCase().includes(q);
+            if (titleMatches) {
+                searchable.forEach(({ el }) => {
+                    if (groupNodes.some(group => group === el || group.contains(el))) {
+                        el.classList.remove('setting-hidden');
+                        el.classList.add('setting-search-match');
+                        matches.add(el);
+                    }
+                });
+            }
+            const hasMatch = searchable.some(({ el }) =>
+                matches.has(el) && groupNodes.some(group => group === el || group.contains(el))
+            );
+            title.classList.toggle('setting-hidden', !titleMatches && !hasMatch);
+        });
+
+        // 隐藏已经没有可见子项的布局容器，避免搜索结果间出现空白间距。
+        panel.querySelectorAll('.settings-grid, .settings-toggles, .settings-slider-list').forEach(group => {
+            const hasMatch = searchable.some(({ el }) => matches.has(el) && group.contains(el));
+            group.classList.toggle('setting-hidden', !hasMatch);
+        });
+
+        if (countEl) {
+            countEl.textContent = matches.size > 0 ? `${matches.size} 项匹配` : '无匹配';
+        }
     }
 
     _syncUXSettingControls() {

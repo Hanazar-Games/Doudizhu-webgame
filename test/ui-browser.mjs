@@ -13,6 +13,7 @@ import net from 'net';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
+const expectedVersion = JSON.parse(fs.readFileSync(resolve(root, 'package.json'), 'utf8')).version;
 const outDir = resolve(root, 'test/ui-screenshots');
 if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
@@ -281,6 +282,11 @@ async function run() {
         for (const id of menuBtns) {
             await assertExists(page, `#${id}`, '主菜单按钮检查');
         }
+        const displayedVersion = await page.$eval('.version-info', (el) => el.textContent.trim());
+        if (displayedVersion !== `v${expectedVersion}`) {
+            throw new Error(`菜单版本号与 package.json 不一致: ${displayedVersion} / ${expectedVersion}`);
+        }
+        console.log(`  ✅ 版本号同步: ${displayedVersion}`);
 
         // ===== 2. 设置面板 =====
         console.log('\n--- 2. 设置面板 ---');
@@ -288,11 +294,39 @@ async function run() {
         await page.waitForTimeout(delays.medium);
         await screenshot(page, '02-settings-open');
 
+        const collapsedSettings = await page.$$eval('.advanced-settings', (items) => items.map((item) => {
+            const summary = item.querySelector('summary');
+            const itemRect = item.getBoundingClientRect();
+            const summaryRect = summary?.getBoundingClientRect();
+            return {
+                text: summary?.textContent?.trim() || '',
+                itemHeight: itemRect.height,
+                summaryTop: summaryRect?.top ?? 0,
+                summaryBottom: summaryRect?.bottom ?? 0,
+                itemTop: itemRect.top,
+                itemBottom: itemRect.bottom,
+            };
+        }));
+        if (collapsedSettings.some(item => !item.text || item.summaryTop < item.itemTop - 1 || item.summaryBottom > item.itemBottom + 1)) {
+            throw new Error(`设置分类标题被折叠栏裁切: ${JSON.stringify(collapsedSettings.slice(0, 4))}`);
+        }
+        console.log('  ✅ 折叠设置分类标题完整可见');
+
         // 搜索过滤
         await page.fill('#settings-search-input', '音量');
         await page.waitForTimeout(500);
         await screenshot(page, '03-settings-search');
-        console.log('  ✅ 搜索过滤测试完成');
+        const searchState = await page.evaluate(() => ({
+            count: document.getElementById('settings-search-count')?.textContent || '',
+            visibleVolumes: Array.from(document.querySelectorAll('.volume-control'))
+                .filter(el => getComputedStyle(el).display !== 'none').length,
+            visibleDetails: Array.from(document.querySelectorAll('.advanced-settings'))
+                .filter(el => getComputedStyle(el).display !== 'none').length,
+        }));
+        if (searchState.count !== '2 项匹配' || searchState.visibleVolumes !== 2 || searchState.visibleDetails !== 0) {
+            throw new Error(`设置搜索结果异常: ${JSON.stringify(searchState)}`);
+        }
+        console.log('  ✅ “音量”命中 BGM/SFX，且无空白分类栏');
 
         // 滑块 label 更新
         const bgmSlider = await page.$('#cfg-bgm-volume');
@@ -432,8 +466,22 @@ async function run() {
         if (parseFloat(ctrlWheelZoom) <= 0.9 || parseFloat(ctrlWheelZoom) > 1) {
             throw new Error(`Ctrl滚轮缩放边界异常: ${ctrlWheelZoom}`);
         }
-        await page.evaluate(() => document.documentElement.style.setProperty('--ddz-card-scale', '1'));
-        console.log('  ✅ 普通滚轮不溢出，Ctrl缩放不会超过屏幕上限');
+        const persistedZoom = await page.evaluate(() => ({
+            stored: JSON.parse(localStorage.getItem('ddz_settings') || '{}').cardScale,
+            app: window.gameApp?.settings?.cardScale,
+            control: document.querySelector('[data-setting="cardScale"]')?.value,
+            output: document.querySelector('[data-setting-output="cardScale"]')?.textContent,
+        }));
+        if (persistedZoom.stored !== 0.95 || persistedZoom.app !== 0.95 || persistedZoom.control !== '0.95' || persistedZoom.output !== '95%') {
+            throw new Error(`Ctrl滚轮缩放未同步持久化: ${JSON.stringify(persistedZoom)}`);
+        }
+        await page.evaluate(() => {
+            window.gameApp.settings.cardScale = 1;
+            localStorage.setItem('ddz_settings', JSON.stringify(window.gameApp.settings));
+            window.gameApp._syncUXSettingControls();
+            window.gameApp._applyUXSettings();
+        });
+        console.log('  ✅ 普通滚轮不溢出，Ctrl缩放安全且同步设置');
         await page.click('#call-controls button[data-call="3"]');
         await page.waitForTimeout(delays.long);
         handMetrics = await readHandMetrics();
@@ -643,6 +691,10 @@ async function run() {
         await screenshot(page, '12-changelog');
         const changelogVisible = await page.$eval('#changelog-overlay', (el) => !el.classList.contains('hidden'));
         if (!changelogVisible) throw new Error('公告面板未显示');
+        const changelogVersion = await page.$eval('.changelog-current .changelog-version-badge', (el) => el.textContent.trim());
+        if (changelogVersion !== `v${expectedVersion}`) {
+            throw new Error(`当前公告版本号与 package.json 不一致: ${changelogVersion} / ${expectedVersion}`);
+        }
         console.log('  ✅ 公告面板显示');
         await page.click('#btn-changelog-ok');
         await page.waitForTimeout(delays.short);
@@ -697,6 +749,29 @@ async function run() {
         }
         console.log(`  ✅ 横屏手牌完整在屏内: ${mobileHand.count} 张`);
 
+        await mobilePage.click('#call-controls button[data-call="3"]');
+        await mobilePage.waitForTimeout(delays.long);
+        const mobileLandlordHand = await mobilePage.evaluate(() => {
+            const hand = document.querySelector('#player-right .hand-front');
+            const cards = Array.from(hand?.querySelectorAll('.card') || []);
+            const first = cards[0]?.getBoundingClientRect();
+            const last = cards[cards.length - 1]?.getBoundingClientRect();
+            return {
+                count: cards.length,
+                firstLeft: first?.left ?? 0,
+                lastRight: last?.right ?? 0,
+                viewportWidth: window.innerWidth,
+                scrollWidth: hand?.scrollWidth || 0,
+                clientWidth: hand?.clientWidth || 0,
+            };
+        });
+        if (mobileLandlordHand.count < 20 || mobileLandlordHand.firstLeft < -1 ||
+            mobileLandlordHand.lastRight > mobileLandlordHand.viewportWidth + 1 ||
+            mobileLandlordHand.scrollWidth > mobileLandlordHand.clientWidth + 1) {
+            throw new Error(`横屏地主20张手牌未完整收拢: ${JSON.stringify(mobileLandlordHand)}`);
+        }
+        console.log('  ✅ 横屏地主20张手牌完整在屏内');
+
         // 检查按钮文字是否溢出
         const playBtnOverflow = await mobilePage.evaluate(() => {
             const btn = document.querySelector('#play-controls button');
@@ -740,6 +815,50 @@ async function run() {
         });
         if (handHeight < 60) throw new Error(`手牌区高度异常: ${handHeight.toFixed(0)}px (期望 >=60)`);
         console.log(`  ✅ 手牌区高度: ${handHeight.toFixed(0)}px`);
+
+        // 8c. 中等宽度手机仍会保留较大牌面；溢出时横向触摸应交给原生滚动，
+        // 而不是误触发拖选（<=380px 会主动压缩牌面，不会产生滚动）。
+        await mobilePage.setViewportSize({ width: 414, height: 896 });
+        await mobilePage.waitForTimeout(delays.short);
+        const touchScroll = await mobilePage.evaluate(() => {
+            const hand = document.querySelector('#player-right .hand-front');
+            const card = hand?.querySelector('.card');
+            if (!hand || !card) return null;
+            // Chromium 会在部分窄宽度下压缩 flex 子项直至刚好容纳；锁定牌宽，
+            // 构造用户放大牌面/字体后会出现的真实溢出前提。
+            hand.querySelectorAll('.card').forEach((item) => {
+                item.style.flexShrink = '0';
+            });
+            hand.style.width = '240px';
+            hand.style.justifyContent = 'flex-start';
+            const overflowProbe = document.createElement('span');
+            overflowProbe.style.flex = '0 0 600px';
+            overflowProbe.setAttribute('aria-hidden', 'true');
+            hand.appendChild(overflowProbe);
+            const rect = card.getBoundingClientRect();
+            const makeTouchEvent = (type, x, y) => {
+                const event = new Event(type, { bubbles: true, cancelable: true });
+                Object.defineProperty(event, 'touches', {
+                    value: [{ clientX: x, clientY: y }],
+                });
+                return event;
+            };
+            const startX = rect.left + Math.min(20, rect.width / 2);
+            const startY = rect.top + Math.min(30, rect.height / 2);
+            card.dispatchEvent(makeTouchEvent('touchstart', startX, startY));
+            const move = makeTouchEvent('touchmove', startX - 30, startY + 2);
+            const dispatched = hand.dispatchEvent(move);
+            document.dispatchEvent(new Event('touchend', { bubbles: true }));
+            return {
+                overflowing: hand.scrollWidth > hand.clientWidth + 2,
+                movePrevented: !dispatched || move.defaultPrevented,
+                selectedCount: hand.querySelectorAll('.card.selected').length,
+            };
+        });
+        if (!touchScroll?.overflowing || touchScroll.movePrevented || touchScroll.selectedCount !== 0) {
+            throw new Error(`竖屏横向触摸滚动与拖选冲突: ${JSON.stringify(touchScroll)}`);
+        }
+        console.log('  ✅ 竖屏横向触摸交由原生滚动且未误选牌');
 
         await mobilePage.close();
 

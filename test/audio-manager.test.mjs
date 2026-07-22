@@ -35,6 +35,18 @@ function test(name, fn) {
     }
 }
 
+async function testAsync(name, fn) {
+    try {
+        await fn();
+        passed++;
+        console.log(`✓ ${name}`);
+    } catch (e) {
+        failed++;
+        console.log(`✗ ${name}`);
+        console.log(`  ${e.message}`);
+    }
+}
+
 function assert(cond, msg) {
     if (!cond) throw new Error(msg || 'Assertion failed');
 }
@@ -121,6 +133,29 @@ test('AudioManager sound toggle resumes looping BGM only', () => {
     assert(audio.toggle() === false, 'expected second disable');
     assert(audio.toggle() === true, 'expected second enable');
     assert(winRestarts === 0, 'expected one-shot win BGM not to resume');
+    audio.destroy();
+});
+
+await testAsync('AudioManager drops stale notes after an async BGM switch', async () => {
+    const audio = new AudioManager();
+    let resolveMaster;
+    let oscillatorsCreated = 0;
+    audio.ctx = {
+        state: 'running',
+        currentTime: 0,
+        createOscillator() {
+            oscillatorsCreated++;
+            throw new Error('stale note should not create an oscillator');
+        },
+        close() {},
+    };
+    audio._createBGMGain = () => new Promise(resolve => { resolveMaster = resolve; });
+    audio._bgmGeneration = 7;
+    const staleSchedule = audio._scheduleBGMNote(440, 0, 0.2, 'sine', 1, 7);
+    audio._bgmGeneration = 8;
+    resolveMaster({});
+    await staleSchedule;
+    assert(oscillatorsCreated === 0, 'stale BGM generation created an oscillator');
     audio.destroy();
 });
 

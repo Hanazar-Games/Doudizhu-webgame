@@ -152,7 +152,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.39</span>
+                <span class="version-info">v1.2.40</span>
             </footer>
         </div>
     </div>
@@ -167,8 +167,8 @@
             <div class="settings-search-wrap">
                 <div class="settings-search">
                     <span class="settings-search-icon">🔍</span>
-                    <input type="text" id="settings-search-input" placeholder="搜索设置..." autocomplete="off">
-                    <button class="settings-search-clear" id="settings-search-clear" type="button">✕</button>
+                    <input type="text" id="settings-search-input" placeholder="搜索设置..." autocomplete="off" aria-label="搜索设置">
+                    <button class="settings-search-clear" id="settings-search-clear" type="button" aria-label="清空设置搜索">✕</button>
                     <span class="settings-search-match-count" id="settings-search-count"></span>
                 </div>
             </div>
@@ -226,12 +226,12 @@
 
                 <!-- 音频设置 -->
                 <div class="settings-section-title" data-icon="audio">音频</div>
-                <div class="volume-control">
+                <div class="volume-control" data-search="音量 背景音乐 bgm">
                     <label for="cfg-bgm-volume">BGM</label>
                     <input type="range" class="settings-slider-input" id="cfg-bgm-volume" min="0" max="1" step="0.1" value="0.5">
                     <span class="volume-value" id="cfg-bgm-volume-value">50%</span>
                 </div>
-                <div class="volume-control">
+                <div class="volume-control" data-search="音量 音效 sfx">
                     <label for="cfg-sfx-volume">SFX</label>
                     <input type="range" class="settings-slider-input" id="cfg-sfx-volume" min="0" max="1" step="0.1" value="0.5">
                     <span class="volume-value" id="cfg-sfx-volume-value">50%</span>
@@ -641,7 +641,7 @@
                         </label>
                         <label class="setting-slider">
                         <span class="slider-label-row">手牌大小<span class="setting-value-output" data-setting-output="cardScale"></span></span>
-                            <input type="range" class="settings-slider-input" min="0.85" max="1.2" step="0.05" data-setting="cardScale" value="1">
+                            <input type="range" class="settings-slider-input" min="0.7" max="1" step="0.05" data-setting="cardScale" value="1">
                         </label>
                         <label class="setting-slider">
                         <span class="slider-label-row">出牌大小<span class="setting-value-output" data-setting-output="playedCardScale"></span></span>
@@ -1227,14 +1227,14 @@
             <div class="lan-body">
                 <div id="lan-join-panel" class="lan-panel">
                     <div class="form-group">
-                        <label class="form-label">房间号</label>
+                        <label class="form-label" for="lan-room-id">房间号</label>
                         <div class="form-input-wrap">
                             <span class="form-input-icon">🔑</span>
                             <input type="text" id="lan-room-id" class="form-input" placeholder="输入 8 位房间号" maxlength="8">
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">玩家名称</label>
+                        <label class="form-label" for="lan-player-name">玩家名称</label>
                         <div class="form-input-wrap">
                             <span class="form-input-icon">👤</span>
                             <input type="text" id="lan-player-name" class="form-input" placeholder="输入昵称" maxlength="12">
@@ -1257,10 +1257,10 @@
                         </div>
                     </div>
                     <div id="lan-host-url-row" class="lan-url-row hidden">
-                        <label class="form-label">局域网地址</label>
+                        <label class="form-label" for="lan-host-url">局域网地址</label>
                         <div class="form-input-wrap form-input-wrap--readonly">
                             <input type="text" id="lan-host-url" class="form-input" readonly>
-                            <button id="btn-copy-lan-url" class="btn-copy" title="复制地址">📋</button>
+                            <button id="btn-copy-lan-url" class="btn-copy" title="复制地址" aria-label="复制局域网地址">📋</button>
                         </div>
                     </div>
                     <div id="player-list" class="lan-player-list"></div>
@@ -1445,7 +1445,7 @@
             <div class="workshop-subtitle">保存、回放与分享精彩对局</div>
 
             <div class="workshop-import-bar">
-                <input type="text" id="workshop-import-input" placeholder="粘贴分享码导入牌谱..." maxlength="20000">
+                <input type="text" id="workshop-import-input" placeholder="粘贴分享码导入牌谱..." maxlength="20000" aria-label="牌谱分享码">
                 <button id="btn-workshop-import" class="btn-primary">📥 导入</button>
             </div>
 
@@ -1496,7 +1496,7 @@
                     </div>
                 </div>
                 <div class="tour-config-group">
-                    <label class="tour-config-label">AI 难度</label>
+                    <label class="tour-config-label" for="tour-difficulty">AI 难度</label>
                     <select id="tour-difficulty" class="tour-select">
                         <option value="easy">简单</option>
                         <option value="normal" selected>普通</option>
@@ -1607,19 +1607,31 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.39</div>
-                    <h3>🃏 选牌命中与手牌顺序再优化</h3>
+                    <div class="changelog-version-badge">v1.2.40</div>
+                    <h3>🛡️ 全面稳定性与全端体验修复</h3>
                     <ul>
-                        <li>🃏 <strong>选中牌不挡邻牌</strong>：已选牌保持在普通手牌下方，相邻牌的外露区域可以继续点击选择</li>
-                        <li>🔢 <strong>手牌标准整理</strong>：全局排序统一为 <code>3 4 5 6 7 8 9 10 J Q K A 2 小王 大王</code>，同点数也按固定花色顺序稳定排列</li>
-                        <li>🎨 <strong>选牌 UI 降噪</strong>：降低默认选牌/悬停上浮和高亮阴影，让大牌面不再互相压迫</li>
-                        <li>⚙️ <strong>设置项纠偏</strong>：移除容易误触的智能分组排序入口，默认排序显示为标准点数</li>
-                        <li>🧪 <strong>回归补强</strong>：新增相邻选牌命中、手牌自然升序和设置默认值自查</li>
+                        <li>⚙️ <strong>设置面板修复</strong>：折叠分类标题不再被裁成空白条，“音量”可准确找到 BGM/SFX，无匹配时不再残留空分类</li>
+                        <li>🃏 <strong>大手牌全端加固</strong>：901–1100px 与 561–900px 响应式重新收拢，横屏地主 20 张牌也能完整留在屏内</li>
+                        <li>🔍 <strong>缩放状态一致</strong>：Ctrl/⌘ + 滚轮缩放会同步设置控件和本地存储；旧版超出安全范围的比例自动纠正</li>
+                        <li>👆 <strong>触屏滚动纠偏</strong>：窄屏手牌溢出时，横向滑动优先用于浏览，不再被拖选手势抢占</li>
+                        <li>🎵 <strong>BGM 竞态修复</strong>：切歌、静音或页面恢复期间的旧异步音符会被代次校验拦截，避免叠音</li>
+                        <li>♿ <strong>质量与安全</strong>：补齐关键输入控件标签，修复生产与开发依赖安全告警，并扩充桌面/移动/音频回归</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.39</div>
+                            <h4>🃏 选牌命中与手牌顺序再优化</h4>
+                            <ul>
+                                <li>🃏 <strong>选中牌不挡邻牌</strong>：已选牌保持在普通手牌下方，相邻牌的外露区域可以继续点击选择</li>
+                                <li>🔢 <strong>手牌标准整理</strong>：全局排序统一为 <code>3 4 5 6 7 8 9 10 J Q K A 2 小王 大王</code>，同点数也按固定花色顺序稳定排列</li>
+                                <li>🎨 <strong>选牌 UI 降噪</strong>：降低默认选牌/悬停上浮和高亮阴影，让大牌面不再互相压迫</li>
+                                <li>⚙️ <strong>设置项纠偏</strong>：移除容易误触的智能分组排序入口，默认排序显示为标准点数</li>
+                                <li>🧪 <strong>回归补强</strong>：新增相邻选牌命中、手牌自然升序和设置默认值自查</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.38</div>
                             <h4>🃏 手牌层级与标准排序修复</h4>

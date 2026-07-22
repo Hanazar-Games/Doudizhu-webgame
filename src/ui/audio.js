@@ -287,9 +287,11 @@ class AudioManager {
         this.voiceVolume = Math.max(0, Math.min(1, v));
     }
 
-    async _scheduleBGMNote(freq, start, duration, type = 'sine', vol = 1.0) {
+    async _scheduleBGMNote(freq, start, duration, type = 'sine', vol = 1.0, generation = this._bgmGeneration) {
         const master = await this._createBGMGain();
-        if (!master) return;
+        // AudioContext.resume() 是异步的；等待期间可能已切歌、静音或销毁。
+        // 旧调度若继续创建节点，会和新 BGM 重叠。
+        if (!master || generation !== this._bgmGeneration || !this.enabled || !this.bgmEnabled) return;
         const t = this.ctx.currentTime + start;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -338,7 +340,7 @@ class AudioManager {
             totalDuration = Math.max(totalDuration, start + dur);
             // triangle 波形能量比 sine 高约 3dB，适当降低音量
             const vol = waveform === 'triangle' ? (n.vol || 1) * 0.8 : (n.vol || 1);
-            this._scheduleBGMNote(n.freq, start, dur, waveform, vol);
+            this._scheduleBGMNote(n.freq, start, dur, waveform, vol, gen);
         }
 
         if (loop && totalDuration > 0) {

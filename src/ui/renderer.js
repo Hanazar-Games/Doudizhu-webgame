@@ -1254,6 +1254,7 @@ class Renderer {
         let dragBaseSelection = new Set();
         let dragStartX = 0;
         let dragStartY = 0;
+        let touchScrolling = false;
         const dragThreshold = () => {
             const raw = getComputedStyle(document.documentElement).getPropertyValue('--ddz-drag-threshold');
             const val = parseFloat(raw);
@@ -1305,6 +1306,7 @@ class Renderer {
             dragged = false;
             startIndex = -1;
             lastRangeKey = '';
+            touchScrolling = false;
             dragBaseSelection = new Set(this.selectedCards);
             const touch = e.touches ? e.touches[0] : null;
             const x = touch ? touch.clientX : e.clientX;
@@ -1326,6 +1328,20 @@ class Renderer {
             const touch = e.touches ? e.touches[0] : null;
             const x = touch ? touch.clientX : e.clientX;
             const y = touch ? touch.clientY : e.clientY;
+
+            // 窄屏手牌需要横向浏览。发生实际溢出时，优先把明显的横向
+            // 触摸手势交还给原生滚动；点按和非横向拖动仍可正常选牌。
+            if (e.type === 'touchmove' && !dragged) {
+                const dx = x - dragStartX;
+                const dy = y - dragStartY;
+                const canScroll = handContainer.scrollWidth > handContainer.clientWidth + 2;
+                if (canScroll && Math.abs(dx) >= dragThreshold() && Math.abs(dx) > Math.abs(dy)) {
+                    touchScrolling = true;
+                    isDragging = false;
+                    return;
+                }
+            }
+            if (touchScrolling) return;
             const card = getCardAt(x, y);
             if (card) {
                 const idx = Array.from(handContainer.querySelectorAll('.card')).indexOf(card);
@@ -1404,8 +1420,21 @@ class Renderer {
                 e.preventDefault();
                 const delta = e.deltaY < 0 ? 0.05 : -0.05;
                 const current = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ddz-card-scale')) || 1;
-                const next = Math.max(0.7, Math.min(1, current + delta));
+                const next = Number(Math.max(0.7, Math.min(1, current + delta)).toFixed(2));
                 document.documentElement.style.setProperty('--ddz-card-scale', String(next));
+                const appSettings = window.gameApp?.settings;
+                if (appSettings) {
+                    appSettings.cardScale = next;
+                    Storage.saveSettings(appSettings);
+                } else {
+                    const settings = Storage.getSettings();
+                    settings.cardScale = next;
+                    Storage.saveSettings(settings);
+                }
+                const scaleControl = document.querySelector('[data-setting="cardScale"]');
+                if (scaleControl) scaleControl.value = String(next);
+                const scaleOutput = document.querySelector('[data-setting-output="cardScale"]');
+                if (scaleOutput) scaleOutput.textContent = `${Math.round(next * 100)}%`;
                 updateState();
                 return;
             }

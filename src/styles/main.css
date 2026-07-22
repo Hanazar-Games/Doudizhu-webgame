@@ -22,7 +22,7 @@ body {
     --card-shadow: 0 2px 8px rgba(0,0,0,0.3);
     --ddz-card-enter-stagger: 12;
     --ddz-hover-lift: 5px;
-    --ddz-selected-lift: 16px;
+    --ddz-selected-lift: 8px;
 }
 
 /* 红木主题 */
@@ -5584,9 +5584,9 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 /* 桌面端手牌尺寸 */
 @media (min-width: 901px) {
     #player-right .hand-front .card {
-        width: calc(144px * var(--ddz-card-scale, 1));
-        height: calc(200px * var(--ddz-card-scale, 1));
-        margin-left: calc(-91px * var(--ddz-card-scale, 1));
+        width: calc(clamp(120px, 11.25vw, 144px) * var(--ddz-card-scale, 1));
+        height: calc(clamp(167px, 15.625vw, 200px) * var(--ddz-card-scale, 1));
+        margin-left: calc(-1 * clamp(80px, 7.11vw, 91px) * var(--ddz-card-scale, 1));
         flex-shrink: 0;
     }
     #player-right .hand-front .card:first-child {
@@ -6027,7 +6027,8 @@ body[data-motion="fancy"] .table-aura {
     }
 
     #player-right .hand-front .card {
-        margin-left: -38px;
+        /* 561–900px 横屏下按 20 张地主手牌计算重叠量，保证首尾都留在视口内。 */
+        margin-left: clamp(-58px, calc((98vw - 1640px) / 19), -41px);
     }
 
     #player-right .hand-front .card:first-child {
@@ -9614,6 +9615,10 @@ input[type="range"].settings-slider-input::-moz-range-track {
 
 /* ---- Advanced Settings (Details/Summary) ---- */
 .advanced-settings {
+    /* 覆盖旧版规则遗留的 10px padding。关闭的 details 只按 padding
+       计算自身高度，配合 overflow:hidden 会把 summary 文本完整裁掉。 */
+    padding: 0;
+    min-height: 46px;
     border-radius: 12px;
     background: rgba(255,255,255,0.02);
     border: 1px solid rgba(255,255,255,0.05);
@@ -9633,6 +9638,7 @@ input[type="range"].settings-slider-input::-moz-range-track {
     font-weight: 700;
     font-size: 0.85rem;
     padding: 11px 14px;
+    margin: 0;
     display: flex;
     align-items: center;
     gap: 8px;

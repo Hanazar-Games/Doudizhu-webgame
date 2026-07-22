@@ -280,6 +280,13 @@ export const Storage = {
                 merged.scoreMultiplier = parsed.baseScore;
             }
 
+            // 大手牌布局以 1.0 为屏内安全上限。旧版本曾允许保存到 1.2，
+            // 会让 20 张地主手牌在中等宽度屏幕上被左右裁掉。
+            const cardScale = Number(merged.cardScale);
+            merged.cardScale = Number.isFinite(cardScale)
+                ? Math.max(0.7, Math.min(1, cardScale))
+                : defaults.cardScale;
+
             return merged;
         } catch {
             return { ...defaults };
