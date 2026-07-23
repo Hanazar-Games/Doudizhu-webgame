@@ -667,14 +667,54 @@ async function run() {
         await screenshot(page, '05-pause-overlay');
         const pauseVisible = await page.$eval('#pause-overlay', (el) => !el.classList.contains('hidden'));
         if (!pauseVisible) throw new Error('暂停 overlay 未显示');
-        console.log('  ✅ 点击暂停按钮 → overlay 显示');
+        const pauseA11y = await page.$eval('#pause-overlay', (overlay) => ({
+            role: overlay.getAttribute('role'),
+            modal: overlay.getAttribute('aria-modal'),
+            labelledBy: overlay.getAttribute('aria-labelledby'),
+            titleId: overlay.querySelector('.pause-card__title')?.id || '',
+            focus: document.activeElement?.id || '',
+        }));
+        if (pauseA11y.role !== 'dialog' || pauseA11y.modal !== 'true' ||
+            pauseA11y.labelledBy !== pauseA11y.titleId || pauseA11y.focus !== 'btn-resume') {
+            throw new Error(`暂停层语义或初始焦点异常: ${JSON.stringify(pauseA11y)}`);
+        }
+        await page.keyboard.press('Shift+Tab');
+        const pauseWrappedFocus = await page.evaluate(() => document.activeElement?.id || '');
+        if (pauseWrappedFocus !== 'btn-pause-exit') {
+            throw new Error(`暂停层焦点未环回最后按钮: ${pauseWrappedFocus}`);
+        }
+        await page.keyboard.press('Tab');
+        console.log('  ✅ 点击暂停按钮 → dialog 显示且焦点受约束');
 
         // 继续按钮
+        await page.evaluate(() => {
+            const renderer = window.gameApp?.renderer;
+            if (!renderer?.audio) return;
+            renderer.__testPlayWinBGM = renderer.audio.playWinBGM;
+            renderer.__testWinRestarts = 0;
+            renderer.audio.playWinBGM = () => { renderer.__testWinRestarts++; };
+            renderer._bgmBeforePause = 'win';
+        });
         await page.click('#btn-resume');
         await page.waitForTimeout(delays.short);
         const pauseRemoved1 = await page.$('#pause-overlay') === null;
         if (!pauseRemoved1) throw new Error('点击继续后 pause-overlay 未被移除');
-        console.log('  ✅ 点击继续 → overlay 已移除');
+        const pauseBgmResume = await page.evaluate(() => {
+            const renderer = window.gameApp?.renderer;
+            if (!renderer?.audio) return null;
+            const winRestarts = renderer.__testWinRestarts;
+            renderer.audio.playWinBGM = renderer.__testPlayWinBGM;
+            delete renderer.__testPlayWinBGM;
+            delete renderer.__testWinRestarts;
+            renderer.audio._currentBGM = 'game';
+            renderer.audio.playGameBGM();
+            renderer._bgmBeforePause = 'game';
+            return winRestarts;
+        });
+        if (pauseBgmResume !== 0) throw new Error(`暂停恢复错误重播一次性结算音乐: ${pauseBgmResume}`);
+        const pauseReturnFocus = await page.evaluate(() => document.activeElement?.id || '');
+        if (pauseReturnFocus !== 'btn-pause') throw new Error(`继续后焦点未返回暂停按钮: ${pauseReturnFocus}`);
+        console.log('  ✅ 点击继续 → overlay 已移除并恢复焦点');
 
         // ESC 暂停/恢复
         await page.keyboard.press('Escape');
@@ -776,6 +816,11 @@ async function run() {
         if (playStyleOpenFocus !== 'btn-close-play-style') {
             throw new Error(`牌风分析打开后焦点未进入弹窗: ${playStyleOpenFocus}`);
         }
+        await page.keyboard.press('Tab');
+        const playStyleTrappedFocus = await page.evaluate(() => document.activeElement?.id || '');
+        if (playStyleTrappedFocus !== 'btn-close-play-style') {
+            throw new Error(`牌风分析焦点逃出弹窗: ${playStyleTrappedFocus}`);
+        }
         console.log('  ✅ 牌风分析面板显示且焦点进入弹窗');
         await page.click('#btn-close-play-style');
         await page.waitForTimeout(delays.short);
@@ -797,6 +842,12 @@ async function run() {
         if (changelogOpenFocus !== 'btn-close-changelog') {
             throw new Error(`公告打开后焦点未进入弹窗: ${changelogOpenFocus}`);
         }
+        await page.keyboard.press('Shift+Tab');
+        const changelogWrappedFocus = await page.evaluate(() => document.activeElement?.id || '');
+        if (changelogWrappedFocus !== 'btn-changelog-ok') {
+            throw new Error(`公告焦点未环回弹窗末尾: ${changelogWrappedFocus}`);
+        }
+        await page.keyboard.press('Tab');
         const changelogVersion = await page.$eval('.changelog-current .changelog-version-badge', (el) => el.textContent.trim());
         if (changelogVersion !== `v${expectedVersion}`) {
             throw new Error(`当前公告版本号与 package.json 不一致: ${changelogVersion} / ${expectedVersion}`);

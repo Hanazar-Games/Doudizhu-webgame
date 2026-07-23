@@ -220,18 +220,36 @@ test('AudioManager event sounds respect their fine-grained category switches', (
         deal: false,
         play: true,
         call: false,
-        bomb: true,
+        bomb: false,
         win: false,
-        tick: true,
+        tick: false,
         chat: true,
     };
 
     audio.playBottomReveal();
     audio.playLandlordConfirm();
     audio.playMatchEnd();
+    audio.playGrabLandlord();
+    audio.playCountdown();
 
     audio.destroy();
     assert(tones === 0 && sequences === 0, `disabled categories still played: tones=${tones}, sequences=${sequences}`);
+});
+
+await testAsync('AudioManager rocket sound respects the bomb category switch', async () => {
+    const audio = new AudioManager();
+    let contextAttempts = 0;
+    audio._sfxSettings.bomb = false;
+    audio._sfxSettings.play = true;
+    audio._ensureContext = async () => {
+        contextAttempts++;
+        return false;
+    };
+
+    await audio.playRocket();
+
+    audio.destroy();
+    assert(contextAttempts === 0, `disabled bomb category still initialized audio: ${contextAttempts}`);
 });
 
 console.log(`\n====================`);

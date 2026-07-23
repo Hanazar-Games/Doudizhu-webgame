@@ -474,6 +474,14 @@ class Renderer {
                 return;
             }
 
+            if (e.key === 'Tab' && this._isPaused) {
+                const pauseOverlay = document.querySelector('#pause-overlay:not(.hidden)');
+                if (pauseOverlay) {
+                    this._trapFocus(pauseOverlay, e);
+                    return;
+                }
+            }
+
             // ? 键切换快捷键帮助面板
             if (e.key === '?' || e.key === '／' || e.key === '/') {
                 e.preventDefault();
@@ -596,6 +604,7 @@ class Renderer {
 
     _pauseGame() {
         if (this._isPaused) return;
+        this._pauseReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         this._isPaused = true;
         this.mode?.pauseGame?.();
         this.audio?.stopBGM();
@@ -616,8 +625,6 @@ class Renderer {
         const bgm = this._bgmBeforePause;
         if (bgm === 'menu') this.audio?.playMenuBGM();
         else if (bgm === 'game') this.audio?.playGameBGM();
-        else if (bgm === 'win') this.audio?.playWinBGM();
-        else if (bgm === 'lose') this.audio?.playLoseBGM();
     }
 
     _zoomTable(delta) {
@@ -644,7 +651,7 @@ class Renderer {
                 <div class="pause-backdrop"></div>
                 <div class="pause-card">
                     <div class="pause-card__icon">⏸</div>
-                    <h2 class="pause-card__title">游戏暂停</h2>
+                    <h2 id="pause-title" class="pause-card__title">游戏暂停</h2>
                     <p class="pause-card__hint">按 <kbd class="pause-kbd">ESC</kbd> 继续游戏</p>
                     <div class="pause-card__actions">
                         <button id="btn-resume" class="screen-btn screen-btn--primary screen-btn--large">
@@ -664,6 +671,11 @@ class Renderer {
             `;
             document.body.appendChild(overlay);
         }
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'pause-title');
+        const pauseTitle = overlay.querySelector('.pause-card__title');
+        if (pauseTitle) pauseTitle.id = 'pause-title';
         // 绑定暂停覆盖层事件（每次显示前移除旧监听器，防止重复绑定）
         if (!this._pauseResumeHandler) {
             this._pauseResumeHandler = () => this._resumeGame();
@@ -695,6 +707,7 @@ class Renderer {
         overlay.classList.remove('hidden');
         overlay.style.display = 'flex';
         overlay.style.opacity = '0';
+        btnResume?.focus();
         requestAnimationFrame(() => {
             overlay.style.transition = 'opacity 0.25s ease';
             overlay.style.opacity = '1';
@@ -713,7 +726,28 @@ class Renderer {
             if (this._destroyed) return;
             overlay.remove();
             overlay._removeTimeout = null;
+            const returnFocus = this._pauseReturnFocus;
+            this._pauseReturnFocus = null;
+            if (returnFocus?.isConnected) returnFocus.focus();
         }, 250);
+    }
+
+    _trapFocus(overlay, event) {
+        const focusable = Array.from(overlay.querySelectorAll('button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'))
+            .filter(el => el.getClientRects().length > 0);
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!overlay.contains(document.activeElement)) {
+            event.preventDefault();
+            first.focus();
+        } else if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
     }
 
     _removeHelpPanel() {

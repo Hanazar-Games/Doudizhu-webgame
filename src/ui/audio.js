@@ -589,7 +589,7 @@ class AudioManager {
 
     async playRocket() {
         if (!this.sfxEnabled) return;
-        if (!this._isSfxEnabled('play')) return;
+        if (!this._isSfxEnabled('bomb')) return;
         if (!this._shouldPlaySfx('rocket', 600)) return;
         if (!(await this._ensureContext())) return;
         if (!this.ctx) return;
@@ -768,6 +768,7 @@ class AudioManager {
 
     playCountdown() {
         if (!this.sfxEnabled) return;
+        if (!this._isSfxEnabled('tick')) return;
         // 倒计时：滴答
         this._tone(1000, 0.04, 'sine', 0.06);
     }
@@ -797,6 +798,7 @@ class AudioManager {
 
     playGrabLandlord() {
         if (!this.sfxEnabled) return;
+        if (!this._isSfxEnabled('call')) return;
         if (!this._shouldPlaySfx('grabLandlord', 300)) return;
         // 抢地主：紧张感
         this._tone(440, 0.1, 'square', 0.07);

@@ -324,7 +324,6 @@ class GameApp {
 
         // 全局 ESC 键：关闭菜单界面的弹窗（设置/公告/牌风）
         this._menuEscHandler = (e) => {
-            if (e.key !== 'Escape') return;
             const settingsOverlay = document.getElementById('settings-overlay');
             const changelogOverlay = document.getElementById('changelog-overlay');
             const playStyleOverlay = document.getElementById('play-style-overlay');
@@ -333,6 +332,14 @@ class GameApp {
             const achievementPanel = document.getElementById('achievement-panel');
             const challengeResultOverlay = document.getElementById('challenge-result-overlay');
             const challengeHistoryOverlay = document.getElementById('challenge-history-overlay');
+            const activeOverlay = [settingsOverlay, changelogOverlay, playStyleOverlay, seasonQuestOverlay,
+                tournamentSetupOverlay, achievementPanel, challengeResultOverlay, challengeHistoryOverlay]
+                .find(overlay => overlay && !overlay.classList.contains('hidden'));
+            if (e.key === 'Tab' && activeOverlay) {
+                this._trapModalFocus(activeOverlay, e);
+                return;
+            }
+            if (e.key !== 'Escape') return;
             if (challengeHistoryOverlay && !challengeHistoryOverlay.classList.contains('hidden')) {
                 challengeHistoryOverlay.classList.add('hidden');
                 e.stopPropagation();
@@ -716,6 +723,25 @@ class GameApp {
                 this._applyTheme(this.settings.theme || 'green');
             }
         });
+    }
+
+    _trapModalFocus(overlay, event) {
+        const focusable = Array.from(overlay.querySelectorAll(
+            'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [href], [tabindex]:not([tabindex="-1"])'
+        )).filter(el => el.getClientRects().length > 0);
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!overlay.contains(document.activeElement)) {
+            event.preventDefault();
+            first.focus();
+        } else if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
     }
 
     // ===== 设置面板打开/关闭 =====
