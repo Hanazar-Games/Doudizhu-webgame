@@ -159,6 +159,44 @@ await testAsync('AudioManager drops stale notes after an async BGM switch', asyn
     audio.destroy();
 });
 
+await testAsync('AudioManager stopping BGM does not cancel delayed SFX notes', async () => {
+    const audio = new AudioManager();
+    const tones = [];
+    audio._tone = (freq) => tones.push(freq);
+
+    audio.playCall();
+    audio.stopBGM();
+    await new Promise(resolve => setTimeout(resolve, 130));
+
+    assert(tones.join(',') === '523,659', `expected complete call SFX, got ${tones.join(',')}`);
+    audio.destroy();
+});
+
+test('AudioManager keeps the shared audio route connected during BGM fade-out', () => {
+    const audio = new AudioManager();
+    let bgmDisconnects = 0;
+    let compressorDisconnects = 0;
+    const compressor = { disconnect() { compressorDisconnects++; } };
+    audio.ctx = { state: 'running', currentTime: 2, close() {} };
+    audio._bgmGain = {
+        gain: {
+            value: 0.04,
+            cancelScheduledValues() {},
+            setValueAtTime() {},
+            exponentialRampToValueAtTime() {},
+        },
+        disconnect() { bgmDisconnects++; },
+    };
+    audio._masterCompressor = compressor;
+
+    audio.stopBGM();
+
+    assert(bgmDisconnects === 0, 'BGM gain disconnected before fade-out completed');
+    assert(compressorDisconnects === 0, 'shared compressor disconnected while audio may still be playing');
+    assert(audio._masterCompressor === compressor, 'shared compressor reference should be retained');
+    audio.destroy();
+});
+
 console.log(`\n====================`);
 console.log(`AudioManager: Passed ${passed}, Failed ${failed}`);
 console.log(`====================`);

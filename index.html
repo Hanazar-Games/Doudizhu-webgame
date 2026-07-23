@@ -152,7 +152,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.40</span>
+                <span class="version-info">v1.2.41</span>
             </footer>
         </div>
     </div>
@@ -1607,20 +1607,32 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.40</div>
-                    <h3>🛡️ 全面稳定性与全端体验修复</h3>
+                    <div class="changelog-version-badge">v1.2.41</div>
+                    <h3>🃏 玩家手牌与音频体验深度修复</h3>
                     <ul>
-                        <li>⚙️ <strong>设置面板修复</strong>：折叠分类标题不再被裁成空白条，“音量”可准确找到 BGM/SFX，无匹配时不再残留空分类</li>
-                        <li>🃏 <strong>大手牌全端加固</strong>：901–1100px 与 561–900px 响应式重新收拢，横屏地主 20 张牌也能完整留在屏内</li>
-                        <li>🔍 <strong>缩放状态一致</strong>：Ctrl/⌘ + 滚轮缩放会同步设置控件和本地存储；旧版超出安全范围的比例自动纠正</li>
-                        <li>👆 <strong>触屏滚动纠偏</strong>：窄屏手牌溢出时，横向滑动优先用于浏览，不再被拖选手势抢占</li>
-                        <li>🎵 <strong>BGM 竞态修复</strong>：切歌、静音或页面恢复期间的旧异步音符会被代次校验拦截，避免叠音</li>
-                        <li>♿ <strong>质量与安全</strong>：补齐关键输入控件标签，修复生产与开发依赖安全告警，并扩充桌面/移动/音频回归</li>
+                        <li>🎨 <strong>手牌视觉升级</strong>：增加低对比度独立牌槽和金色选中勾标，大牌面保持清晰且不遮挡点数</li>
+                        <li>⌨️ <strong>键盘与无障碍</strong>：每张手牌支持 Tab 聚焦及 Enter/Space 选牌，实时同步选中状态和数量语义</li>
+                        <li>💡 <strong>提示状态修复</strong>：AI 提示选牌统一经过选牌状态入口，不再出现视觉与辅助状态分裂</li>
+                        <li>📱 <strong>移动横屏优化</strong>：玩家身份改为屏内紧凑胶囊，长昵称安全截断且不再压住第一张牌</li>
+                        <li>🎵 <strong>SFX/BGM 修复</strong>：切换 BGM 真正完成淡出并保留共享音频链，停止 BGM 不再截断延迟音效</li>
+                        <li>🧪 <strong>回归补强</strong>：新增牌槽、键盘选牌、提示同步、移动身份和音频生命周期自动化检查</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.40</div>
+                            <h4>🛡️ 全面稳定性与全端体验修复</h4>
+                            <ul>
+                                <li>⚙️ <strong>设置面板修复</strong>：折叠分类标题不再被裁成空白条，“音量”可准确找到 BGM/SFX，无匹配时不再残留空分类</li>
+                                <li>🃏 <strong>大手牌全端加固</strong>：901–1100px 与 561–900px 响应式重新收拢，横屏地主 20 张牌也能完整留在屏内</li>
+                                <li>🔍 <strong>缩放状态一致</strong>：Ctrl/⌘ + 滚轮缩放会同步设置控件和本地存储；旧版超出安全范围的比例自动纠正</li>
+                                <li>👆 <strong>触屏滚动纠偏</strong>：窄屏手牌溢出时，横向滑动优先用于浏览，不再被拖选手势抢占</li>
+                                <li>🎵 <strong>BGM 竞态修复</strong>：切歌、静音或页面恢复期间的旧异步音符会被代次校验拦截，避免叠音</li>
+                                <li>♿ <strong>质量与安全</strong>：补齐关键输入控件标签，修复生产与开发依赖安全告警，并扩充桌面/移动/音频回归</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.39</div>
                             <h4>🃏 选牌命中与手牌顺序再优化</h4>

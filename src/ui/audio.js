@@ -18,6 +18,7 @@ class AudioManager {
         this._bgmGain = null;
         this._bgmNodes = [];
         this._bgmTimer = null;
+        this._bgmGainCleanups = new Map();
         this._winSfxTimeout = null;
         this._sfxTimeouts = new Set();
         this._callTimeout = null;
@@ -72,6 +73,14 @@ class AudioManager {
     _clearSfxTimeouts() {
         this._sfxTimeouts.forEach(id => clearTimeout(id));
         this._sfxTimeouts.clear();
+    }
+
+    _clearBGMGainCleanups() {
+        this._bgmGainCleanups.forEach((gain, id) => {
+            clearTimeout(id);
+            try { gain.disconnect(); } catch (e) {}
+        });
+        this._bgmGainCleanups.clear();
     }
 
     _isSfxEnabled(type) {
@@ -210,16 +219,9 @@ class AudioManager {
             clearTimeout(this._bgmTimer);
             this._bgmTimer = null;
         }
-        if (this._winSfxTimeout) {
-            clearTimeout(this._winSfxTimeout);
-            this._winSfxTimeout = null;
-        }
-        if (this._callTimeout) {
-            clearTimeout(this._callTimeout);
-            this._callTimeout = null;
-        }
         // 若 context 已关闭，跳过精细淡出，直接清理引用
         if (this.ctx && (this.ctx.state === 'closed' || this.ctx.state === 'closing')) {
+            this._clearBGMGainCleanups();
             this._bgmNodes = [];
             this._bgmGeneration++;
             this._bgmGain = null;
@@ -241,14 +243,20 @@ class AudioManager {
         });
         this._bgmNodes = [];
         this._bgmGeneration++;
-        // 切断与旧 context 的引用，防止重建后连接死节点
+        // 保持旧路由连接到淡出结束，避免切歌硬切或截断共享 SFX
         if (this._bgmGain) {
-            try { this._bgmGain.disconnect(); } catch (e) {}
+            const fadingGain = this._bgmGain;
+            try {
+                fadingGain.gain.cancelScheduledValues(now);
+                fadingGain.gain.setValueAtTime(fadingGain.gain.value, now);
+                fadingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+            } catch (e) {}
+            const cleanupId = setTimeout(() => {
+                this._bgmGainCleanups.delete(cleanupId);
+                try { fadingGain.disconnect(); } catch (e) {}
+            }, 650);
+            this._bgmGainCleanups.set(cleanupId, fadingGain);
             this._bgmGain = null;
-        }
-        if (this._masterCompressor) {
-            try { this._masterCompressor.disconnect(); } catch (e) {}
-            this._masterCompressor = null;
         }
         // 保留 _currentBGM 以便 toggleBGM 恢复播放
     }
@@ -878,6 +886,15 @@ class AudioManager {
     destroy() {
         this.stopBGM();
         this._clearSfxTimeouts();
+        this._clearBGMGainCleanups();
+        if (this._winSfxTimeout) {
+            clearTimeout(this._winSfxTimeout);
+            this._winSfxTimeout = null;
+        }
+        if (this._callTimeout) {
+            clearTimeout(this._callTimeout);
+            this._callTimeout = null;
+        }
         this._bgmNodes.forEach(n => {
             try {
                 if (n.gain) n.gain.disconnect();

@@ -5430,6 +5430,22 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
     justify-content: center;
 }
 
+#player-right .hand-front::before {
+    content: '';
+    position: absolute;
+    inset: 28px 6px 0;
+    border: 1px solid rgba(240, 192, 64, 0.24);
+    border-radius: 28px 28px 14px 14px;
+    background:
+        radial-gradient(ellipse at 50% 100%, rgba(240, 192, 64, 0.12), transparent 58%),
+        linear-gradient(180deg, rgba(7, 43, 20, 0.06), rgba(4, 24, 13, 0.32));
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.08),
+        inset 0 -18px 32px rgba(0,0,0,0.12),
+        0 14px 34px rgba(0,0,0,0.12);
+    pointer-events: none;
+}
+
 #player-right .hand-front.range-selecting {
     cursor: grabbing;
 }
@@ -5620,6 +5636,13 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
     transform: translateY(calc(-1 * var(--ddz-hover-lift, 5px))) scale(1.012);
     filter: brightness(1.04);
     z-index: 20;
+}
+
+.hand-front .card:focus-visible {
+    outline: 3px solid #ffe078;
+    outline-offset: 3px;
+    filter: brightness(1.06);
+    z-index: 21;
 }
 
 .hand-front .card.selected,
@@ -6282,6 +6305,47 @@ body[data-motion="fancy"] .table-aura {
         padding-bottom: 0;
     }
 
+    #player-right .player-info {
+        position: absolute;
+        left: 8px;
+        bottom: 4px;
+        z-index: 24;
+        flex-direction: row;
+        gap: 5px;
+        margin: 0;
+        padding: 4px 8px 4px 4px;
+        border: 1px solid rgba(240, 192, 64, 0.28);
+        border-radius: 999px;
+        background: rgba(5, 31, 16, 0.82);
+        box-shadow: 0 6px 18px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.08);
+        backdrop-filter: blur(8px);
+    }
+
+    #player-right .player-avatar {
+        width: 28px;
+        height: 28px;
+        flex: 0 0 28px;
+        font-size: 0.92rem;
+    }
+
+    #player-right .player-name {
+        max-width: 54px;
+        overflow: hidden;
+        font-size: 0.72rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #player-right .player-badge {
+        min-height: 18px;
+        padding: 1px 6px;
+        font-size: 0.6rem;
+    }
+
+    #player-right .player-tooltip {
+        display: none;
+    }
+
     #player-right .played-area {
         min-height: 16px;
         margin: 0;
@@ -6620,6 +6684,41 @@ body[data-motion="fancy"] .table-aura {
 
 .hand-front .card:hover::after {
     opacity: 1;
+}
+
+.hand-front .card.selected::after,
+.hand-front .card.selected:hover::after {
+    content: '✓';
+    inset: auto auto 8px 8px;
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.72);
+    background: linear-gradient(145deg, #ffe078, #d59a12);
+    color: #2a1a00;
+    font-size: 0.82rem;
+    font-weight: 900;
+    line-height: 1;
+    opacity: 1;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.28);
+}
+
+@media (max-width: 900px) {
+    #player-right .hand-front::before {
+        inset: 8px 2px 0;
+        border-radius: 18px 18px 10px 10px;
+    }
+
+    .hand-front .card.selected::after,
+    .hand-front .card.selected:hover::after {
+        width: 18px;
+        height: 18px;
+        bottom: 5px;
+        left: 4px;
+        font-size: 0.68rem;
+    }
 }
 
 /* 玩家区域active-turn增强脉冲 */

@@ -436,6 +436,28 @@ async function run() {
         let handMetrics = await readHandMetrics();
         assertHandOnScreen(handMetrics, '初始');
         console.log(`  ✅ 玩家17张手牌完整在屏内: ${Math.round(handMetrics.cardWidth)}×${Math.round(handMetrics.cardHeight)}px`);
+        const handStage = await page.$eval('#player-right .hand-front', (hand) => {
+            const tray = getComputedStyle(hand, '::before');
+            const firstCard = hand.querySelector('.card');
+            return {
+                role: hand.getAttribute('role'),
+                label: hand.getAttribute('aria-label'),
+                trayContent: tray.content,
+                trayBackground: tray.backgroundImage,
+                trayBorder: tray.borderTopWidth,
+                firstCardTabIndex: firstCard?.tabIndex,
+            };
+        });
+        if (handStage.role !== 'group' || !handStage.label?.includes('玩家手牌') || !handStage.label.includes('17 张')) {
+            throw new Error(`玩家手牌缺少清晰语义: ${JSON.stringify(handStage)}`);
+        }
+        if (handStage.trayContent !== '\"\"' || handStage.trayBackground === 'none' || handStage.trayBorder === '0px') {
+            throw new Error(`玩家手牌缺少独立牌槽视觉层: ${JSON.stringify(handStage)}`);
+        }
+        if (handStage.firstCardTabIndex !== 0) {
+            throw new Error(`玩家手牌无法通过键盘聚焦: ${JSON.stringify(handStage)}`);
+        }
+        console.log('  ✅ 玩家手牌拥有独立牌槽和数量语义');
         const wheelState = await page.$eval('#player-right .hand-front', async (hand) => {
             document.documentElement.style.setProperty('--ddz-card-scale', '1');
             hand.dispatchEvent(new WheelEvent('wheel', {
@@ -495,6 +517,29 @@ async function run() {
             }
         }
         console.log('  ✅ 手牌顺序为 3 4 5 6 7 8 9 10 J Q K A 2 小王 大王');
+        const hintSelectionState = await page.evaluate(() => {
+            const renderer = window.gameApp?.renderer;
+            renderer?.clearSelection();
+            renderer?._doHint();
+            const hand = document.querySelector('#player-right .hand-front');
+            const selected = Array.from(hand?.querySelectorAll('.card.selected') || []);
+            return {
+                selectedCount: selected.length,
+                pressed: selected.map(card => card.getAttribute('aria-pressed')),
+                labels: selected.map(card => card.getAttribute('aria-label')),
+                handLabel: hand?.getAttribute('aria-label'),
+                hasSelection: hand?.classList.contains('has-selection'),
+            };
+        });
+        if (hintSelectionState.selectedCount === 0 ||
+            hintSelectionState.pressed.some(value => value !== 'true') ||
+            hintSelectionState.labels.some(label => !label?.includes('已选中')) ||
+            !hintSelectionState.handLabel?.includes(`已选 ${hintSelectionState.selectedCount} 张`) ||
+            !hintSelectionState.hasSelection) {
+            throw new Error(`提示选牌状态未完整同步: ${JSON.stringify(hintSelectionState)}`);
+        }
+        await page.evaluate(() => window.gameApp?.renderer?.clearSelection());
+        console.log('  ✅ 提示选牌同步视觉与无障碍状态');
         const exposedClickPoint = await page.$eval('#player-right .hand-front .card:nth-child(10)', (card) => {
             const rect = card.getBoundingClientRect();
             return { x: rect.left + 14, y: rect.top + 28 };
@@ -516,6 +561,15 @@ async function run() {
             throw new Error(`选中牌后牌面超出屏幕: ${JSON.stringify(selectedMetrics)}`);
         }
         console.log('  ✅ 选牌抬起后仍在屏内');
+        const selectedFeedback = await page.$eval('#player-right .hand-front .card.selected', (card) => ({
+            pressed: card.getAttribute('aria-pressed'),
+            label: card.getAttribute('aria-label'),
+            marker: getComputedStyle(card, '::after').content,
+        }));
+        if (selectedFeedback.pressed !== 'true' || !selectedFeedback.label?.includes('已选中') || !selectedFeedback.marker.includes('✓')) {
+            throw new Error(`选牌反馈不完整: ${JSON.stringify(selectedFeedback)}`);
+        }
+        console.log('  ✅ 选中牌拥有视觉勾选和无障碍状态');
         const adjacentClickPoint = await page.$eval('#player-right .hand-front .card:nth-child(11)', (card) => {
             const rect = card.getBoundingClientRect();
             const x = rect.left + 14;
@@ -540,6 +594,17 @@ async function run() {
             throw new Error(`已选牌挡住了相邻手牌点击: selected=${selectedCount}`);
         }
         console.log('  ✅ 已选牌不再挡住相邻牌点击');
+        await page.focus('#player-right .hand-front .card:nth-child(12)');
+        await page.keyboard.press('Space');
+        await page.waitForTimeout(delays.short);
+        const keyboardSelection = await page.$eval('#player-right .hand-front .card:nth-child(12)', (card) => ({
+            selected: card.classList.contains('selected'),
+            pressed: card.getAttribute('aria-pressed'),
+        }));
+        if (!keyboardSelection.selected || keyboardSelection.pressed !== 'true') {
+            throw new Error(`键盘无法选择手牌: ${JSON.stringify(keyboardSelection)}`);
+        }
+        console.log('  ✅ Tab + Space 可完成键盘选牌');
         const noChatUi = await page.evaluate(() => !document.querySelector('#btn-toggle-chat, #chat-panel, #quick-phrases'));
         if (!noChatUi) throw new Error('聊天入口仍然存在');
         console.log('  ✅ 聊天/快捷短语入口已移除');
@@ -695,6 +760,11 @@ async function run() {
         if (changelogVersion !== `v${expectedVersion}`) {
             throw new Error(`当前公告版本号与 package.json 不一致: ${changelogVersion} / ${expectedVersion}`);
         }
+        const previousVersion = expectedVersion.replace(/(\d+)$/, (_, patch) => String(Number(patch) - 1));
+        const firstHistoryVersion = await page.$eval('.changelog-history-content .changelog-version-badge', (el) => el.textContent.trim());
+        if (firstHistoryVersion !== `v${previousVersion}`) {
+            throw new Error(`上一版本公告未移到历史首位: ${firstHistoryVersion} / v${previousVersion}`);
+        }
         console.log('  ✅ 公告面板显示');
         await page.click('#btn-changelog-ok');
         await page.waitForTimeout(delays.short);
@@ -748,6 +818,27 @@ async function run() {
             throw new Error(`横屏手牌产生水平溢出: ${JSON.stringify(mobileHand)}`);
         }
         console.log(`  ✅ 横屏手牌完整在屏内: ${mobileHand.count} 张`);
+        const mobilePlayerIdentity = await mobilePage.evaluate(() => {
+            const info = document.querySelector('#player-right .player-info');
+            const firstCard = document.querySelector('#player-right .hand-front .card');
+            if (!info || !firstCard) return null;
+            const identityRect = info.getBoundingClientRect();
+            const cardRect = firstCard.getBoundingClientRect();
+            return {
+                top: identityRect.top,
+                right: identityRect.right,
+                bottom: identityRect.bottom,
+                firstCardLeft: cardRect.left,
+                viewportWidth: window.innerWidth,
+                viewportHeight: window.innerHeight,
+            };
+        });
+        if (!mobilePlayerIdentity || mobilePlayerIdentity.top < 0 ||
+            mobilePlayerIdentity.bottom > mobilePlayerIdentity.viewportHeight ||
+            mobilePlayerIdentity.right > mobilePlayerIdentity.firstCardLeft - 4) {
+            throw new Error(`横屏玩家身份被裁切或压住手牌: ${JSON.stringify(mobilePlayerIdentity)}`);
+        }
+        console.log('  ✅ 横屏玩家身份完整可见且不压手牌');
 
         await mobilePage.click('#call-controls button[data-call="3"]');
         await mobilePage.waitForTimeout(delays.long);

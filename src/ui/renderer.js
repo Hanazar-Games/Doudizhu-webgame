@@ -211,7 +211,7 @@ class Renderer {
                         <div class="player-tooltip"></div>
                     </div>
                     <div id="hand-hint-text" class="hand-hint"></div>
-                    <div class="hand-front"></div>
+                    <div class="hand-front" role="group" aria-label="玩家手牌，共 0 张，已选 0 张"></div>
                     <div class="played-area"></div>
                 </div>
                 <div id="table-center">
@@ -887,8 +887,7 @@ class Renderer {
             const idx = sortedHand.findIndex(c => c === targetCard);
             if (idx >= 0 && cardEls[idx]) {
                 cardEls[idx].classList.add('hint');
-                this.selectedCards.add(targetCard);
-                cardEls[idx].classList.add('selected');
+                this._setCardSelection(cardEls[idx], targetCard, true);
                 // 提示牌光晕扫过
                 this.anim.hintGlowSweep(cardEls[idx]);
             }
@@ -1578,6 +1577,11 @@ class Renderer {
                 for (let j = 0; j < sorted.length; j++) {
                     const card = sorted[j];
                     const el = this._createCardElement(card);
+                    el.setAttribute('role', 'button');
+                    el.setAttribute('aria-pressed', 'false');
+                    el.setAttribute('aria-label', `${card.displayName}，未选中`);
+                    el.tabIndex = 0;
+                    el.dataset.cardLabel = card.displayName;
                     // margin-left 由 CSS 控制，支持响应式调整
                     el.style.setProperty('--hand-index', j + 1);
 
@@ -1601,8 +1605,16 @@ class Renderer {
                         this._updateHandHint(this._getSelectedCards());
                     };
                     el.addEventListener('click', toggle);
+                    const toggleByKeyboard = (e) => {
+                        if (e.key !== 'Enter' && e.key !== ' ') return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggle(e);
+                    };
+                    el.addEventListener('keydown', toggleByKeyboard);
                     if (!this._controlListeners) this._controlListeners = [];
                     this._controlListeners.push({ el, type: 'click', handler: toggle });
+                    this._controlListeners.push({ el, type: 'keydown', handler: toggleByKeyboard });
                     fragment.appendChild(el);
 
                     requestAnimationFrame(() => {
@@ -1613,6 +1625,7 @@ class Renderer {
                     });
                 }
                 handContainer.appendChild(fragment);
+                this._updateHandAccessibility();
 
                 // 绑定拖拽选择（滑动选牌）
                 this._bindDragSelection(handContainer);
@@ -1762,6 +1775,19 @@ class Renderer {
             this.selectedCards.delete(card);
             el.classList.remove('selected', 'selection-pop');
         }
+        el.setAttribute('aria-pressed', shouldSelect ? 'true' : 'false');
+        el.setAttribute('aria-label', `${el.dataset.cardLabel || card.displayName}，${shouldSelect ? '已选中' : '未选中'}`);
+        this._updateHandAccessibility();
+    }
+
+    _updateHandAccessibility() {
+        const hand = this.container?.querySelector('#player-right .hand-front');
+        const player = this.gameState?.players?.[this.mode?.humanIndex];
+        if (!hand || !player) return;
+        const selectedCount = this.selectedCards.size;
+        hand.setAttribute('role', 'group');
+        hand.setAttribute('aria-label', `玩家手牌，共 ${player.hand.length} 张，已选 ${selectedCount} 张`);
+        hand.classList.toggle('has-selection', selectedCount > 0);
     }
 
     _sortHand(cards) {
@@ -1801,7 +1827,10 @@ class Renderer {
                 c.value === card.value && (c.suit?.name || c.rankKey) === (card.suit?.name || card.rankKey)
             );
             el.classList.toggle('selected', isSelected);
+            el.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+            el.setAttribute('aria-label', `${el.dataset.cardLabel || card.displayName}，${isSelected ? '已选中' : '未选中'}`);
         });
+        this._updateHandAccessibility();
         this._updateHandHint(this._getSelectedCards());
     }
 
@@ -1820,7 +1849,12 @@ class Renderer {
         this.selectedCards.clear();
         if (!this.container) return;
         const selected = this.container.querySelectorAll('.card.selected');
-        for (const el of selected) el.classList.remove('selected');
+        for (const el of selected) {
+            el.classList.remove('selected');
+            el.setAttribute('aria-pressed', 'false');
+            if (el.dataset.cardLabel) el.setAttribute('aria-label', `${el.dataset.cardLabel}，未选中`);
+        }
+        this._updateHandAccessibility();
         this._clearHint();
         this._updateHandHint([]);
     }
