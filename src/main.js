@@ -611,11 +611,7 @@ class GameApp {
                                 audio.playMenuBGM?.();
                             } else if (audio._currentBGM === 'game') {
                                 audio.playGameBGM?.();
-                            } else if (audio._currentBGM === 'win') {
-                                audio.playWinBGM?.();
-                            } else if (audio._currentBGM === 'lose') {
-                                audio.playLoseBGM?.();
-                            } else {
+                            } else if (audio._currentBGM !== 'win' && audio._currentBGM !== 'lose') {
                                 audio.playGameBGM?.();
                             }
                         }
@@ -723,9 +719,14 @@ class GameApp {
     }
 
     // ===== 设置面板打开/关闭 =====
-    openSettings() {
+    openSettings(returnFocus = null) {
         const overlay = document.getElementById('settings-overlay');
         if (!overlay || !overlay.classList.contains('hidden')) return;
+        this._settingsReturnFocus = returnFocus instanceof HTMLElement
+            ? returnFocus
+            : document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+                ? document.activeElement
+                : document.getElementById('btn-settings');
         overlay.classList.remove('hidden');
         overlay.style.opacity = '0';
         overlay.style.transform = 'scale(0.96)';
@@ -768,6 +769,16 @@ class GameApp {
             overlay.style.opacity = '';
             overlay.style.transform = '';
             overlay.style.transition = '';
+            const returnFocus = this._settingsReturnFocus;
+            this._settingsReturnFocus = null;
+            const pauseOverlay = returnFocus?.closest?.('#pause-overlay');
+            if (pauseOverlay && this.renderer?._isPaused) {
+                pauseOverlay.classList.remove('hidden');
+                pauseOverlay.style.display = 'flex';
+                pauseOverlay.style.opacity = '1';
+            }
+            if (returnFocus?.isConnected) returnFocus.focus();
+            else document.getElementById('btn-settings')?.focus();
         }, 200);
         // 清空搜索
         const searchInput = document.getElementById('settings-search-input');
@@ -775,14 +786,15 @@ class GameApp {
             searchInput.value = '';
             this._filterSettings('');
         }
-        // 焦点返回到设置按钮
-        document.getElementById('btn-settings')?.focus();
     }
 
     // ===== 公告弹窗 =====
     openChangelog() {
         const overlay = document.getElementById('changelog-overlay');
         if (!overlay || !overlay.classList.contains('hidden')) return;
+        this._changelogReturnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+            ? document.activeElement
+            : document.getElementById('btn-changelog');
         overlay.classList.remove('hidden');
         overlay.style.opacity = '0';
         overlay.style.transform = 'scale(0.96)';
@@ -793,6 +805,7 @@ class GameApp {
                 overlay.style.transform = 'scale(1)';
             });
         });
+        document.getElementById('btn-close-changelog')?.focus();
         this._getActiveAudio()?.playSettingOpen?.();
         // 标记已读当前版本
         try {
@@ -814,6 +827,10 @@ class GameApp {
             overlay.style.opacity = '';
             overlay.style.transform = '';
             overlay.style.transition = '';
+            const returnFocus = this._changelogReturnFocus;
+            this._changelogReturnFocus = null;
+            if (returnFocus?.isConnected) returnFocus.focus();
+            else document.getElementById('btn-changelog')?.focus();
         }, 200);
     }
 
@@ -830,6 +847,9 @@ class GameApp {
     openPlayStyle() {
         const overlay = document.getElementById('play-style-overlay');
         if (!overlay || !overlay.classList.contains('hidden')) return;
+        this._playStyleReturnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+            ? document.activeElement
+            : document.getElementById('btn-play-style');
         overlay.classList.remove('hidden');
         overlay.style.opacity = '0';
         overlay.style.transform = 'scale(0.96)';
@@ -840,6 +860,7 @@ class GameApp {
                 overlay.style.transform = 'scale(1)';
             });
         });
+        document.getElementById('btn-close-play-style')?.focus();
         this._getActiveAudio()?.playSettingOpen?.();
         // 渲染内容
         const content = document.getElementById('play-style-content');
@@ -867,6 +888,10 @@ class GameApp {
             overlay.style.opacity = '';
             overlay.style.transform = '';
             overlay.style.transition = '';
+            const returnFocus = this._playStyleReturnFocus;
+            this._playStyleReturnFocus = null;
+            if (returnFocus?.isConnected) returnFocus.focus();
+            else document.getElementById('btn-play-style')?.focus();
         }, 200);
     }
 

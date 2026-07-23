@@ -638,6 +638,27 @@ async function run() {
             throw new Error(`音效按钮开启状态异常: ${JSON.stringify(soundState)}`);
         }
         console.log('  ✅ 音效按钮状态/aria 同步');
+        const oneShotBgmToggle = await page.evaluate(() => {
+            const audio = window.gameApp?.renderer?.audio;
+            const control = document.querySelector('[data-setting="bgmEnabled"]');
+            if (!audio || !control) return null;
+            let winRestarts = 0;
+            const originalPlayWinBGM = audio.playWinBGM;
+            audio._currentBGM = 'win';
+            audio.playWinBGM = () => { winRestarts++; };
+            control.checked = false;
+            control.dispatchEvent(new Event('change', { bubbles: true }));
+            control.checked = true;
+            control.dispatchEvent(new Event('change', { bubbles: true }));
+            audio.playWinBGM = originalPlayWinBGM;
+            audio._currentBGM = 'game';
+            audio.playGameBGM();
+            return { winRestarts, enabled: audio.bgmEnabled };
+        });
+        if (!oneShotBgmToggle || oneShotBgmToggle.winRestarts !== 0 || !oneShotBgmToggle.enabled) {
+            throw new Error(`BGM 开关错误重播一次性结算音乐: ${JSON.stringify(oneShotBgmToggle)}`);
+        }
+        console.log('  ✅ BGM 开关不重播一次性结算音乐');
 
         // ===== 4. 暂停 overlay =====
         console.log('\n--- 4. 暂停 overlay ---');
@@ -674,12 +695,20 @@ async function run() {
         await page.waitForTimeout(delays.short);
         const settingsVisible = await page.$eval('#settings-overlay', (el) => !el.classList.contains('hidden'));
         if (!settingsVisible) throw new Error('暂停内设置按钮未打开设置面板');
-        console.log('  ✅ 暂停内设置 → 设置面板打开');
+        const pausedDuringSettings = await page.evaluate(() => window.gameApp?.renderer?._isPaused === true);
+        if (!pausedDuringSettings) throw new Error('打开暂停设置时牌局被错误恢复');
+        console.log('  ✅ 暂停内设置 → 设置面板打开且牌局保持暂停');
         await page.click('#btn-close-settings');
         await page.waitForTimeout(delays.short);
-
-        await page.click('#btn-pause');
-        await page.waitForTimeout(delays.short);
+        const pauseSettingsReturn = await page.evaluate(() => ({
+            paused: window.gameApp?.renderer?._isPaused === true,
+            overlayVisible: Boolean(document.querySelector('#pause-overlay:not(.hidden)')),
+            focus: document.activeElement?.id || '',
+        }));
+        if (!pauseSettingsReturn.paused || !pauseSettingsReturn.overlayVisible || pauseSettingsReturn.focus !== 'btn-pause-settings') {
+            throw new Error(`关闭暂停设置后未返回暂停层: ${JSON.stringify(pauseSettingsReturn)}`);
+        }
+        console.log('  ✅ 关闭设置后返回暂停层和原入口');
         await page.click('#btn-pause-exit');
         await page.waitForTimeout(delays.medium);
         const backToMenu = await page.$eval('#menu-screen', (el) => !el.classList.contains('hidden'));
@@ -743,12 +772,20 @@ async function run() {
         await screenshot(page, '11-play-style');
         const playStyleOverlay = await page.$eval('#play-style-overlay', (el) => !el.classList.contains('hidden'));
         if (!playStyleOverlay) throw new Error('牌风分析面板未显示');
-        console.log('  ✅ 牌风分析面板显示');
+        const playStyleOpenFocus = await page.evaluate(() => document.activeElement?.id || '');
+        if (playStyleOpenFocus !== 'btn-close-play-style') {
+            throw new Error(`牌风分析打开后焦点未进入弹窗: ${playStyleOpenFocus}`);
+        }
+        console.log('  ✅ 牌风分析面板显示且焦点进入弹窗');
         await page.click('#btn-close-play-style');
         await page.waitForTimeout(delays.short);
         const playStyleHidden = await page.$eval('#play-style-overlay', (el) => el.classList.contains('hidden'));
         if (!playStyleHidden) throw new Error('牌风分析面板关闭失败');
-        console.log('  ✅ 牌风分析面板关闭');
+        const playStyleCloseFocus = await page.evaluate(() => document.activeElement?.id || '');
+        if (playStyleCloseFocus !== 'btn-play-style') {
+            throw new Error(`牌风分析关闭后焦点未返回入口: ${playStyleCloseFocus}`);
+        }
+        console.log('  ✅ 牌风分析面板关闭并恢复焦点');
 
         // 公告面板
         await page.click('#btn-changelog');
@@ -756,6 +793,10 @@ async function run() {
         await screenshot(page, '12-changelog');
         const changelogVisible = await page.$eval('#changelog-overlay', (el) => !el.classList.contains('hidden'));
         if (!changelogVisible) throw new Error('公告面板未显示');
+        const changelogOpenFocus = await page.evaluate(() => document.activeElement?.id || '');
+        if (changelogOpenFocus !== 'btn-close-changelog') {
+            throw new Error(`公告打开后焦点未进入弹窗: ${changelogOpenFocus}`);
+        }
         const changelogVersion = await page.$eval('.changelog-current .changelog-version-badge', (el) => el.textContent.trim());
         if (changelogVersion !== `v${expectedVersion}`) {
             throw new Error(`当前公告版本号与 package.json 不一致: ${changelogVersion} / ${expectedVersion}`);
@@ -770,7 +811,11 @@ async function run() {
         await page.waitForTimeout(delays.short);
         const changelogHidden = await page.$eval('#changelog-overlay', (el) => el.classList.contains('hidden'));
         if (!changelogHidden) throw new Error('公告面板关闭失败');
-        console.log('  ✅ 公告面板关闭');
+        const changelogCloseFocus = await page.evaluate(() => document.activeElement?.id || '');
+        if (changelogCloseFocus !== 'btn-changelog') {
+            throw new Error(`公告关闭后焦点未返回入口: ${changelogCloseFocus}`);
+        }
+        console.log('  ✅ 公告面板关闭并恢复焦点');
 
         await page.close();
 

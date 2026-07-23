@@ -669,8 +669,13 @@ class Renderer {
             this._pauseResumeHandler = () => this._resumeGame();
             this._pauseSettingsHandler = () => {
                 this.audio?.playButtonClick();
-                this._resumeGame();
-                window.gameApp?.openSettings();
+                const pauseOverlay = document.getElementById('pause-overlay');
+                const returnFocus = pauseOverlay?.querySelector('#btn-pause-settings');
+                if (pauseOverlay) {
+                    pauseOverlay.classList.add('hidden');
+                    pauseOverlay.style.display = 'none';
+                }
+                window.gameApp?.openSettings(returnFocus);
             };
             this._pauseExitHandler = () => {
                 this.audio?.playButtonClick();

@@ -197,6 +197,43 @@ test('AudioManager keeps the shared audio route connected during BGM fade-out', 
     audio.destroy();
 });
 
+await testAsync('AudioManager releases completed SFX timers', async () => {
+    const audio = new AudioManager();
+    audio._tone = () => {};
+
+    audio.playHint();
+    assert(audio._sfxTimeouts.size === 1, 'expected one pending SFX timer');
+    await new Promise(resolve => setTimeout(resolve, 110));
+
+    const pending = audio._sfxTimeouts.size;
+    audio.destroy();
+    assert(pending === 0, `completed SFX timer remained tracked: ${pending}`);
+});
+
+test('AudioManager event sounds respect their fine-grained category switches', () => {
+    const audio = new AudioManager();
+    let tones = 0;
+    let sequences = 0;
+    audio._tone = () => { tones++; };
+    audio._sequence = () => { sequences++; };
+    audio._sfxSettings = {
+        deal: false,
+        play: true,
+        call: false,
+        bomb: true,
+        win: false,
+        tick: true,
+        chat: true,
+    };
+
+    audio.playBottomReveal();
+    audio.playLandlordConfirm();
+    audio.playMatchEnd();
+
+    audio.destroy();
+    assert(tones === 0 && sequences === 0, `disabled categories still played: tones=${tones}, sequences=${sequences}`);
+});
+
 console.log(`\n====================`);
 console.log(`AudioManager: Passed ${passed}, Failed ${failed}`);
 console.log(`====================`);

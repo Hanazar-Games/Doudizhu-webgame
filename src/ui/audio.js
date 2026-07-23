@@ -66,8 +66,13 @@ class AudioManager {
         this._loadSfxSettings();
     }
 
-    _trackSfxTimeout(id) {
+    _setSfxTimeout(fn, delay) {
+        const id = setTimeout(() => {
+            this._sfxTimeouts.delete(id);
+            fn();
+        }, delay);
         this._sfxTimeouts.add(id);
+        return id;
     }
 
     _clearSfxTimeouts() {
@@ -456,7 +461,7 @@ class AudioManager {
         if (!this._isSfxEnabled('play')) return;
         // 不出：低沉闷音（频率提升到手机扬声器可听范围）
         this._tone(280, 0.15, 'triangle', 0.09);
-        this._trackSfxTimeout(setTimeout(() => this._tone(250, 0.12, 'triangle', 0.07), 70));
+        this._setSfxTimeout(() => this._tone(250, 0.12, 'triangle', 0.07), 70);
     }
 
     playPlay() {
@@ -464,7 +469,7 @@ class AudioManager {
         if (!this._isSfxEnabled('play')) return;
         // 出牌：轻快的滑动音
         this._tone(560, 0.07, 'sine', 0.1);
-        this._trackSfxTimeout(setTimeout(() => this._tone(720, 0.09, 'sine', 0.1), 40));
+        this._setSfxTimeout(() => this._tone(720, 0.09, 'sine', 0.1), 40);
     }
 
     playSingle() {
@@ -476,7 +481,7 @@ class AudioManager {
         if (!this.sfxEnabled) return;
         if (!this._isSfxEnabled('play')) return;
         this._tone(560, 0.07, 'sine', 0.1);
-        this._trackSfxTimeout(setTimeout(() => this._tone(560, 0.07, 'sine', 0.1), 50));
+        this._setSfxTimeout(() => this._tone(560, 0.07, 'sine', 0.1), 50);
     }
 
     playTriple() {
@@ -528,7 +533,7 @@ class AudioManager {
         if (!this._isSfxEnabled('play')) return;
         // 纯五度和声（G4 + D5）
         this._tone(392, 0.13, 'triangle', 0.10);
-        this._trackSfxTimeout(setTimeout(() => this._tone(587, 0.08, 'sine', 0.07), 100));
+        this._setSfxTimeout(() => this._tone(587, 0.08, 'sine', 0.07), 100);
     }
 
     async playBomb() {
@@ -683,7 +688,7 @@ class AudioManager {
         if (!this.sfxEnabled) return;
         // 提示：双音提示
         this._tone(784, 0.08, 'sine', 0.09);
-        this._trackSfxTimeout(setTimeout(() => this._tone(1047, 0.1, 'sine', 0.09), 80));
+        this._setSfxTimeout(() => this._tone(1047, 0.1, 'sine', 0.09), 80);
     }
 
     playAutoToggle(on) {
@@ -691,10 +696,10 @@ class AudioManager {
         // 托管切换：机械感
         if (on) {
             this._tone(440, 0.1, 'square', 0.06);
-            this._trackSfxTimeout(setTimeout(() => this._tone(660, 0.12, 'square', 0.06), 100));
+            this._setSfxTimeout(() => this._tone(660, 0.12, 'square', 0.06), 100);
         } else {
             this._tone(660, 0.1, 'square', 0.06);
-            this._trackSfxTimeout(setTimeout(() => this._tone(440, 0.12, 'square', 0.06), 100));
+            this._setSfxTimeout(() => this._tone(440, 0.12, 'square', 0.06), 100);
         }
     }
 
@@ -703,19 +708,21 @@ class AudioManager {
         if (!this._shouldPlaySfx('buttonClick', 60)) return;
         // 按钮点击：短促木头感
         this._tone(1200, 0.03, 'sine', 0.07);
-        this._trackSfxTimeout(setTimeout(() => this._tone(800, 0.04, 'sine', 0.05), 20));
+        this._setSfxTimeout(() => this._tone(800, 0.04, 'sine', 0.05), 20);
     }
 
     playLandlordConfirm() {
         if (!this.sfxEnabled) return;
+        if (!this._isSfxEnabled('call')) return;
         // 地主确认：庄重的和弦
         this._tone(392, 0.2, 'triangle', 0.1);
-        this._trackSfxTimeout(setTimeout(() => this._tone(494, 0.2, 'triangle', 0.1), 120));
-        this._trackSfxTimeout(setTimeout(() => this._tone(587, 0.3, 'triangle', 0.12), 240));
+        this._setSfxTimeout(() => this._tone(494, 0.2, 'triangle', 0.1), 120);
+        this._setSfxTimeout(() => this._tone(587, 0.3, 'triangle', 0.12), 240);
     }
 
     playBottomReveal() {
         if (!this.sfxEnabled) return;
+        if (!this._isSfxEnabled('deal')) return;
         // 底牌揭示：翻牌轻响
         this._sequence([
             { freq: 500, dur: 0.04 },
@@ -728,15 +735,15 @@ class AudioManager {
         if (!this._shouldPlaySfx('newRound', 300)) return;
         // 新一轮开始：提示音
         this._tone(523, 0.1, 'sine', 0.1);
-        this._trackSfxTimeout(setTimeout(() => this._tone(659, 0.1, 'sine', 0.1), 100));
-        this._trackSfxTimeout(setTimeout(() => this._tone(784, 0.15, 'sine', 0.12), 200));
+        this._setSfxTimeout(() => this._tone(659, 0.1, 'sine', 0.1), 100);
+        this._setSfxTimeout(() => this._tone(784, 0.15, 'sine', 0.12), 200);
     }
 
     playTurnAlert() {
         if (!this.sfxEnabled) return;
         // 回合提醒：轻柔提示
         this._tone(659, 0.08, 'sine', 0.07);
-        this._trackSfxTimeout(setTimeout(() => this._tone(784, 0.1, 'sine', 0.08), 120));
+        this._setSfxTimeout(() => this._tone(784, 0.1, 'sine', 0.08), 120);
     }
 
     playChat() {
@@ -749,14 +756,14 @@ class AudioManager {
         if (!this.sfxEnabled) return;
         // 出牌放置：轻快的落牌声
         this._tone(600, 0.04, 'sine', 0.07);
-        this._trackSfxTimeout(setTimeout(() => this._tone(800, 0.05, 'sine', 0.06), 40));
+        this._setSfxTimeout(() => this._tone(800, 0.05, 'sine', 0.06), 40);
     }
 
     playError() {
         if (!this.sfxEnabled) return;
         // 错误/无效操作：不和谐低音
         this._tone(150, 0.15, 'sawtooth', 0.08);
-        this._trackSfxTimeout(setTimeout(() => this._tone(120, 0.15, 'sawtooth', 0.08), 80));
+        this._setSfxTimeout(() => this._tone(120, 0.15, 'sawtooth', 0.08), 80);
     }
 
     playCountdown() {
@@ -770,13 +777,15 @@ class AudioManager {
         // 分数变化：硬币声
         if (positive) {
             this._tone(1200, 0.06, 'sine', 0.08);
-            this._trackSfxTimeout(setTimeout(() => this._tone(1600, 0.08, 'sine', 0.1), 50));
+            this._setSfxTimeout(() => this._tone(1600, 0.08, 'sine', 0.1), 50);
         } else {
             this._tone(600, 0.1, 'triangle', 0.08);
         }
     }
 
     playMatchEnd() {
+        if (!this.sfxEnabled) return;
+        if (!this._isSfxEnabled('win')) return;
         if (!this._shouldPlaySfx('matchEnd', 800)) return;
         // 比赛结束：号角
         this._sequence([
@@ -791,8 +800,8 @@ class AudioManager {
         if (!this._shouldPlaySfx('grabLandlord', 300)) return;
         // 抢地主：紧张感
         this._tone(440, 0.1, 'square', 0.07);
-        this._trackSfxTimeout(setTimeout(() => this._tone(550, 0.1, 'square', 0.08), 80));
-        this._trackSfxTimeout(setTimeout(() => this._tone(660, 0.15, 'square', 0.09), 160));
+        this._setSfxTimeout(() => this._tone(550, 0.1, 'square', 0.08), 80);
+        this._setSfxTimeout(() => this._tone(660, 0.15, 'square', 0.09), 160);
     }
 
     playPassTurn() {
@@ -800,7 +809,7 @@ class AudioManager {
         if (!this._isSfxEnabled('play')) return;
         // 过牌（轮到下一家）：轻柔滑音
         this._tone(400, 0.08, 'sine', 0.06);
-        this._trackSfxTimeout(setTimeout(() => this._tone(350, 0.1, 'sine', 0.05), 60));
+        this._setSfxTimeout(() => this._tone(350, 0.1, 'sine', 0.05), 60);
     }
 
     // ==================== 设置面板音效 ====================
@@ -810,11 +819,11 @@ class AudioManager {
         if (on) {
             // 开启：清脆上升音
             this._tone(880, 0.06, 'sine', 0.06);
-            this._trackSfxTimeout(setTimeout(() => this._tone(1100, 0.08, 'sine', 0.07), 50));
+            this._setSfxTimeout(() => this._tone(1100, 0.08, 'sine', 0.07), 50);
         } else {
             // 关闭：低沉下降音
             this._tone(660, 0.06, 'sine', 0.05);
-            this._trackSfxTimeout(setTimeout(() => this._tone(440, 0.08, 'sine', 0.04), 50));
+            this._setSfxTimeout(() => this._tone(440, 0.08, 'sine', 0.04), 50);
         }
     }
 
@@ -828,22 +837,22 @@ class AudioManager {
         if (!this.sfxEnabled) return;
         // 面板打开：明亮展开音
         this._tone(660, 0.08, 'sine', 0.06);
-        this._trackSfxTimeout(setTimeout(() => this._tone(880, 0.1, 'sine', 0.07), 60));
-        this._trackSfxTimeout(setTimeout(() => this._tone(1100, 0.12, 'sine', 0.06), 130));
+        this._setSfxTimeout(() => this._tone(880, 0.1, 'sine', 0.07), 60);
+        this._setSfxTimeout(() => this._tone(1100, 0.12, 'sine', 0.06), 130);
     }
 
     playSettingClose() {
         if (!this.sfxEnabled) return;
         // 面板关闭：收拢音
         this._tone(880, 0.06, 'sine', 0.05);
-        this._trackSfxTimeout(setTimeout(() => this._tone(660, 0.08, 'sine', 0.04), 60));
+        this._setSfxTimeout(() => this._tone(660, 0.08, 'sine', 0.04), 60);
     }
 
     playSettingReset() {
         if (!this.sfxEnabled) return;
         // 重置：警示音
         this._tone(440, 0.1, 'triangle', 0.07);
-        this._trackSfxTimeout(setTimeout(() => this._tone(330, 0.12, 'triangle', 0.06), 100));
+        this._setSfxTimeout(() => this._tone(330, 0.12, 'triangle', 0.06), 100);
     }
 
     // ==================== 控制接口 ====================
