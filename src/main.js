@@ -440,7 +440,7 @@ class GameApp {
             audio.stopBGM();
         }
         audio.bgmEnabled = newBgmEnabled;
-        audio.sfxEnabled = this.settings.sfxEnabled !== false;
+        audio.setSFXEnabled(this.settings.sfxEnabled !== false);
         audio.setBGMVolume(this.settings.bgmVolume ?? 0.5);
         audio.setSFXVolume(this.settings.sfxVolume ?? 0.5);
         audio.setVoiceVolume(this.settings.voiceVolume ?? 0.7);
@@ -626,7 +626,7 @@ class GameApp {
                 }
                 if (key === 'sfxEnabled') {
                     const audio = this._getActiveAudio();
-                    if (audio) audio.sfxEnabled = control.checked;
+                    audio?.setSFXEnabled(control.checked);
                 }
                 // === 音效反馈 ===
                 const audio = this._getActiveAudio();

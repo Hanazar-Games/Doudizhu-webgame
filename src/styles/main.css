@@ -2002,9 +2002,15 @@ body[data-theme="purple"] {
     }
 }
 
-#shortcut-hint:hover {
+#shortcut-hint:hover,
+#shortcut-hint:focus-visible {
     opacity: 0.9;
     background: rgba(255,255,255,0.08);
+}
+
+#shortcut-hint:focus-visible {
+    outline: 2px solid var(--gold, #f0c040);
+    outline-offset: 2px;
 }
 
 #last-play-type {
@@ -6948,8 +6954,8 @@ body {
 }
 
 @keyframes helpSlideIn {
-    0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0; }
-    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    0% { opacity: 0; }
+    100% { opacity: 1; }
 }
 
 /* 回合指示器呼吸 */

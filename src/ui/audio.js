@@ -80,6 +80,14 @@ class AudioManager {
         this._sfxTimeouts.clear();
     }
 
+    _clearPendingSfx() {
+        this._clearSfxTimeouts();
+        if (this._callTimeout) clearTimeout(this._callTimeout);
+        if (this._winSfxTimeout) clearTimeout(this._winSfxTimeout);
+        this._callTimeout = null;
+        this._winSfxTimeout = null;
+    }
+
     _clearBGMGainCleanups() {
         this._bgmGainCleanups.forEach((gain, id) => {
             clearTimeout(id);
@@ -446,12 +454,14 @@ class AudioManager {
     }
 
     playCall() {
+        if (!this.sfxEnabled) return;
         if (!this._isSfxEnabled('call')) return;
         // 叫分：庄重的双音
         this._tone(523, 0.15, 'sine', 0.13);
         if (this._callTimeout) clearTimeout(this._callTimeout);
         this._callTimeout = setTimeout(() => {
             this._callTimeout = null;
+            if (!this.sfxEnabled || !this._isSfxEnabled('call')) return;
             this._tone(659, 0.2, 'sine', 0.13);
         }, 100);
     }
@@ -616,6 +626,7 @@ class AudioManager {
     }
 
     playWin() {
+        if (!this.sfxEnabled) return;
         if (!this._isSfxEnabled('win')) return;
         if (!this._shouldPlaySfx('win', 800)) return;
         // 胜利：更丰富的上行和弦
@@ -628,6 +639,7 @@ class AudioManager {
         if (this._winSfxTimeout) clearTimeout(this._winSfxTimeout);
         this._winSfxTimeout = setTimeout(() => {
             this._winSfxTimeout = null;
+            if (!this.sfxEnabled || !this._isSfxEnabled('win')) return;
             this._sequence([
                 { freq: 784, dur: 0.08 },
                 { freq: 1047, dur: 0.5, vol: 0.15 },
@@ -863,6 +875,7 @@ class AudioManager {
         this.enabled = !this.enabled;
         if (!this.enabled) {
             this.stopBGM();
+            this._clearPendingSfx();
         } else {
             this.resumeCurrentBGM();
         }
@@ -890,22 +903,19 @@ class AudioManager {
     }
 
     toggleSFX() {
-        this.sfxEnabled = !this.sfxEnabled;
+        return this.setSFXEnabled(!this.sfxEnabled);
+    }
+
+    setSFXEnabled(enabled) {
+        this.sfxEnabled = Boolean(enabled);
+        if (!this.sfxEnabled) this._clearPendingSfx();
         return this.sfxEnabled;
     }
 
     destroy() {
         this.stopBGM();
-        this._clearSfxTimeouts();
+        this._clearPendingSfx();
         this._clearBGMGainCleanups();
-        if (this._winSfxTimeout) {
-            clearTimeout(this._winSfxTimeout);
-            this._winSfxTimeout = null;
-        }
-        if (this._callTimeout) {
-            clearTimeout(this._callTimeout);
-            this._callTimeout = null;
-        }
         this._bgmNodes.forEach(n => {
             try {
                 if (n.gain) n.gain.disconnect();

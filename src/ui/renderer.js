@@ -52,7 +52,7 @@ class Renderer {
         this._destroyed = true;
         this._isPaused = false;
         this._removePauseOverlay();
-        this._removeHelpPanel();
+        this._removeHelpPanel(false);
         if (this._keyboardHandler) {
             document.removeEventListener('keydown', this._keyboardHandler);
             this._keyboardHandler = null;
@@ -257,7 +257,7 @@ class Renderer {
                 <div id="game-info">
                     <span id="phase-text">准备中</span>
                     <span id="score-text"></span>
-                    <span id="shortcut-hint">快捷键: H提示 P不出 Space出牌</span>
+                    <span id="shortcut-hint" role="button" tabindex="0" aria-expanded="false" aria-controls="help-panel">快捷键: H提示 P不出 Space出牌</span>
                 </div>
             </div>
             <div id="modal-overlay" class="hidden">
@@ -454,6 +454,12 @@ class Renderer {
             this._toggleHelpPanel();
         };
         this._addControlListener(shortcutHint, 'click', shortcutHandler);
+        this._addControlListener(shortcutHint, 'keydown', (e) => {
+            if (e.key !== 'Enter' && e.code !== 'Space') return;
+            e.preventDefault();
+            e.stopPropagation();
+            shortcutHandler();
+        });
     }
 
     _initEmptyStates() {
@@ -472,6 +478,14 @@ class Renderer {
             const target = e.target;
             if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
                 return;
+            }
+
+            if (e.key === 'Tab') {
+                const helpPanel = document.getElementById('help-panel');
+                if (helpPanel) {
+                    this._trapFocus(helpPanel, e);
+                    return;
+                }
             }
 
             if (e.key === 'Tab' && this._isPaused) {
@@ -750,7 +764,7 @@ class Renderer {
         }
     }
 
-    _removeHelpPanel() {
+    _removeHelpPanel(restoreFocus = true) {
         const panel = document.getElementById('help-panel');
         if (panel) {
             if (this._helpPanelClickHandler) {
@@ -759,20 +773,29 @@ class Renderer {
             }
             panel.remove();
         }
+        const shortcutHint = this.container?.querySelector('#shortcut-hint');
+        shortcutHint?.setAttribute('aria-expanded', 'false');
+        const returnFocus = this._helpReturnFocus;
+        this._helpReturnFocus = null;
+        if (restoreFocus && returnFocus?.isConnected) returnFocus.focus();
     }
 
     _toggleHelpPanel() {
         let panel = document.getElementById('help-panel');
         if (panel) {
-            panel.remove();
+            this._removeHelpPanel();
             return;
         }
+        this._helpReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         panel = document.createElement('div');
         panel.id = 'help-panel';
         panel.dataset.animFx = 'true';
+        panel.setAttribute('role', 'dialog');
+        panel.setAttribute('aria-modal', 'true');
+        panel.setAttribute('aria-labelledby', 'help-panel-title');
         panel.innerHTML = `
             <div class="help-content">
-                <h3>⌨️ 快捷键指南</h3>
+                <h3 id="help-panel-title">⌨️ 快捷键指南</h3>
                 <div class="help-grid">
                     <div class="help-item"><kbd>Space</kbd><span>出牌</span></div>
                     <div class="help-item"><kbd>P</kbd><span>不出</span></div>
@@ -808,10 +831,12 @@ class Renderer {
             </div>
         `;
         document.body.appendChild(panel);
+        this.container?.querySelector('#shortcut-hint')?.setAttribute('aria-expanded', 'true');
         this._helpPanelClickHandler = (e) => {
-            if (e.target === panel || e.target.id === 'btn-help-close') panel.remove();
+            if (e.target === panel || e.target.id === 'btn-help-close') this._removeHelpPanel();
         };
         panel.addEventListener('click', this._helpPanelClickHandler);
+        panel.querySelector('#btn-help-close')?.focus();
     }
 
     _doPlay() {

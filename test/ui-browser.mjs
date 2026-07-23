@@ -605,6 +605,54 @@ async function run() {
             throw new Error(`键盘无法选择手牌: ${JSON.stringify(keyboardSelection)}`);
         }
         console.log('  ✅ Tab + Space 可完成键盘选牌');
+        const shortcutSemantics = await page.$eval('#shortcut-hint', (hint) => ({
+            role: hint.getAttribute('role'),
+            tabIndex: hint.tabIndex,
+            expanded: hint.getAttribute('aria-expanded'),
+            controls: hint.getAttribute('aria-controls'),
+        }));
+        if (shortcutSemantics.role !== 'button' || shortcutSemantics.tabIndex !== 0 ||
+            shortcutSemantics.expanded !== 'false' || shortcutSemantics.controls !== 'help-panel') {
+            throw new Error(`快捷键帮助入口语义不完整: ${JSON.stringify(shortcutSemantics)}`);
+        }
+        await page.focus('#shortcut-hint');
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(delays.short);
+        const helpState = await page.$eval('#help-panel', (panel) => {
+            const rect = panel.getBoundingClientRect();
+            return {
+                role: panel.getAttribute('role'),
+                modal: panel.getAttribute('aria-modal'),
+                labelledBy: panel.getAttribute('aria-labelledby'),
+                titleId: panel.querySelector('.help-content h3')?.id || '',
+                focus: document.activeElement?.id || '',
+                left: rect.left,
+                top: rect.top,
+                right: rect.right,
+                bottom: rect.bottom,
+                width: innerWidth,
+                height: innerHeight,
+            };
+        });
+        if (helpState.role !== 'dialog' || helpState.modal !== 'true' || helpState.labelledBy !== helpState.titleId ||
+            helpState.focus !== 'btn-help-close' || Math.abs(helpState.left) > 1 || Math.abs(helpState.top) > 1 ||
+            Math.abs(helpState.right - helpState.width) > 1 || Math.abs(helpState.bottom - helpState.height) > 1) {
+            throw new Error(`快捷键帮助层语义、焦点或覆盖范围异常: ${JSON.stringify(helpState)}`);
+        }
+        await page.keyboard.press('Tab');
+        const helpTrappedFocus = await page.evaluate(() => document.activeElement?.id || '');
+        if (helpTrappedFocus !== 'btn-help-close') throw new Error(`快捷键帮助焦点逃出弹窗: ${helpTrappedFocus}`);
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(delays.short);
+        const helpCloseState = await page.evaluate(() => ({
+            exists: Boolean(document.getElementById('help-panel')),
+            focus: document.activeElement?.id || '',
+            expanded: document.getElementById('shortcut-hint')?.getAttribute('aria-expanded'),
+        }));
+        if (helpCloseState.exists || helpCloseState.focus !== 'shortcut-hint' || helpCloseState.expanded !== 'false') {
+            throw new Error(`快捷键帮助关闭状态异常: ${JSON.stringify(helpCloseState)}`);
+        }
+        console.log('  ✅ 快捷键帮助完整覆盖视口并支持键盘焦点');
         const noChatUi = await page.evaluate(() => !document.querySelector('#btn-toggle-chat, #chat-panel, #quick-phrases'));
         if (!noChatUi) throw new Error('聊天入口仍然存在');
         console.log('  ✅ 聊天/快捷短语入口已移除');

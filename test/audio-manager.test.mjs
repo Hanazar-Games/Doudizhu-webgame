@@ -252,6 +252,61 @@ await testAsync('AudioManager rocket sound respects the bomb category switch', a
     assert(contextAttempts === 0, `disabled bomb category still initialized audio: ${contextAttempts}`);
 });
 
+test('AudioManager does not schedule delayed call or win notes while SFX is disabled', () => {
+    const audio = new AudioManager();
+    audio.sfxEnabled = false;
+    audio._tone = () => {};
+    audio._sequence = () => {};
+
+    audio.playCall();
+    audio.playWin();
+
+    const pending = { call: audio._callTimeout, win: audio._winSfxTimeout };
+    audio.destroy();
+    assert(pending.call === null && pending.win === null, `disabled SFX scheduled delayed notes: ${JSON.stringify(pending)}`);
+});
+
+await testAsync('AudioManager cancels queued SFX when toggled off', async () => {
+    const audio = new AudioManager();
+    const tones = [];
+    audio._tone = freq => tones.push(freq);
+
+    audio.playHint();
+    audio.toggleSFX();
+    audio.toggleSFX();
+    await new Promise(resolve => setTimeout(resolve, 110));
+
+    audio.destroy();
+    assert(tones.join(',') === '784', `queued SFX leaked after a quick toggle: ${tones.join(',')}`);
+});
+
+await testAsync('AudioManager cancels queued SFX when master sound is toggled off', async () => {
+    const audio = new AudioManager();
+    const tones = [];
+    audio._tone = freq => tones.push(freq);
+
+    audio.playHint();
+    audio.toggle();
+    audio.toggle();
+    await new Promise(resolve => setTimeout(resolve, 110));
+
+    audio.destroy();
+    assert(tones.join(',') === '784', `queued SFX leaked through master mute: ${tones.join(',')}`);
+});
+
+await testAsync('AudioManager delayed call note rechecks its category switch', async () => {
+    const audio = new AudioManager();
+    const tones = [];
+    audio._tone = freq => tones.push(freq);
+
+    audio.playCall();
+    audio._sfxSettings.call = false;
+    await new Promise(resolve => setTimeout(resolve, 130));
+
+    audio.destroy();
+    assert(tones.join(',') === '523', `call tail ignored category change: ${tones.join(',')}`);
+});
+
 console.log(`\n====================`);
 console.log(`AudioManager: Passed ${passed}, Failed ${failed}`);
 console.log(`====================`);

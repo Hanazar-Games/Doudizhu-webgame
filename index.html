@@ -152,7 +152,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.43</span>
+                <span class="version-info">v1.2.44</span>
             </footer>
         </div>
     </div>
@@ -1607,20 +1607,32 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.43</div>
-                    <h3>⌨️ 模态键盘体验与音效分类修复</h3>
+                    <div class="changelog-version-badge">v1.2.44</div>
+                    <h3>⌨️ 快捷键帮助与延迟音效修复</h3>
                     <ul>
-                        <li>⏸️ <strong>暂停层语义补全</strong>：暂停界面升级为标准 dialog，补齐标题关联和模态属性</li>
-                        <li>⌨️ <strong>键盘焦点约束</strong>：暂停、设置、公告和牌风分析的 Tab 焦点保持在当前弹窗内</li>
-                        <li>🎵 <strong>暂停 BGM 修复</strong>：恢复游戏不再从头重播一次性的胜利或失败音乐</li>
-                        <li>🔊 <strong>音效分类纠偏</strong>：抢地主、倒计时提示和火箭分别遵循叫分、滴答和炸弹开关</li>
-                        <li>♿ <strong>焦点生命周期修复</strong>：暂停时聚焦继续按钮，恢复后准确返回原操作位置</li>
-                        <li>🧪 <strong>回归补强</strong>：新增 dialog 语义、焦点环、暂停 BGM 和音效分类检查</li>
+                        <li>🖥️ <strong>帮助层覆盖修复</strong>：移除全屏遮罩的错误位移动画，帮助面板重新完整覆盖视口</li>
+                        <li>⌨️ <strong>帮助入口无障碍</strong>：快捷键提示支持 Enter/Space 打开，并同步按钮语义和展开状态</li>
+                        <li>♿ <strong>模态焦点管理</strong>：打开后聚焦关闭按钮，Tab 不会逃出，关闭后返回原入口</li>
+                        <li>🔇 <strong>延迟音效止漏</strong>：关闭主音效或 SFX 会立即取消提示、叫分和胜利等已排队尾音</li>
+                        <li>🔊 <strong>分类开关同步</strong>：叫分与胜利尾音播放前重新检查全局和分类开关</li>
+                        <li>🧪 <strong>回归补强</strong>：新增帮助层覆盖、键盘焦点及延迟 SFX 生命周期检查</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.43</div>
+                            <h4>⌨️ 模态键盘体验与音效分类修复</h4>
+                            <ul>
+                                <li>⏸️ <strong>暂停层语义补全</strong>：暂停界面升级为标准 dialog，补齐标题关联和模态属性</li>
+                                <li>⌨️ <strong>键盘焦点约束</strong>：暂停、设置、公告和牌风分析的 Tab 焦点保持在当前弹窗内</li>
+                                <li>🎵 <strong>暂停 BGM 修复</strong>：恢复游戏不再从头重播一次性的胜利或失败音乐</li>
+                                <li>🔊 <strong>音效分类纠偏</strong>：抢地主、倒计时提示和火箭分别遵循叫分、滴答和炸弹开关</li>
+                                <li>♿ <strong>焦点生命周期修复</strong>：暂停时聚焦继续按钮，恢复后准确返回原操作位置</li>
+                                <li>🧪 <strong>回归补强</strong>：新增 dialog 语义、焦点环、暂停 BGM 和音效分类检查</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.42</div>
                             <h4>⏸️ 暂停设置与音频生命周期修复</h4>
