@@ -225,10 +225,9 @@ export const Storage = {
             enableStats: true,
             enableAchievements: true,
 
-            // ====== 个性化 (4项) ======
+            // ====== 个性化 ======
             playerName: '玩家',
             matchRounds: 1,
-            avatarStyle: 'default',
             showOpponentCall: true,
 
             // ====== 无障碍 (5项) ======
@@ -249,8 +248,7 @@ export const Storage = {
             heartbeatInterval: 5,
             lagCompensation: true,
 
-            // ====== 高级 (4项) ======
-            language: 'zh-CN',
+            // ====== 高级 ======
             maxHistory: 50,
             spectatorDelay: 0,
             autoSaveInterval: 30,

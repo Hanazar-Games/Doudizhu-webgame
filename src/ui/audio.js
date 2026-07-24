@@ -21,6 +21,7 @@ class AudioManager {
         this._bgmGainCleanups = new Map();
         this._winSfxTimeout = null;
         this._sfxTimeouts = new Set();
+        this._sfxNodes = new Set();
         this._callTimeout = null;
         this._bgmLoopStart = 0;
         this._currentBGM = null;
@@ -80,8 +81,29 @@ class AudioManager {
         this._sfxTimeouts.clear();
     }
 
+    _trackSfxSource(source, nodes) {
+        const entry = { source, nodes: [...new Set(nodes)] };
+        this._sfxNodes.add(entry);
+        source.onended = () => this._releaseSfxSource(entry);
+    }
+
+    _releaseSfxSource(entry) {
+        if (!this._sfxNodes.delete(entry)) return;
+        entry.nodes.forEach(node => {
+            try { node.disconnect(); } catch (e) {}
+        });
+    }
+
+    _clearActiveSfx() {
+        [...this._sfxNodes].forEach(entry => {
+            try { entry.source.stop(); } catch (e) {}
+            this._releaseSfxSource(entry);
+        });
+    }
+
     _clearPendingSfx() {
         this._clearSfxTimeouts();
+        this._clearActiveSfx();
         if (this._callTimeout) clearTimeout(this._callTimeout);
         if (this._winSfxTimeout) clearTimeout(this._winSfxTimeout);
         this._callTimeout = null;
@@ -157,7 +179,7 @@ class AudioManager {
         if (duration <= 0) return;
         if (!this.sfxEnabled) return;
         if (!(await this._ensureContext())) return;
-        if (!this.ctx) return;
+        if (!this.enabled || !this.sfxEnabled || !this.ctx) return;
         const t = when ?? this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -181,15 +203,13 @@ class AudioManager {
             try { osc.disconnect(); gain.disconnect(); } catch (_) {}
             return;
         }
-        osc.onended = () => {
-            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
-        };
+        this._trackSfxSource(osc, [osc, gain]);
     }
 
     async _playTick() {
         if (!this.sfxEnabled) return;
         if (!(await this._ensureContext())) return;
-        if (!this.ctx) return;
+        if (!this.enabled || !this.sfxEnabled || !this.ctx) return;
         const t = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -201,9 +221,7 @@ class AudioManager {
         gain.connect(this._getMasterCompressor() || this.ctx.destination);
         osc.start(t);
         osc.stop(t + 0.1);
-        osc.onended = () => {
-            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
-        };
+        this._trackSfxSource(osc, [osc, gain]);
     }
 
     playTick() {
@@ -507,7 +525,7 @@ class AudioManager {
         if (!this.sfxEnabled) return;
         if (!this._isSfxEnabled('play')) return;
         if (!(await this._ensureContext())) return;
-        if (!this.ctx) return;
+        if (!this.enabled || !this.sfxEnabled || !this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
@@ -524,9 +542,7 @@ class AudioManager {
             try { osc.disconnect(); gain.disconnect(); } catch (_) {}
             return;
         }
-        osc.onended = () => {
-            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
-        };
+        this._trackSfxSource(osc, [osc, gain]);
     }
 
     playPlane() {
@@ -551,7 +567,7 @@ class AudioManager {
         if (!this._isSfxEnabled('bomb')) return;
         if (!this._shouldPlaySfx('bomb', 600)) return;
         if (!(await this._ensureContext())) return;
-        if (!this.ctx) return;
+        if (!this.enabled || !this.sfxEnabled || !this.ctx) return;
         const duration = 0.7;
         const bufferSize = this.ctx.sampleRate * duration;
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
@@ -572,6 +588,7 @@ class AudioManager {
         filter.connect(gain);
         gain.connect(this._getMasterCompressor() || this.ctx.destination);
         try { noise.start(); } catch (e) { return; }
+        this._trackSfxSource(noise, [noise, filter, gain]);
 
         const osc = this.ctx.createOscillator();
         osc.type = 'sawtooth';
@@ -589,12 +606,7 @@ class AudioManager {
             try { osc.disconnect(); oscGain.disconnect(); } catch (_) {}
             return;
         }
-        noise.onended = () => {
-            try { noise.disconnect(); filter.disconnect(); gain.disconnect(); } catch (e) {}
-        };
-        osc.onended = () => {
-            try { osc.disconnect(); oscGain.disconnect(); } catch (e) {}
-        };
+        this._trackSfxSource(osc, [osc, oscGain]);
     }
 
     async playRocket() {
@@ -602,7 +614,7 @@ class AudioManager {
         if (!this._isSfxEnabled('bomb')) return;
         if (!this._shouldPlaySfx('rocket', 600)) return;
         if (!(await this._ensureContext())) return;
-        if (!this.ctx) return;
+        if (!this.enabled || !this.sfxEnabled || !this.ctx) return;
         const osc = this.ctx.createOscillator();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(350, this.ctx.currentTime);
@@ -620,9 +632,7 @@ class AudioManager {
             try { osc.disconnect(); gain.disconnect(); } catch (_) {}
             return;
         }
-        osc.onended = () => {
-            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
-        };
+        this._trackSfxSource(osc, [osc, gain]);
     }
 
     playWin() {

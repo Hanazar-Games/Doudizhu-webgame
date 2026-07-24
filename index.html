@@ -152,7 +152,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.44</span>
+                <span class="version-info">v1.2.45</span>
             </footer>
         </div>
     </div>
@@ -206,35 +206,19 @@
                             <option value="16">16局</option>
                         </select>
                     </label>
-                    <label class="setting-row">头像风格
-                        <select data-setting="avatarStyle">
-                            <option value="default">默认</option>
-                            <option value="anime">动漫</option>
-                            <option value="pixel">像素</option>
-                            <option value="minimal">极简</option>
-                        </select>
-                    </label>
-                    <label class="setting-row">语言
-                        <select data-setting="language">
-                            <option value="zh-CN" selected>简体中文</option>
-                            <option value="zh-TW">繁體中文</option>
-                            <option value="en">English</option>
-                            <option value="ja">日本語</option>
-                        </select>
-                    </label>
                 </div>
 
                 <!-- 音频设置 -->
                 <div class="settings-section-title" data-icon="audio">音频</div>
                 <div class="volume-control" data-search="音量 背景音乐 bgm">
-                    <label for="cfg-bgm-volume">BGM</label>
-                    <input type="range" class="settings-slider-input" id="cfg-bgm-volume" min="0" max="1" step="0.1" value="0.5">
-                    <span class="volume-value" id="cfg-bgm-volume-value">50%</span>
+                    <label for="cfg-bgm-volume">背景音乐</label>
+                    <input type="range" class="settings-slider-input" id="cfg-bgm-volume" min="0" max="1" step="0.1" value="0.5" aria-describedby="cfg-bgm-volume-value">
+                    <output class="volume-value" id="cfg-bgm-volume-value" for="cfg-bgm-volume">50%</output>
                 </div>
                 <div class="volume-control" data-search="音量 音效 sfx">
-                    <label for="cfg-sfx-volume">SFX</label>
-                    <input type="range" class="settings-slider-input" id="cfg-sfx-volume" min="0" max="1" step="0.1" value="0.5">
-                    <span class="volume-value" id="cfg-sfx-volume-value">50%</span>
+                    <label for="cfg-sfx-volume">操作音效</label>
+                    <input type="range" class="settings-slider-input" id="cfg-sfx-volume" min="0" max="1" step="0.1" value="0.5" aria-describedby="cfg-sfx-volume-value">
+                    <output class="volume-value" id="cfg-sfx-volume-value" for="cfg-sfx-volume">50%</output>
                 </div>
                 <div class="settings-grid settings-grid--spaced">
                     <label class="setting-row">背景音乐
@@ -1607,20 +1591,32 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.44</div>
-                    <h3>⌨️ 快捷键帮助与延迟音效修复</h3>
+                    <div class="changelog-version-badge">v1.2.45</div>
+                    <h3>🔊 音频静音与舒适性修复</h3>
                     <ul>
-                        <li>🖥️ <strong>帮助层覆盖修复</strong>：移除全屏遮罩的错误位移动画，帮助面板重新完整覆盖视口</li>
-                        <li>⌨️ <strong>帮助入口无障碍</strong>：快捷键提示支持 Enter/Space 打开，并同步按钮语义和展开状态</li>
-                        <li>♿ <strong>模态焦点管理</strong>：打开后聚焦关闭按钮，Tab 不会逃出，关闭后返回原入口</li>
-                        <li>🔇 <strong>延迟音效止漏</strong>：关闭主音效或 SFX 会立即取消提示、叫分和胜利等已排队尾音</li>
-                        <li>🔊 <strong>分类开关同步</strong>：叫分与胜利尾音播放前重新检查全局和分类开关</li>
-                        <li>🧪 <strong>回归补强</strong>：新增帮助层覆盖、键盘焦点及延迟 SFX 生命周期检查</li>
+                        <li>🔇 <strong>即时静音修复</strong>：关闭主音效或 SFX 会停止已经调度的 Web Audio 音频节点，不再残留连音</li>
+                        <li>🛡️ <strong>异步音频防护</strong>：AudioContext 恢复期间再次校验开关，避免关闭后迟到播放</li>
+                        <li>♿ <strong>减少动画修复</strong>：应用内开关现在同步阻止屏幕震动和全屏闪光</li>
+                        <li>🎚️ <strong>音量反馈升级</strong>：滑块显示实时金色进度，并向读屏提供百分比数值</li>
+                        <li>🧹 <strong>设置精简</strong>：移除尚未实现的头像风格与语言入口，避免无效选项误导</li>
+                        <li>🧪 <strong>回归补强</strong>：新增音频节点、减少动画和音量可访问性检查</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.44</div>
+                            <h4>⌨️ 快捷键帮助与延迟音效修复</h4>
+                            <ul>
+                                <li>🖥️ <strong>帮助层覆盖修复</strong>：移除全屏遮罩的错误位移动画，帮助面板重新完整覆盖视口</li>
+                                <li>⌨️ <strong>帮助入口无障碍</strong>：快捷键提示支持 Enter/Space 打开，并同步按钮语义和展开状态</li>
+                                <li>♿ <strong>模态焦点管理</strong>：打开后聚焦关闭按钮，Tab 不会逃出，关闭后返回原入口</li>
+                                <li>🔇 <strong>延迟音效止漏</strong>：关闭主音效或 SFX 会立即取消提示、叫分和胜利等已排队尾音</li>
+                                <li>🔊 <strong>分类开关同步</strong>：叫分与胜利尾音播放前重新检查全局和分类开关</li>
+                                <li>🧪 <strong>回归补强</strong>：新增帮助层覆盖、键盘焦点及延迟 SFX 生命周期检查</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.43</div>
                             <h4>⌨️ 模态键盘体验与音效分类修复</h4>

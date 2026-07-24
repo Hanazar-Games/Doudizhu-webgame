@@ -121,7 +121,7 @@ class GameApp {
             slider.addEventListener('input', (e) => {
                 const v = parseFloat(e.target.value);
                 this.settings[key] = v;
-                if (val) val.textContent = Math.round(v * 100) + '%';
+                this._syncVolumeControl(slider, val, v);
                 Storage.saveSettings(this.settings);
                 this.menuAudio?.[setter]?.(v);
                 this.renderer?.audio?.[setter]?.(v);
@@ -446,6 +446,15 @@ class GameApp {
         audio.setVoiceVolume(this.settings.voiceVolume ?? 0.7);
     }
 
+    _syncVolumeControl(slider, output, value) {
+        if (!slider) return;
+        const percent = `${Math.round(Number(value) * 100)}%`;
+        slider.value = String(value);
+        slider.style.setProperty('--range-progress', percent);
+        slider.setAttribute('aria-valuetext', percent);
+        if (output) output.textContent = percent;
+    }
+
     _syncSoundToggleButton(enabled = this.settings.soundEnabled !== false) {
         const btn = document.getElementById('btn-sound-toggle');
         if (!btn) return;
@@ -569,13 +578,11 @@ class GameApp {
         // 音量滑块
         const bgmSlider = document.getElementById('cfg-bgm-volume');
         const bgmVal = document.getElementById('cfg-bgm-volume-value');
-        if (bgmSlider) bgmSlider.value = this.settings.bgmVolume ?? 0.5;
-        if (bgmVal) bgmVal.textContent = Math.round((this.settings.bgmVolume ?? 0.5) * 100) + '%';
+        this._syncVolumeControl(bgmSlider, bgmVal, this.settings.bgmVolume ?? 0.5);
 
         const sfxSlider = document.getElementById('cfg-sfx-volume');
         const sfxVal = document.getElementById('cfg-sfx-volume-value');
-        if (sfxSlider) sfxSlider.value = this.settings.sfxVolume ?? 0.5;
-        if (sfxVal) sfxVal.textContent = Math.round((this.settings.sfxVolume ?? 0.5) * 100) + '%';
+        this._syncVolumeControl(sfxSlider, sfxVal, this.settings.sfxVolume ?? 0.5);
 
         this._syncSoundToggleButton();
         this._syncUXSettingControls();
@@ -704,8 +711,6 @@ class GameApp {
                 lagCompensation: true,
                 // 高级
                 spectatorDelay: 0, autoSaveInterval: 30, maxHistory: 50,
-                // 个性化
-                avatarStyle: 'default', language: 'zh-CN',
             });
             Storage.saveSettings(this.settings);
             this._syncUXSettingControls();
@@ -1093,13 +1098,11 @@ class GameApp {
 
         const bgmSlider = document.getElementById('cfg-bgm-volume');
         const bgmVal = document.getElementById('cfg-bgm-volume-value');
-        if (bgmSlider) bgmSlider.value = this.settings.bgmVolume ?? 0.5;
-        if (bgmVal) bgmVal.textContent = Math.round((this.settings.bgmVolume ?? 0.5) * 100) + '%';
+        this._syncVolumeControl(bgmSlider, bgmVal, this.settings.bgmVolume ?? 0.5);
 
         const sfxSlider = document.getElementById('cfg-sfx-volume');
         const sfxVal = document.getElementById('cfg-sfx-volume-value');
-        if (sfxSlider) sfxSlider.value = this.settings.sfxVolume ?? 0.5;
-        if (sfxVal) sfxVal.textContent = Math.round((this.settings.sfxVolume ?? 0.5) * 100) + '%';
+        this._syncVolumeControl(sfxSlider, sfxVal, this.settings.sfxVolume ?? 0.5);
 
         this._syncSoundToggleButton();
         this._syncUXSettingControls();
@@ -1196,9 +1199,6 @@ class GameApp {
         body.dataset.showPlayerStats = s.showPlayerStats === true ? 'true' : 'false';
         body.dataset.lazyRender = s.lazyRender === true ? 'true' : 'false';
         body.dataset.experimental = s.experimentalFeatures === true ? 'true' : 'false';
-        body.dataset.avatarStyle = s.avatarStyle || 'default';
-
-        document.documentElement.lang = s.language || 'zh-CN';
 
         // 回放按钮显示/隐藏
         const btnReplay = document.getElementById('btn-replay');

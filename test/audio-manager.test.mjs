@@ -307,6 +307,41 @@ await testAsync('AudioManager delayed call note rechecks its category switch', a
     assert(tones.join(',') === '523', `call tail ignored category change: ${tones.join(',')}`);
 });
 
+await testAsync('AudioManager stops already scheduled Web Audio SFX when muted', async () => {
+    const audio = new AudioManager();
+    let stopCalls = 0;
+    const param = {
+        setValueAtTime() {},
+        linearRampToValueAtTime() {},
+        exponentialRampToValueAtTime() {},
+    };
+    const osc = {
+        frequency: param,
+        connect() {},
+        disconnect() {},
+        start() {},
+        stop() { stopCalls++; },
+        onended: null,
+    };
+    const gain = { gain: param, connect() {}, disconnect() {} };
+    audio.ctx = {
+        state: 'running',
+        currentTime: 1,
+        createOscillator: () => osc,
+        createGain: () => gain,
+        close() {},
+    };
+    audio._masterCompressor = { connect() {} };
+
+    await audio._tone(440, 0.5, 'sine', 0.1, 2);
+    assert(audio._sfxNodes?.size === 1, 'scheduled SFX source was not tracked');
+
+    audio.setSFXEnabled(false);
+    assert(audio._sfxNodes.size === 0, 'muted SFX source remained tracked');
+    assert(stopCalls >= 2, `scheduled SFX source was not stopped immediately: ${stopCalls}`);
+    audio.destroy();
+});
+
 console.log(`\n====================`);
 console.log(`AudioManager: Passed ${passed}, Failed ${failed}`);
 console.log(`====================`);

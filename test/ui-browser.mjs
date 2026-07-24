@@ -333,9 +333,15 @@ async function run() {
         if (bgmSlider) {
             await bgmSlider.evaluate((el) => { el.value = '0.3'; el.dispatchEvent(new Event('input')); });
             await page.waitForTimeout(200);
-            const label = await page.$eval('#cfg-bgm-volume-value', (el) => el.textContent);
-            if (label !== '30%') throw new Error(`BGM 滑块 label 异常: ${label}`);
-            console.log(`  ✅ BGM 滑块 label: ${label}`);
+            const sliderState = await page.$eval('#cfg-bgm-volume', (el) => ({
+                label: document.getElementById('cfg-bgm-volume-value')?.textContent,
+                valueText: el.getAttribute('aria-valuetext'),
+                progress: el.style.getPropertyValue('--range-progress'),
+            }));
+            if (sliderState.label !== '30%' || sliderState.valueText !== '30%' || sliderState.progress !== '30%') {
+                throw new Error(`BGM 滑块反馈异常: ${JSON.stringify(sliderState)}`);
+            }
+            console.log('  ✅ BGM 滑块同步视觉进度与无障碍数值');
         }
         const voiceAndChatSettingsGone = await page.evaluate(() => {
             const text = document.querySelector('#settings-overlay')?.textContent || '';
@@ -347,6 +353,13 @@ async function run() {
         });
         if (!voiceAndChatSettingsGone) throw new Error('语音/聊天/解说设置仍然可见');
         console.log('  ✅ 语音/聊天/解说设置已移除');
+        const fakePersonalizationGone = await page.evaluate(() => {
+            const text = document.querySelector('#settings-overlay')?.textContent || '';
+            return !document.querySelector('[data-setting="avatarStyle"], [data-setting="language"]') &&
+                !text.includes('头像风格') && !text.includes('繁體中文') && !text.includes('English');
+        });
+        if (!fakePersonalizationGone) throw new Error('未实现的头像或语言设置仍然可见');
+        console.log('  ✅ 未实现的头像与语言入口已移除');
         const wheelZoomLabel = await page.evaluate(() => Array.from(document.querySelectorAll('.toggle-switch-label'))
             .some(el => el.textContent.trim() === 'Ctrl/⌘滚轮缩放'));
         if (!wheelZoomLabel) throw new Error('Ctrl/⌘滚轮缩放设置文案缺失');
@@ -665,6 +678,30 @@ async function run() {
             throw new Error(`少牌提醒未显示或文案异常: ${lowCardReminder}`);
         }
         console.log('  ✅ 少牌提醒文案显示正常');
+        const reducedMotionState = await page.evaluate(() => {
+            const app = window.gameApp;
+            const anim = app?.renderer?.anim;
+            if (!app || !anim) return null;
+            app.settings.reduceMotion = true;
+            app._applyUXSettings();
+            const before = document.querySelectorAll('[data-anim-fx]').length;
+            const beforeFrames = anim._activeRafs.size;
+            anim.screenShake(5, 300);
+            anim.flashScreen();
+            const result = {
+                bodySetting: document.body.dataset.reduceMotion,
+                addedEffects: document.querySelectorAll('[data-anim-fx]').length - before,
+                addedFrames: anim._activeRafs.size - beforeFrames,
+            };
+            app.settings.reduceMotion = false;
+            app._applyUXSettings();
+            return result;
+        });
+        if (!reducedMotionState || reducedMotionState.bodySetting !== 'true' ||
+            reducedMotionState.addedEffects !== 0 || reducedMotionState.addedFrames !== 0) {
+            throw new Error(`减少动画开关仍触发动态特效: ${JSON.stringify(reducedMotionState)}`);
+        }
+        console.log('  ✅ 减少动画开关阻止屏幕震动与闪光');
         await page.click('#btn-sound-toggle');
         await page.waitForTimeout(delays.short);
         let soundState = await page.$eval('#btn-sound-toggle', (el) => ({

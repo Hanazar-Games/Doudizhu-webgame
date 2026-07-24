@@ -9633,7 +9633,9 @@ input[type="range"].settings-slider-input {
     appearance: none;
     height: 5px;
     border-radius: 3px;
-    background: rgba(255,255,255,0.1);
+    background: linear-gradient(to right,
+        var(--accent-color) 0 var(--range-progress, 50%),
+        rgba(255,255,255,0.12) var(--range-progress, 50%) 100%);
     outline: none;
     cursor: pointer;
     flex: 1;
