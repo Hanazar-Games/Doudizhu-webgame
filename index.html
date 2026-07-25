@@ -13,6 +13,28 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body data-theme="green">
+    <svg class="svg-sprite" aria-hidden="true" focusable="false">
+        <symbol id="icon-bot" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" rx="4"/><path d="M12 2v4M8 12h.01M16 12h.01M9 16h6M2 11h2M20 11h2"/></symbol>
+        <symbol id="icon-trophy" viewBox="0 0 24 24"><path d="M8 4h8v4a4 4 0 0 1-8 0V4ZM8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 12v5M8 21h8M9 17h6"/></symbol>
+        <symbol id="icon-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.2 2.5 3.3 5.5 3.3 9S14.2 18.5 12 21c-2.2-2.5-3.3-5.5-3.3-9S9.8 5.5 12 3Z"/></symbol>
+        <symbol id="icon-sliders" viewBox="0 0 24 24"><path d="M4 7h5M15 7h5M4 17h3M13 17h7M9 4v6M7 17h6M13 14v6"/></symbol>
+        <symbol id="icon-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01"/></symbol>
+        <symbol id="icon-puzzle" viewBox="0 0 24 24"><path d="M14 4a2 2 0 1 0-4 0v2H6v4H4a2 2 0 1 0 0 4h2v4h4v2a2 2 0 1 0 4 0v-2h4v-4h2a2 2 0 1 0 0-4h-2V6h-4V4Z"/></symbol>
+        <symbol id="icon-swords" viewBox="0 0 24 24"><path d="m4 20 6-6M14 10l6-6M16 4h4v4M8 20H4v-4M4 4l16 16M16 20h4v-4M8 4H4v4"/></symbol>
+        <symbol id="icon-video" viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="3"/><path d="m17 10 4-2v8l-4-2M8 9l5 3-5 3V9Z"/></symbol>
+        <symbol id="icon-award" viewBox="0 0 24 24"><circle cx="12" cy="9" r="6"/><path d="m8.5 14-1 7 4.5-2 4.5 2-1-7M12 6l.8 1.6 1.7.3-1.2 1.3.3 1.8-1.6-.8-1.6.8.3-1.8-1.2-1.3 1.7-.3L12 6Z"/></symbol>
+        <symbol id="icon-target" viewBox="0 0 24 24"><circle cx="11" cy="13" r="8"/><circle cx="11" cy="13" r="4"/><path d="m14 10 7-7M17 3h4v4"/></symbol>
+        <symbol id="icon-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20V7M2 20h21"/></symbol>
+        <symbol id="icon-film" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M17 9h4M3 15h4M17 15h4"/></symbol>
+        <symbol id="icon-book" viewBox="0 0 24 24"><path d="M4 5a3 3 0 0 1 3-1h5v16H7a3 3 0 0 0-3 1V5ZM20 5a3 3 0 0 0-3-1h-5v16h5a3 3 0 0 1 3 1V5Z"/></symbol>
+        <symbol id="icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></symbol>
+        <symbol id="icon-scroll" viewBox="0 0 24 24"><path d="M7 4a3 3 0 0 1 3-2h9v16a4 4 0 0 1-4 4H6a3 3 0 0 1-3-3v-1h12v1a3 3 0 0 0 3 3M7 4v14M10 7h6M10 11h6M10 15h4"/></symbol>
+        <symbol id="icon-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+        <symbol id="icon-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5ZM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></symbol>
+        <symbol id="icon-volume-off" viewBox="0 0 24 24"><path d="m11 5-5 4H3v6h3l5 4V5ZM16 10l5 5M21 10l-5 5"/></symbol>
+        <symbol id="icon-fullscreen" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></symbol>
+        <symbol id="icon-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></symbol>
+    </svg>
     <!-- 菜单界面 -->
     <div id="menu-screen" class="screen">
         <div class="menu-bg-decoration"></div>
@@ -36,33 +58,33 @@
                     <div class="mode-cards">
                         <!-- 主模式 -->
                         <button id="btn-ai-mode" class="mode-card mode-card--primary">
-                            <div class="mode-card__icon">🤖</div>
+                            <div class="mode-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-bot"></use></svg></div>
                             <div class="mode-card__content">
                                 <div class="mode-card__title">人机对战</div>
                                 <div class="mode-card__desc">挑战 AI，磨练牌技</div>
                             </div>
-                            <div class="mode-card__arrow">→</div>
+                            <div class="mode-card__arrow"><svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-right"></use></svg></div>
                         </button>
 
-                        <button id="btn-tournament-mode" class="mode-card mode-card--primary" style="background: linear-gradient(135deg, rgba(212,80,80,0.95) 0%, rgba(180,40,40,0.95) 100%); color: #fff; margin-top: 8px;">
-                            <div class="mode-card__icon">🏆</div>
+                        <button id="btn-tournament-mode" class="mode-card mode-card--primary mode-card--tournament">
+                            <div class="mode-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-trophy"></use></svg></div>
                             <div class="mode-card__content">
                                 <div class="mode-card__title">锦标赛</div>
                                 <div class="mode-card__desc">多轮角逐，争夺冠军</div>
                             </div>
-                            <div class="mode-card__arrow">→</div>
+                            <div class="mode-card__arrow"><svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-right"></use></svg></div>
                         </button>
 
                         <div class="mode-card-row">
                             <button id="btn-lan-mode" class="mode-card mode-card--secondary">
-                                <div class="mode-card__icon">🌐</div>
+                                <div class="mode-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-globe"></use></svg></div>
                                 <div class="mode-card__content">
                                     <div class="mode-card__title">局域网联机</div>
                                     <div class="mode-card__desc">好友同乐</div>
                                 </div>
                             </button>
                             <button id="btn-custom-mode" class="mode-card mode-card--secondary">
-                                <div class="mode-card__icon">⚙️</div>
+                                <div class="mode-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-sliders"></use></svg></div>
                                 <div class="mode-card__content">
                                     <div class="mode-card__title">自定义模式</div>
                                     <div class="mode-card__desc">自由设定</div>
@@ -72,60 +94,60 @@
 
                         <div class="mode-card-row">
                             <button id="btn-daily-challenge" class="mode-card mode-card--accent">
-                                <div class="mode-card__icon">📅</div>
+                                <div class="mode-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-calendar"></use></svg></div>
                                 <div class="mode-card__content">
                                     <div class="mode-card__title">每日挑战</div>
                                     <div class="mode-card__desc" id="daily-challenge-desc">今日牌局已就绪</div>
                                 </div>
-                                <div class="mode-card__arrow">→</div>
+                                <div class="mode-card__arrow"><svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-right"></use></svg></div>
                             </button>
                         </div>
 
                         <div class="mode-card-row">
                             <button id="btn-endgame-mode" class="mode-card mode-card--accent">
-                                <div class="mode-card__icon">🧩</div>
+                                <div class="mode-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-puzzle"></use></svg></div>
                                 <div class="mode-card__content">
                                     <div class="mode-card__title">残局训练</div>
                                     <div class="mode-card__desc" id="endgame-desc">挑战5个经典残局</div>
                                 </div>
-                                <div class="mode-card__arrow">→</div>
+                                <div class="mode-card__arrow"><svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-right"></use></svg></div>
                             </button>
                         </div>
                         <div class="mode-card-row">
                             <button id="btn-challenge-mode" class="mode-card mode-card--accent">
-                                <div class="mode-card__icon">⚔️</div>
+                                <div class="mode-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-swords"></use></svg></div>
                                 <div class="mode-card__content">
                                     <div class="mode-card__title">极限挑战</div>
                                     <div class="mode-card__desc" id="challenge-desc">挑战10个极限规则关卡</div>
                                 </div>
-                                <div class="mode-card__arrow">→</div>
+                                <div class="mode-card__arrow"><svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow-right"></use></svg></div>
                             </button>
                         </div>
 
                         <div class="mode-card-row mode-card-row--small">
                             <button id="btn-replay" class="mode-card mode-card--ghost">
-                                <div class="mode-card__icon">📹</div>
+                                <div class="mode-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-video"></use></svg></div>
                                 <div class="mode-card__title">牌局回放</div>
                             </button>
                             <button id="btn-achievements" class="mode-card mode-card--ghost">
-                                <div class="mode-card__icon">🏆</div>
+                                <div class="mode-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-award"></use></svg></div>
                                 <div class="mode-card__title">成就系统</div>
                             </button>
                             <button id="btn-season-quests" class="mode-card mode-card--ghost">
-                                <div class="mode-card__icon">🎯</div>
+                                <div class="mode-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-target"></use></svg></div>
                                 <div class="mode-card__title">赛季任务</div>
                                 <span class="quest-badge hidden" id="season-quest-badge"></span>
                             </button>
                             <button id="btn-play-style" class="mode-card mode-card--ghost">
-                                <div class="mode-card__icon">📊</div>
+                                <div class="mode-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chart"></use></svg></div>
                                 <div class="mode-card__title">牌风分析</div>
                             </button>
                             <button id="btn-workshop" class="mode-card mode-card--ghost">
-                                <div class="mode-card__icon">🎞️</div>
+                                <div class="mode-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-film"></use></svg></div>
                                 <div class="mode-card__title">牌谱工坊</div>
                             </button>
                             <button id="btn-tutorial" class="mode-card mode-card--ghost">
-                                <div class="mode-card__icon">📖</div>
+                                <div class="mode-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-book"></use></svg></div>
                                 <div class="mode-card__title">新手教程</div>
                             </button>
                         </div>
@@ -144,15 +166,15 @@
             <footer class="menu-footer">
                 <div class="menu-footer-left">
                     <button id="btn-settings" class="btn-settings-float" aria-label="设置">
-                        <span>⚙️</span>
+                        <svg class="ui-icon" aria-hidden="true"><use href="#icon-settings"></use></svg>
                         <span>设置</span>
                     </button>
                     <button id="btn-changelog" class="btn-changelog-float" aria-label="更新日志">
-                        <span>📜</span>
+                        <svg class="ui-icon" aria-hidden="true"><use href="#icon-scroll"></use></svg>
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.45</span>
+                <span class="version-info">v1.2.46</span>
             </footer>
         </div>
     </div>
@@ -1131,9 +1153,9 @@
             <button id="btn-back-menu" class="btn-small">← 返回</button>
             <span id="mode-display">人机对战</span>
             <div class="header-controls">
-                <button id="btn-pause" class="btn-small" title="暂停" aria-label="暂停游戏">⏸</button>
-                <button id="btn-sound-toggle" class="btn-small" title="关闭音效" aria-label="关闭音效" aria-pressed="true">🔊</button>
-                <button id="btn-fullscreen" class="btn-small" title="全屏" aria-label="切换全屏">⛶</button>
+                <button id="btn-pause" class="btn-small" title="暂停" aria-label="暂停游戏"><svg class="ui-icon" aria-hidden="true"><use href="#icon-pause"></use></svg></button>
+                <button id="btn-sound-toggle" class="btn-small" title="关闭音效" aria-label="关闭音效" aria-pressed="true"><svg class="ui-icon" aria-hidden="true"><use href="#icon-volume"></use></svg></button>
+                <button id="btn-fullscreen" class="btn-small" title="全屏" aria-label="切换全屏"><svg class="ui-icon" aria-hidden="true"><use href="#icon-fullscreen"></use></svg></button>
             </div>
         </div>
         
@@ -1591,20 +1613,32 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.45</div>
-                    <h3>🔊 音频静音与舒适性修复</h3>
+                    <div class="changelog-version-badge">v1.2.46</div>
+                    <h3>🎨 导航图标与移动体验升级</h3>
                     <ul>
-                        <li>🔇 <strong>即时静音修复</strong>：关闭主音效或 SFX 会停止已经调度的 Web Audio 音频节点，不再残留连音</li>
-                        <li>🛡️ <strong>异步音频防护</strong>：AudioContext 恢复期间再次校验开关，避免关闭后迟到播放</li>
-                        <li>♿ <strong>减少动画修复</strong>：应用内开关现在同步阻止屏幕震动和全屏闪光</li>
-                        <li>🎚️ <strong>音量反馈升级</strong>：滑块显示实时金色进度，并向读屏提供百分比数值</li>
-                        <li>🧹 <strong>设置精简</strong>：移除尚未实现的头像风格与语言入口，避免无效选项误导</li>
-                        <li>🧪 <strong>回归补强</strong>：新增音频节点、减少动画和音量可访问性检查</li>
+                        <li>🧭 <strong>统一导航图标</strong>：核心模式、工具入口和游戏头部改用一致的线性 SVG 图标，不再依赖跨平台表现不一的系统 Emoji</li>
+                        <li>✨ <strong>模式层级优化</strong>：补齐挑战类卡片样式，统一图标容器、箭头与悬停反馈，并移除锦标赛行内样式</li>
+                        <li>📱 <strong>移动工具区优化</strong>：六个工具入口改为三列网格，增大触控区域并避免标题拥挤换行</li>
+                        <li>🔊 <strong>音效状态同步</strong>：静音按钮动态切换 SVG 状态，继续同步无障碍标签和按下状态</li>
+                        <li>🌿 <strong>状态可读性修复</strong>：提高每日挑战文案对比度，并修正完成态与三星态样式类名不匹配</li>
+                        <li>🧪 <strong>回归补强</strong>：新增图标结构、音效切换、移动端网格尺寸和页面溢出检查</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.45</div>
+                            <h4>🔊 音频静音与舒适性修复</h4>
+                            <ul>
+                                <li>🔇 <strong>即时静音修复</strong>：关闭主音效或 SFX 会停止已经调度的 Web Audio 音频节点，不再残留连音</li>
+                                <li>🛡️ <strong>异步音频防护</strong>：AudioContext 恢复期间再次校验开关，避免关闭后迟到播放</li>
+                                <li>♿ <strong>减少动画修复</strong>：应用内开关现在同步阻止屏幕震动和全屏闪光</li>
+                                <li>🎚️ <strong>音量反馈升级</strong>：滑块显示实时金色进度，并向读屏提供百分比数值</li>
+                                <li>🧹 <strong>设置精简</strong>：移除尚未实现的头像风格与语言入口，避免无效选项误导</li>
+                                <li>🧪 <strong>回归补强</strong>：新增音频节点、减少动画和音量可访问性检查</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.44</div>
                             <h4>⌨️ 快捷键帮助与延迟音效修复</h4>

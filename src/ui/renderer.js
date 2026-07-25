@@ -540,7 +540,9 @@ class Renderer {
                     Storage.saveSettings(window.gameApp.settings);
                 }
                 const btn = document.getElementById('btn-sound-toggle');
-                if (btn && !window.gameApp?._syncSoundToggleButton) btn.textContent = enabled ? '🔊' : '🔇';
+                if (btn && !window.gameApp?._syncSoundToggleButton) {
+                    btn.querySelector('use')?.setAttribute('href', enabled ? '#icon-volume' : '#icon-volume-off');
+                }
                 return;
             }
             if (e.key === '=' || e.key === '+') {

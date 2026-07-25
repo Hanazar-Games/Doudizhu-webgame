@@ -458,7 +458,7 @@ class GameApp {
     _syncSoundToggleButton(enabled = this.settings.soundEnabled !== false) {
         const btn = document.getElementById('btn-sound-toggle');
         if (!btn) return;
-        btn.textContent = enabled ? '🔊' : '🔇';
+        btn.querySelector('use')?.setAttribute('href', enabled ? '#icon-volume' : '#icon-volume-off');
         btn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
         btn.setAttribute('title', enabled ? '关闭音效' : '开启音效');
         btn.setAttribute('aria-label', enabled ? '关闭音效' : '开启音效');

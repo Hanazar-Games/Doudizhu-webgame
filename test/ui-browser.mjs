@@ -139,7 +139,7 @@ async function stopDevServer(proc) {
 
 async function screenshot(page, name) {
     const path = resolve(outDir, `${name}.png`);
-    await page.screenshot({ path, fullPage: false });
+    await page.screenshot({ path, fullPage: false, animations: 'disabled' });
     console.log(`  📸 ${name}.png`);
     return path;
 }
@@ -287,6 +287,21 @@ async function run() {
             throw new Error(`菜单版本号与 package.json 不一致: ${displayedVersion} / ${expectedVersion}`);
         }
         console.log(`  ✅ 版本号同步: ${displayedVersion}`);
+        const menuIconState = await page.evaluate(() => {
+            const icons = Array.from(document.querySelectorAll('.mode-card__icon'));
+            const footerIcons = Array.from(document.querySelectorAll('.menu-footer-left .ui-icon'));
+            return {
+                count: icons.length,
+                svgCount: icons.filter(icon => icon.querySelector('.ui-icon use[href^="#icon-"]')).length,
+                hasEmojiText: icons.some(icon => icon.textContent.trim()),
+                footerCount: footerIcons.length,
+            };
+        });
+        if (menuIconState.count !== 13 || menuIconState.svgCount !== 13 ||
+            menuIconState.hasEmojiText || menuIconState.footerCount !== 2) {
+            throw new Error(`菜单图标未统一为 SVG: ${JSON.stringify(menuIconState)}`);
+        }
+        console.log('  ✅ 菜单导航使用统一 SVG 图标');
 
         // ===== 2. 设置面板 =====
         console.log('\n--- 2. 设置面板 ---');
@@ -399,6 +414,9 @@ async function run() {
         for (const id of headerBtns) {
             await assertExists(page, `#${id}`, '游戏页头部按钮');
         }
+        const headerIconCount = await page.$$eval('.header-controls .btn-small .ui-icon use[href^="#icon-"]', icons => icons.length);
+        if (headerIconCount !== 3) throw new Error(`游戏页头部 SVG 图标数量异常: ${headerIconCount}`);
+        console.log('  ✅ 游戏页头部使用统一 SVG 图标');
         const readHandMetrics = async () => page.$eval('#player-right .hand-front', (hand) => {
             const cards = Array.from(hand.querySelectorAll('.card'));
             const first = cards[0]?.getBoundingClientRect();
@@ -518,7 +536,15 @@ async function run() {
         });
         console.log('  ✅ 普通滚轮不溢出，Ctrl缩放安全且同步设置');
         await page.click('#call-controls button[data-call="3"]');
-        await page.waitForTimeout(delays.long);
+        await page.waitForFunction(() => document.querySelectorAll('#player-right .hand-front .card').length >= 20, null, { timeout: 5000 });
+        await page.waitForFunction(() => {
+            const firstCard = document.querySelector('#player-right .hand-front .card');
+            const controls = Array.from(document.querySelectorAll('#controls-area > :not(.hidden)'))
+                .map(element => element.getBoundingClientRect())
+                .filter(rect => rect.width > 0 && rect.height > 0);
+            const controlsBottom = controls.length ? Math.max(...controls.map(rect => rect.bottom)) : 0;
+            return firstCard && controlsBottom <= firstCard.getBoundingClientRect().top - 8;
+        }, null, { timeout: 5000 });
         handMetrics = await readHandMetrics();
         if (handMetrics.count < 20) throw new Error(`叫地主后手牌未增加到底牌: ${JSON.stringify(handMetrics)}`);
         assertHandOnScreen(handMetrics, '地主20张');
@@ -705,21 +731,21 @@ async function run() {
         await page.click('#btn-sound-toggle');
         await page.waitForTimeout(delays.short);
         let soundState = await page.$eval('#btn-sound-toggle', (el) => ({
-            text: el.textContent,
+            icon: el.querySelector('use')?.getAttribute('href'),
             pressed: el.getAttribute('aria-pressed'),
             label: el.getAttribute('aria-label'),
         }));
-        if (soundState.text !== '🔇' || soundState.pressed !== 'false' || soundState.label !== '开启音效') {
+        if (soundState.icon !== '#icon-volume-off' || soundState.pressed !== 'false' || soundState.label !== '开启音效') {
             throw new Error(`音效按钮关闭状态异常: ${JSON.stringify(soundState)}`);
         }
         await page.keyboard.press('m');
         await page.waitForTimeout(delays.short);
         soundState = await page.$eval('#btn-sound-toggle', (el) => ({
-            text: el.textContent,
+            icon: el.querySelector('use')?.getAttribute('href'),
             pressed: el.getAttribute('aria-pressed'),
             label: el.getAttribute('aria-label'),
         }));
-        if (soundState.text !== '🔊' || soundState.pressed !== 'true' || soundState.label !== '关闭音效') {
+        if (soundState.icon !== '#icon-volume' || soundState.pressed !== 'true' || soundState.label !== '关闭音效') {
             throw new Error(`音效按钮开启状态异常: ${JSON.stringify(soundState)}`);
         }
         console.log('  ✅ 音效按钮状态/aria 同步');
@@ -966,6 +992,23 @@ async function run() {
         await mobilePage.waitForTimeout(delays.medium);
         await dismissOverlays(mobilePage);
         await screenshot(mobilePage, '13-menu-mobile-portrait');
+        const mobileToolLayout = await mobilePage.evaluate(() => {
+            const row = document.querySelector('.mode-card-row--small');
+            const cards = Array.from(row?.querySelectorAll('.mode-card--ghost') || []);
+            const rects = cards.map(card => card.getBoundingClientRect());
+            return {
+                display: row ? getComputedStyle(row).display : '',
+                columns: row ? getComputedStyle(row).gridTemplateColumns.split(' ').filter(Boolean).length : 0,
+                minWidth: rects.length ? Math.min(...rects.map(rect => rect.width)) : 0,
+                minHeight: rects.length ? Math.min(...rects.map(rect => rect.height)) : 0,
+                pageOverflow: document.documentElement.scrollWidth > window.innerWidth + 1,
+            };
+        });
+        if (mobileToolLayout.display !== 'grid' || mobileToolLayout.columns !== 3 ||
+            mobileToolLayout.minWidth < 95 || mobileToolLayout.minHeight < 64 || mobileToolLayout.pageOverflow) {
+            throw new Error(`移动端工具入口布局异常: ${JSON.stringify(mobileToolLayout)}`);
+        }
+        console.log('  ✅ 移动端工具入口为三列大触控区且无横向溢出');
 
         // 8b. 横屏游戏 (812×375)
         await mobilePage.setViewportSize({ width: 812, height: 375 });
@@ -1022,7 +1065,8 @@ async function run() {
         console.log('  ✅ 横屏玩家身份完整可见且不压手牌');
 
         await mobilePage.click('#call-controls button[data-call="3"]');
-        await mobilePage.waitForTimeout(delays.long);
+        await mobilePage.waitForFunction(() => document.querySelectorAll('#player-right .hand-front .card').length >= 20, null, { timeout: 5000 });
+        await mobilePage.waitForTimeout(delays.medium);
         const mobileLandlordHand = await mobilePage.evaluate(() => {
             const hand = document.querySelector('#player-right .hand-front');
             const cards = Array.from(hand?.querySelectorAll('.card') || []);

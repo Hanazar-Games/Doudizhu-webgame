@@ -79,6 +79,24 @@ body[data-theme="purple"] {
     display: none !important;
 }
 
+.svg-sprite {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+.ui-icon {
+    width: 1em;
+    height: 1em;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 .chat-bubble,
 .commentary-bubble,
 #btn-toggle-chat,
@@ -309,9 +327,16 @@ body[data-theme="purple"] {
 }
 
 .mode-card__icon {
-    font-size: 1.9rem;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 13px;
+    background: rgba(255,255,255,0.1);
+    font-size: 1.45rem;
     flex-shrink: 0;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
 }
 
 .mode-card__content {
@@ -333,7 +358,7 @@ body[data-theme="purple"] {
 }
 
 .mode-card__arrow {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     opacity: 0.4;
     transition: all 0.3s ease;
     padding-right: 4px;
@@ -374,7 +399,11 @@ body[data-theme="purple"] {
 }
 
 .mode-card--primary .mode-card__icon {
-    font-size: 2.4rem;
+    width: 52px;
+    height: 52px;
+    border-color: rgba(42,26,0,0.12);
+    background: rgba(255,255,255,0.22);
+    font-size: 1.75rem;
 }
 
 .mode-card--primary .mode-card__title {
@@ -388,6 +417,27 @@ body[data-theme="purple"] {
 
 .mode-card--primary .mode-card__arrow {
     color: #2a1a00;
+}
+
+.mode-card--tournament {
+    margin-top: 8px;
+    background: linear-gradient(135deg, rgba(212,80,80,0.96), rgba(180,40,40,0.96));
+    color: #fff;
+    box-shadow: 0 8px 32px rgba(180,40,40,0.24), inset 0 1px 0 rgba(255,255,255,0.24);
+}
+
+.mode-card--tournament:hover {
+    box-shadow: 0 12px 40px rgba(180,40,40,0.36), inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+.mode-card--tournament .mode-card__icon {
+    border-color: rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.12);
+}
+
+.mode-card--tournament .mode-card__desc,
+.mode-card--tournament .mode-card__arrow {
+    color: #fff;
 }
 
 /* 次要模式 */
@@ -406,6 +456,33 @@ body[data-theme="purple"] {
     box-shadow: 0 8px 28px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
 }
 
+.mode-card--secondary .mode-card__icon {
+    width: 42px;
+    height: 42px;
+    font-size: 1.3rem;
+}
+
+.mode-card--accent {
+    width: 100%;
+    padding: 14px 18px;
+    color: #fff;
+    background: linear-gradient(135deg, rgba(255,255,255,0.11), rgba(255,255,255,0.055));
+    border: 1px solid rgba(240,192,64,0.2);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12), inset 3px 0 0 rgba(240,192,64,0.72);
+}
+
+.mode-card--accent:hover {
+    background: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.08));
+    border-color: rgba(240,192,64,0.36);
+}
+
+.mode-card--accent .mode-card__icon {
+    width: 42px;
+    height: 42px;
+    color: #f4cb5a;
+    font-size: 1.3rem;
+}
+
 /* 幽灵模式 */
 .mode-card--ghost {
     background: rgba(255,255,255,0.04);
@@ -416,6 +493,7 @@ body[data-theme="purple"] {
     align-items: center;
     gap: 6px;
     flex: 1;
+    min-width: 0;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
 }
 
@@ -425,7 +503,11 @@ body[data-theme="purple"] {
 }
 
 .mode-card--ghost .mode-card__icon {
-    font-size: 1.5rem;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    color: #f3ca5a;
+    font-size: 1.15rem;
 }
 
 .mode-card--ghost .mode-card__title {
@@ -440,6 +522,8 @@ body[data-theme="purple"] {
 }
 
 .mode-card-row--small {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -617,6 +701,13 @@ body[data-theme="purple"] {
     transition: all 0.25s ease;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+}
+
+.btn-settings-float .ui-icon,
+.btn-changelog-float .ui-icon {
+    width: 18px;
+    height: 18px;
+    color: var(--accent-color);
 }
 
 .btn-settings-float:hover {
@@ -1344,8 +1435,7 @@ body[data-theme="purple"] {
 }
 
 #btn-sound-toggle {
-    font-size: 1rem;
-    padding: 4px 8px;
+    color: inherit;
 }
 
 /* ===== 牌桌 ===== */
@@ -2322,8 +2412,8 @@ body[data-theme="purple"] {
 }
 
 .header-controls .btn-small {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2333,7 +2423,8 @@ body[data-theme="purple"] {
     border: 1px solid rgba(255,255,255,0.1);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    font-size: 1rem;
+    color: rgba(255,255,255,0.82);
+    font-size: 1.15rem;
     transition: all 0.2s ease;
     cursor: pointer;
 }
@@ -2342,6 +2433,7 @@ body[data-theme="purple"] {
     background: rgba(255,255,255,0.14);
     border-color: rgba(255,255,255,0.2);
     transform: translateY(-1px);
+    color: #fff;
 }
 
 /* ===== 通用屏幕组件 ===== */
@@ -6133,7 +6225,9 @@ body[data-motion="fancy"] .table-aura {
     }
 
     .mode-card--primary .mode-card__icon {
-        font-size: 2rem;
+        width: 46px;
+        height: 46px;
+        font-size: 1.55rem;
     }
 
     .mode-card--primary .mode-card__title {
@@ -6149,7 +6243,9 @@ body[data-motion="fancy"] .table-aura {
     }
 
     .mode-card--secondary .mode-card__icon {
-        font-size: 1.5rem;
+        width: 38px;
+        height: 38px;
+        font-size: 1.15rem;
     }
 
     .mode-card--secondary .mode-card__title {
@@ -6161,19 +6257,25 @@ body[data-motion="fancy"] .table-aura {
     }
 
     .mode-card-row--small {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 6px;
     }
 
     .mode-card--ghost {
-        padding: 10px 8px;
+        min-height: 72px;
+        padding: 9px 6px;
     }
 
     .mode-card--ghost .mode-card__icon {
-        font-size: 1.2rem;
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
     }
 
     .mode-card--ghost .mode-card__title {
-        font-size: 0.7rem;
+        font-size: 0.76rem;
+        line-height: 1.2;
+        white-space: nowrap;
     }
 
     .stats-grid {
@@ -6191,6 +6293,11 @@ body[data-motion="fancy"] .table-aura {
 
     .game-header {
         padding: 8px 10px;
+    }
+
+    .header-controls .btn-small {
+        width: 44px;
+        height: 44px;
     }
 
     .header-right {
@@ -11136,17 +11243,17 @@ body[data-commentary="false"] .commentary-bubble {
     font-size: 0.7rem;
     padding: 2px 8px;
     border-radius: 10px;
-    background: rgba(76, 175, 80, 0.2);
-    color: #4caf50;
+    background: rgba(76, 175, 80, 0.16);
+    color: #d7f5d8;
     font-weight: 600;
 }
-.daily-badge.completed {
+.daily-badge.daily-badge-completed {
     background: rgba(255, 193, 7, 0.2);
-    color: #ffc107;
+    color: #ffe082;
 }
-.daily-badge.three-star {
+.daily-badge.daily-badge-three-star {
     background: rgba(255, 215, 0, 0.2);
-    color: #ffd700;
+    color: #ffec8b;
 }
 
 /* 每日挑战描述行 */
