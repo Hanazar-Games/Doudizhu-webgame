@@ -1089,6 +1089,59 @@ async function run() {
         await mobilePage.waitForTimeout(delays.long);
         await screenshot(mobilePage, '14-game-mobile-landscape');
 
+        const mobileUtilityLayout = await mobilePage.evaluate(() => {
+            const tools = document.querySelector('#side-panels');
+            const opponent = document.querySelector('#player-left .player-info');
+            const toolButtons = Array.from(document.querySelectorAll('#side-panels > .btn-panel-toggle'));
+            if (!tools || !opponent || !toolButtons.length) return null;
+            const toolsRect = tools.getBoundingClientRect();
+            const opponentRect = opponent.getBoundingClientRect();
+            const overlaps = toolsRect.left < opponentRect.right &&
+                toolsRect.right > opponentRect.left &&
+                toolsRect.top < opponentRect.bottom &&
+                toolsRect.bottom > opponentRect.top;
+            const sizes = toolButtons.map(button => {
+                const rect = button.getBoundingClientRect();
+                return Math.min(rect.width, rect.height);
+            });
+            return {
+                overlaps,
+                minTouchTarget: Math.min(...sizes),
+                toolsBottom: toolsRect.bottom,
+                viewportHeight: window.innerHeight,
+            };
+        });
+        if (!mobileUtilityLayout || mobileUtilityLayout.overlaps ||
+            mobileUtilityLayout.minTouchTarget < 44 ||
+            mobileUtilityLayout.toolsBottom > mobileUtilityLayout.viewportHeight + 1) {
+            throw new Error(`横屏工具区压住玩家信息或触控区过小: ${JSON.stringify(mobileUtilityLayout)}`);
+        }
+        console.log('  ✅ 横屏工具区避开玩家信息且触控区充足');
+
+        await mobilePage.click('#btn-toggle-card-tracker');
+        await mobilePage.waitForTimeout(delays.short);
+        const mobilePanelLayout = await mobilePage.evaluate(() => {
+            const tools = document.querySelector('#side-panels');
+            const panel = document.querySelector('#card-tracker');
+            if (!tools || !panel || panel.classList.contains('hidden')) return null;
+            const toolsRect = tools.getBoundingClientRect();
+            const panelRect = panel.getBoundingClientRect();
+            return {
+                panelTop: panelRect.top,
+                panelBottom: panelRect.bottom,
+                toolsTop: toolsRect.top,
+                viewportHeight: window.innerHeight,
+            };
+        });
+        if (!mobilePanelLayout || mobilePanelLayout.panelTop < -1 ||
+            mobilePanelLayout.panelBottom > mobilePanelLayout.toolsTop + 1 ||
+            mobilePanelLayout.panelBottom > mobilePanelLayout.viewportHeight + 1) {
+            throw new Error(`横屏工具面板未在工具栏上方展开: ${JSON.stringify(mobilePanelLayout)}`);
+        }
+        await mobilePage.click('#btn-toggle-card-tracker');
+        await mobilePage.waitForTimeout(delays.short);
+        console.log('  ✅ 横屏工具面板在视口内向上展开');
+
         // 检查手牌区是否可见且不水平超屏
         const mobileHand = await mobilePage.evaluate(() => {
             const hand = document.querySelector('#player-right .hand-front');
