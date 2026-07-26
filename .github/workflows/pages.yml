@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Run tests
         run: npm run test:all
 
@@ -50,7 +53,12 @@ jobs:
         with:
           name: ui-test-screenshots
           path: test/ui-screenshots/
+          if-no-files-found: ignore
           retention-days: 3
+
+      - name: Configure Pages
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'

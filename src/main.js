@@ -466,8 +466,10 @@ class GameApp {
 
     toggleSound() {
         const audio = this._getActiveAudio();
-        audio?.playButtonClick();
+        const wasEnabled = audio?.enabled ?? (this.settings.soundEnabled !== false);
+        if (wasEnabled) audio?.playButtonClick();
         const enabled = audio?.toggle() ?? !(this.settings.soundEnabled !== false);
+        if (!wasEnabled && enabled) audio?.playButtonClick();
         this.settings.soundEnabled = enabled;
         Storage.saveSettings(this.settings);
         if (this.menuAudio && this.menuAudio !== audio) this._syncAudioSettings(this.menuAudio);
@@ -508,6 +510,19 @@ class GameApp {
     _animateMenuEntrance() {
         const menuScreen = document.getElementById('menu-screen');
         if (!menuScreen) return;
+        const generation = (this._menuEntranceGeneration || 0) + 1;
+        this._menuEntranceGeneration = generation;
+        const clearStyles = (element, properties, delay) => setTimeout(() => {
+            if (generation !== this._menuEntranceGeneration) return;
+            properties.forEach(property => element.style.removeProperty(property));
+        }, delay);
+
+        if (document.body.dataset.reduceMotion === 'true') {
+            menuScreen.querySelectorAll('.game-title, .game-subtitle, .mode-card, .settings-panel').forEach(element => {
+                ['opacity', 'transform', 'transition'].forEach(property => element.style.removeProperty(property));
+            });
+            return;
+        }
 
         // 标题淡入
         const title = menuScreen.querySelector('.game-title');
@@ -515,32 +530,40 @@ class GameApp {
         if (title) {
             title.style.opacity = '0';
             title.style.transform = 'translateY(-20px)';
-            title.style.transition = 'all 0.6s ease-out';
+            title.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
+                    if (generation !== this._menuEntranceGeneration) return;
                     title.style.opacity = '1';
                     title.style.transform = 'translateY(0)';
                 });
             });
+            clearStyles(title, ['opacity', 'transform', 'transition'], 650);
         }
         if (subtitle) {
             subtitle.style.opacity = '0';
             subtitle.style.transition = 'opacity 0.6s ease-out 0.2s';
-            setTimeout(() => { subtitle.style.opacity = '0.7'; }, 200);
+            setTimeout(() => {
+                if (generation === this._menuEntranceGeneration) subtitle.style.opacity = '0.7';
+            }, 200);
+            clearStyles(subtitle, ['opacity', 'transition'], 850);
         }
 
         // 按钮依次弹入（主模式卡片 + 小卡片）
         const buttons = menuScreen.querySelectorAll('.mode-card');
         buttons.forEach((btn, i) => {
+            const delay = 300 + i * 80;
             btn.style.opacity = '0';
             btn.style.transform = 'translateY(30px) scale(0.9)';
-            btn.style.transition = `all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${300 + i * 80}ms`;
+            btn.style.transition = `opacity 0.4s ease ${delay}ms, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${delay}ms`;
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
+                    if (generation !== this._menuEntranceGeneration) return;
                     btn.style.opacity = '1';
                     btn.style.transform = 'translateY(0) scale(1)';
                 });
             });
+            clearStyles(btn, ['opacity', 'transform', 'transition'], delay + 450);
         });
 
         // 设置面板滑入
@@ -548,13 +571,15 @@ class GameApp {
         if (settings) {
             settings.style.opacity = '0';
             settings.style.transform = 'translateY(20px)';
-            settings.style.transition = 'all 0.5s ease-out 0.7s';
+            settings.style.transition = 'opacity 0.5s ease-out 0.7s, transform 0.5s ease-out 0.7s';
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
+                    if (generation !== this._menuEntranceGeneration) return;
                     settings.style.opacity = '1';
                     settings.style.transform = 'translateY(0)';
                 });
             });
+            clearStyles(settings, ['opacity', 'transform', 'transition'], 1250);
         }
     }
 

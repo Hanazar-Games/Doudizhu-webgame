@@ -218,7 +218,7 @@ test('AudioManager event sounds respect their fine-grained category switches', (
     audio._sequence = () => { sequences++; };
     audio._sfxSettings = {
         deal: false,
-        play: true,
+        play: false,
         call: false,
         bomb: false,
         win: false,
@@ -231,6 +231,8 @@ test('AudioManager event sounds respect their fine-grained category switches', (
     audio.playMatchEnd();
     audio.playGrabLandlord();
     audio.playCountdown();
+    audio.playTurnAlert();
+    audio.playCardPlace();
 
     audio.destroy();
     assert(tones === 0 && sequences === 0, `disabled categories still played: tones=${tones}, sequences=${sequences}`);

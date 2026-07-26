@@ -287,6 +287,17 @@ async function run() {
             throw new Error(`菜单版本号与 package.json 不一致: ${displayedVersion} / ${expectedVersion}`);
         }
         console.log(`  ✅ 版本号同步: ${displayedVersion}`);
+        await page.waitForFunction(() => Array.from(document.querySelectorAll('.mode-card'))
+            .every(card => !card.style.transform && !card.style.transition), null, { timeout: 4000 });
+        const menuEntranceState = await page.evaluate(() => ({
+            titleTransform: document.querySelector('.game-title')?.style.transform || '',
+            titleTransition: document.querySelector('.game-title')?.style.transition || '',
+            subtitleOpacity: document.querySelector('.game-subtitle')?.style.opacity || '',
+        }));
+        if (menuEntranceState.titleTransform || menuEntranceState.titleTransition || menuEntranceState.subtitleOpacity) {
+            throw new Error(`菜单入场动画残留内联样式: ${JSON.stringify(menuEntranceState)}`);
+        }
+        console.log('  ✅ 菜单入场结束后恢复 CSS 交互状态');
         const menuIconState = await page.evaluate(() => {
             const icons = Array.from(document.querySelectorAll('.mode-card__icon'));
             const footerIcons = Array.from(document.querySelectorAll('.menu-footer-left .ui-icon'));
@@ -782,6 +793,32 @@ async function run() {
             throw new Error(`音效按钮开启状态异常: ${JSON.stringify(soundState)}`);
         }
         console.log('  ✅ 音效按钮状态/aria 同步');
+        const soundFeedbackOrder = await page.evaluate(() => {
+            const app = window.gameApp;
+            const audio = app?.renderer?.audio;
+            if (!app || !audio) return null;
+            const events = [];
+            const originalPlayButtonClick = audio.playButtonClick;
+            const originalToggle = audio.toggle;
+            audio.enabled = true;
+            audio.playButtonClick = () => events.push(`click:${audio.enabled}`);
+            audio.toggle = () => {
+                audio.enabled = !audio.enabled;
+                events.push(`toggle:${audio.enabled}`);
+                return audio.enabled;
+            };
+            app.toggleSound();
+            app.toggleSound();
+            audio.playButtonClick = originalPlayButtonClick;
+            audio.toggle = originalToggle;
+            app.settings.soundEnabled = true;
+            app._syncSoundToggleButton(true);
+            return events;
+        });
+        if (soundFeedbackOrder?.join(',') !== 'click:true,toggle:false,toggle:true,click:true') {
+            throw new Error(`主音效开关反馈时序异常: ${JSON.stringify(soundFeedbackOrder)}`);
+        }
+        console.log('  ✅ 静音关闭前与恢复后均提供可听反馈');
         const oneShotBgmToggle = await page.evaluate(() => {
             const audio = window.gameApp?.renderer?.audio;
             const control = document.querySelector('[data-setting="bgmEnabled"]');

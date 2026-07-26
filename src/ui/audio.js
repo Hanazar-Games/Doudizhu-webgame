@@ -763,6 +763,7 @@ class AudioManager {
 
     playTurnAlert() {
         if (!this.sfxEnabled) return;
+        if (!this._isSfxEnabled('tick')) return;
         // 回合提醒：轻柔提示
         this._tone(659, 0.08, 'sine', 0.07);
         this._setSfxTimeout(() => this._tone(784, 0.1, 'sine', 0.08), 120);
@@ -776,6 +777,7 @@ class AudioManager {
 
     playCardPlace() {
         if (!this.sfxEnabled) return;
+        if (!this._isSfxEnabled('play')) return;
         // 出牌放置：轻快的落牌声
         this._tone(600, 0.04, 'sine', 0.07);
         this._setSfxTimeout(() => this._tone(800, 0.05, 'sine', 0.06), 40);
