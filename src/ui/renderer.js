@@ -1655,7 +1655,8 @@ class Renderer {
                     el.style.opacity = '0';
                     el.style.transform = 'translateY(30px) rotate(3deg)';
                     const enterStagger = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ddz-card-enter-stagger')) || 30;
-                    el.style.transition = `all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${j * enterStagger}ms`;
+                    const enterDelay = j * enterStagger;
+                    el.style.transition = `opacity 0.3s ease ${enterDelay}ms, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${enterDelay}ms`;
 
                     // 支持鼠标点击和触摸（防止重复触发）
                     const toggle = (e) => {
@@ -1689,6 +1690,9 @@ class Renderer {
                             el.style.transform = '';
                         });
                     });
+                    setTimeout(() => {
+                        if (el.isConnected) el.style.transition = '';
+                    }, enterDelay + 350);
                 }
                 handContainer.appendChild(fragment);
                 this._updateHandAccessibility();

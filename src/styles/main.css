@@ -5733,20 +5733,20 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 .hand-front .card:hover {
     transform: translateY(calc(-1 * var(--ddz-hover-lift, 5px))) scale(1.012);
     filter: brightness(1.04);
-    z-index: 20;
+    z-index: var(--hand-index, 1);
 }
 
 .hand-front .card:focus-visible {
     outline: 3px solid #ffe078;
     outline-offset: 3px;
     filter: brightness(1.06);
-    z-index: 21;
+    z-index: var(--hand-index, 1);
 }
 
-.hand-front .card.selected,
-.hand-front .card.selected:hover {
-    transform: translateY(calc(-1 * var(--ddz-selected-lift, 8px))) scale(1.006);
-    z-index: 0;
+#player-right .hand-front .card.selected,
+#player-right .hand-front .card.selected:hover {
+    transform: translateY(calc(-1 * var(--ddz-selected-lift, 8px)));
+    z-index: var(--hand-index, 1);
 }
 
 .card.selected .card-inner {
@@ -5777,9 +5777,9 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
 }
 
 @keyframes selectionPop {
-    0% { transform: translateY(0) scale(1); }
-    55% { transform: translateY(calc(-1 * var(--ddz-selected-lift, 12px) - 4px)) scale(1.035); }
-    100% { transform: translateY(calc(-1 * var(--ddz-selected-lift, 12px))) scale(1.022); }
+    0% { transform: translateY(0); }
+    55% { transform: translateY(calc(-1 * var(--ddz-selected-lift, 12px) - 4px)); }
+    100% { transform: translateY(calc(-1 * var(--ddz-selected-lift, 12px))); }
 }
 
 .replay-card {

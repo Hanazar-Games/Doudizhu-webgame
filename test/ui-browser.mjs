@@ -587,6 +587,8 @@ async function run() {
         await page.waitForTimeout(delays.short);
         const selectedMetrics = await page.$eval('#player-right .hand-front .card.selected', (card) => {
             const rect = card.getBoundingClientRect();
+            const style = getComputedStyle(card);
+            const matrix = new DOMMatrixReadOnly(style.transform);
             return {
                 left: rect.left,
                 right: rect.right,
@@ -594,10 +596,21 @@ async function run() {
                 bottom: rect.bottom,
                 viewportWidth: window.innerWidth,
                 viewportHeight: window.innerHeight,
+                zIndex: style.zIndex,
+                handIndex: card.style.getPropertyValue('--hand-index'),
+                scaleX: matrix.a,
+                scaleY: matrix.d,
+                translateX: matrix.e,
+                translateY: matrix.f,
             };
         });
         if (selectedMetrics.left < -1 || selectedMetrics.right > selectedMetrics.viewportWidth + 1 || selectedMetrics.top < -1) {
             throw new Error(`选中牌后牌面超出屏幕: ${JSON.stringify(selectedMetrics)}`);
+        }
+        if (selectedMetrics.zIndex !== selectedMetrics.handIndex ||
+            Math.abs(selectedMetrics.scaleX - 1) > 0.001 || Math.abs(selectedMetrics.scaleY - 1) > 0.001 ||
+            Math.abs(selectedMetrics.translateX) > 0.001 || selectedMetrics.translateY >= 0) {
+            throw new Error(`选中牌改变了原层级或发生非垂直位移: ${JSON.stringify(selectedMetrics)}`);
         }
         console.log('  ✅ 选牌抬起后仍在屏内');
         const selectedFeedback = await page.$eval('#player-right .hand-front .card.selected', (card) => ({
@@ -607,6 +620,26 @@ async function run() {
         }));
         if (selectedFeedback.pressed !== 'true' || !selectedFeedback.label?.includes('已选中') || !selectedFeedback.marker.includes('✓')) {
             throw new Error(`选牌反馈不完整: ${JSON.stringify(selectedFeedback)}`);
+        }
+        const smartDropSelection = await page.$eval('#player-right .hand-front .card.selected', (card) => {
+            card.classList.add('smart-drop');
+            const style = getComputedStyle(card);
+            const matrix = new DOMMatrixReadOnly(style.transform);
+            const result = {
+                zIndex: style.zIndex,
+                handIndex: card.style.getPropertyValue('--hand-index'),
+                scaleX: matrix.a,
+                scaleY: matrix.d,
+                translateX: matrix.e,
+                translateY: matrix.f,
+            };
+            card.classList.remove('smart-drop');
+            return result;
+        });
+        if (smartDropSelection.zIndex !== smartDropSelection.handIndex ||
+            Math.abs(smartDropSelection.scaleX - 1) > 0.001 || Math.abs(smartDropSelection.scaleY - 1) > 0.001 ||
+            Math.abs(smartDropSelection.translateX) > 0.001 || smartDropSelection.translateY >= 0) {
+            throw new Error(`建议状态覆盖了选中牌的垂直抬升: ${JSON.stringify(smartDropSelection)}`);
         }
         console.log('  ✅ 选中牌拥有视觉勾选和无障碍状态');
         const adjacentClickPoint = await page.$eval('#player-right .hand-front .card:nth-child(11)', (card) => {

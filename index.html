@@ -174,7 +174,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.46</span>
+                <span class="version-info">v1.2.47</span>
             </footer>
         </div>
     </div>
@@ -1613,20 +1613,31 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.46</div>
-                    <h3>🎨 导航图标与移动体验升级</h3>
+                    <div class="changelog-version-badge">v1.2.47</div>
+                    <h3>🃏 手牌选中层级修复</h3>
                     <ul>
-                        <li>🧭 <strong>统一导航图标</strong>：核心模式、工具入口和游戏头部改用一致的线性 SVG 图标，不再依赖跨平台表现不一的系统 Emoji</li>
-                        <li>✨ <strong>模式层级优化</strong>：补齐挑战类卡片样式，统一图标容器、箭头与悬停反馈，并移除锦标赛行内样式</li>
-                        <li>📱 <strong>移动工具区优化</strong>：六个工具入口改为三列网格，增大触控区域并避免标题拥挤换行</li>
-                        <li>🔊 <strong>音效状态同步</strong>：静音按钮动态切换 SVG 状态，继续同步无障碍标签和按下状态</li>
-                        <li>🌿 <strong>状态可读性修复</strong>：提高每日挑战文案对比度，并修正完成态与三星态样式类名不匹配</li>
-                        <li>🧪 <strong>回归补强</strong>：新增图标结构、音效切换、移动端网格尺寸和页面溢出检查</li>
+                        <li>↕️ <strong>纯垂直选牌</strong>：选中牌现在只向上移动，不再缩放或改变原有扇形层级</li>
+                        <li>🪜 <strong>层级顺序修复</strong>：选中、悬停和键盘聚焦均保留每张牌自身的手牌索引，避免中间牌错误盖住相邻牌</li>
+                        <li>💡 <strong>建议状态兼容</strong>：智能剔除提示不再覆盖选中牌的位置与缩放，复杂多选仍保持一致反馈</li>
+                        <li>🎬 <strong>入场过渡清理</strong>：发牌动画结束后恢复标准交互过渡，层级不再被永久的 all transition 错误插值</li>
+                        <li>🧪 <strong>回归补强</strong>：新增选中层级、变换矩阵和建议状态优先级检查</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.46</div>
+                            <h4>🎨 导航图标与移动体验升级</h4>
+                            <ul>
+                                <li>🧭 <strong>统一导航图标</strong>：核心模式、工具入口和游戏头部改用一致的线性 SVG 图标，不再依赖跨平台表现不一的系统 Emoji</li>
+                                <li>✨ <strong>模式层级优化</strong>：补齐挑战类卡片样式，统一图标容器、箭头与悬停反馈，并移除锦标赛行内样式</li>
+                                <li>📱 <strong>移动工具区优化</strong>：六个工具入口改为三列网格，增大触控区域并避免标题拥挤换行</li>
+                                <li>🔊 <strong>音效状态同步</strong>：静音按钮动态切换 SVG 状态，继续同步无障碍标签和按下状态</li>
+                                <li>🌿 <strong>状态可读性修复</strong>：提高每日挑战文案对比度，并修正完成态与三星态样式类名不匹配</li>
+                                <li>🧪 <strong>回归补强</strong>：新增图标结构、音效切换、移动端网格尺寸和页面溢出检查</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.45</div>
                             <h4>🔊 音频静音与舒适性修复</h4>
