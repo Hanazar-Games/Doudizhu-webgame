@@ -478,6 +478,20 @@ async function run() {
         let handMetrics = await readHandMetrics();
         assertHandOnScreen(handMetrics, '初始');
         console.log(`  ✅ 玩家17张手牌完整在屏内: ${Math.round(handMetrics.cardWidth)}×${Math.round(handMetrics.cardHeight)}px`);
+        await page.setViewportSize({ width: 1920, height: 1080 });
+        await page.waitForTimeout(delays.short);
+        const largeViewportHandMetrics = await readHandMetrics();
+        assertHandOnScreen(largeViewportHandMetrics, '大桌面');
+        if (largeViewportHandMetrics.cardWidth > handMetrics.cardWidth + 1 ||
+            largeViewportHandMetrics.cardHeight > handMetrics.cardHeight + 1) {
+            throw new Error(`大桌面视口不应继续放大玩家手牌: ${JSON.stringify({
+                baseline: handMetrics,
+                largeViewport: largeViewportHandMetrics,
+            })}`);
+        }
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await page.waitForTimeout(delays.short);
+        console.log('  ✅ 大桌面视口保持玩家手牌尺寸上限');
         const handStage = await page.$eval('#player-right .hand-front', (hand) => {
             const tray = getComputedStyle(hand, '::before');
             const firstCard = hand.querySelector('.card');

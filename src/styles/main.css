@@ -5708,14 +5708,6 @@ body[data-opponent-cards="spread"] #player-left .opponent-card-stack {
     }
 }
 
-@media (min-width: 1500px) {
-    #player-right .hand-front .card {
-        width: calc(158px * var(--ddz-card-scale, 1));
-        height: calc(220px * var(--ddz-card-scale, 1));
-        margin-left: calc(-92px * var(--ddz-card-scale, 1));
-    }
-}
-
 .card-inner {
     border: 1px solid rgba(0,0,0,0.10);
     background:
