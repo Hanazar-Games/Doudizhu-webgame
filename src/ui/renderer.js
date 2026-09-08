@@ -486,6 +486,11 @@ class Renderer {
                     this._trapFocus(helpPanel, e);
                     return;
                 }
+                const modalOverlay = this.container?.querySelector('#modal-overlay:not(.hidden)');
+                if (modalOverlay) {
+                    this._trapFocus(modalOverlay, e);
+                    return;
+                }
             }
 
             if (e.key === 'Tab' && this._isPaused) {
@@ -2347,7 +2352,15 @@ class Renderer {
             getComputedStyle(document.documentElement).getPropertyValue('--ddz-play-overlap')
         ) || 16;
         const compactOverlap = sorted.length >= 12 ? 34 : sorted.length >= 8 ? 26 : sorted.length >= 5 ? 18 : 10;
-        playedArea.style.setProperty('--table-play-overlap', `${Math.max(configuredOverlap, compactOverlap)}px`);
+        const playedScale = parseFloat(
+            getComputedStyle(playedArea).getPropertyValue('--ddz-played-card-scale')
+        ) || 1;
+        const maxSlotWidth = window.innerWidth <= 1024 ? 360 : 448;
+        const requiredOverlap = sorted.length > 1
+            ? (72 * playedScale * sorted.length + 48 - maxSlotWidth) / (sorted.length - 1)
+            : 0;
+        playedArea.style.setProperty('--table-play-overlap',
+            `${Math.max(configuredOverlap, compactOverlap, requiredOverlap)}px`);
 
         // 延迟插入新牌，等待旧牌退场
         const insertDelay = oldCards.length > 0 ? 160 : 0;
@@ -2578,6 +2591,38 @@ class Renderer {
         if (cnt) cnt.textContent = cnt.classList.contains('opponent-count-badge') ? `${count}张` : count;
     }
 
+    _openResultModal(overlay, content, initialFocusSelector) {
+        if (!overlay || !content) return;
+        if (overlay._modalCloseTimeout) {
+            clearTimeout(overlay._modalCloseTimeout);
+            this._activeTimers.delete(overlay._modalCloseTimeout);
+            overlay._modalCloseTimeout = null;
+        }
+        if (overlay.classList.contains('hidden')) {
+            this._modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        }
+        if (this._modalOverlayClick) {
+            overlay.removeEventListener('click', this._modalOverlayClick);
+        }
+
+        const title = content.querySelector('h2');
+        if (title) title.id = 'result-modal-title';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        if (title) overlay.setAttribute('aria-labelledby', title.id);
+
+        overlay.classList.remove('hidden', 'modal-exit');
+        content.classList.remove('modal-exit', 'modal-scale-in');
+        this._modalOverlayClick = (e) => {
+            if (e.target === overlay) this._closeModal(overlay, content);
+        };
+        overlay.addEventListener('click', this._modalOverlayClick);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => content.classList.add('modal-scale-in'));
+        });
+        content.querySelector(initialFocusSelector)?.focus({ preventScroll: true });
+    }
+
     _closeModal(overlay, content) {
         if (!overlay || overlay.classList.contains('modal-exit')) return;
         if (overlay._modalCloseTimeout) return;
@@ -2597,6 +2642,9 @@ class Renderer {
             overlay.classList.remove('modal-exit');
             content?.classList.remove('modal-exit');
             overlay._modalCloseTimeout = null;
+            const returnFocus = this._modalReturnFocus;
+            this._modalReturnFocus = null;
+            if (returnFocus?.isConnected) returnFocus.focus();
         }, 250);
     }
 
@@ -2744,29 +2792,7 @@ class Renderer {
             <button id="btn-round-back-menu">返回菜单</button>
         `;
 
-        if (overlay._modalCloseTimeout) {
-            clearTimeout(overlay._modalCloseTimeout);
-            overlay._modalCloseTimeout = null;
-        }
-        // 清理上一个 modal 的 overlay click listener，防止快速重入时累积
-        if (this._modalOverlayClick) {
-            overlay.removeEventListener('click', this._modalOverlayClick);
-        }
-        overlay.classList.remove('hidden');
-        overlay.classList.remove('modal-exit');
-        content.classList.remove('modal-exit');
-        // 点击背景关闭模态框
-        this._modalOverlayClick = (e) => {
-            if (e.target === overlay) this._closeModal(overlay, content);
-        };
-        overlay.addEventListener('click', this._modalOverlayClick);
-        // 重置动画：先移除类，下一帧再添加，确保动画每次都播放
-        content.classList.remove('modal-scale-in');
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                content.classList.add('modal-scale-in');
-            });
-        });
+        this._openResultModal(overlay, content, '#btn-next-round');
 
         // 得分数字滚动动画
         const scoreEls = content.querySelectorAll('.score-value');
@@ -2916,6 +2942,7 @@ class Renderer {
             </div>
             <button id="btn-coach-close">← 返回结算</button>
         `;
+        this._openResultModal(overlay, content, '#btn-coach-close');
 
         // 绑定跳转按钮
         content.querySelectorAll('.coach-jump-btn').forEach(btn => {
@@ -3023,12 +3050,7 @@ class Renderer {
             <button id="btn-tour-menu">返回菜单</button>
         `;
 
-        overlay.classList.remove('hidden', 'modal-exit');
-        content.classList.remove('modal-exit');
-        content.classList.remove('modal-scale-in');
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => content.classList.add('modal-scale-in'));
-        });
+        this._openResultModal(overlay, content, '#btn-tour-share');
 
         // 绑定按钮
         const btnShare = content.querySelector('#btn-tour-share');
@@ -3175,22 +3197,7 @@ class Renderer {
             <button id="btn-endgame-back">返回关卡列表</button>
         `;
 
-        if (overlay._modalCloseTimeout) clearTimeout(overlay._modalCloseTimeout);
-        if (this._modalOverlayClick) {
-            overlay.removeEventListener('click', this._modalOverlayClick);
-        }
-        overlay.classList.remove('hidden', 'modal-exit');
-        content.classList.remove('modal-exit');
-        this._modalOverlayClick = (e) => {
-            if (e.target === overlay) this._closeModal(overlay, content);
-        };
-        overlay.addEventListener('click', this._modalOverlayClick);
-        content.classList.remove('modal-scale-in');
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                content.classList.add('modal-scale-in');
-            });
-        });
+        this._openResultModal(overlay, content, '#btn-endgame-retry');
 
         if (passed) this.audio.playWin();
         else this.audio.playLose();
@@ -3268,22 +3275,7 @@ class Renderer {
             <button id="btn-challenge-back">返回关卡列表</button>
         `;
 
-        if (overlay._modalCloseTimeout) clearTimeout(overlay._modalCloseTimeout);
-        if (this._modalOverlayClick) {
-            overlay.removeEventListener('click', this._modalOverlayClick);
-        }
-        overlay.classList.remove('hidden', 'modal-exit');
-        content.classList.remove('modal-exit');
-        this._modalOverlayClick = (e) => {
-            if (e.target === overlay) this._closeModal(overlay, content);
-        };
-        overlay.addEventListener('click', this._modalOverlayClick);
-        content.classList.remove('modal-scale-in');
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                content.classList.add('modal-scale-in');
-            });
-        });
+        this._openResultModal(overlay, content, '#btn-challenge-retry');
 
         if (passed) this.audio.playWin();
         else this.audio.playLose();

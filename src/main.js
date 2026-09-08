@@ -50,8 +50,11 @@ class GameApp {
     }
 
     _showFallbackToast(msg, type = 'info') {
-        // 优先委托给 renderer，否则 fallback 到 alert
-        this.renderer?.showToast?.(msg, type) ?? alert(msg);
+        if (typeof this.renderer?.showToast === 'function') {
+            this.renderer.showToast(msg, type);
+        } else {
+            alert(msg);
+        }
     }
 
     _fallbackCopy(text) {
@@ -129,7 +132,7 @@ class GameApp {
                 if (isSFX) {
                     if (sfxPreviewTimer) clearTimeout(sfxPreviewTimer);
                     sfxPreviewTimer = setTimeout(() => {
-                        this._getActiveAudio()?.playTick();
+                        this._getActiveAudio()?.playSettingSlider();
                     }, 150);
                 }
             });

@@ -238,6 +238,20 @@ test('AudioManager event sounds respect their fine-grained category switches', (
     assert(tones === 0 && sequences === 0, `disabled categories still played: tones=${tones}, sequences=${sequences}`);
 });
 
+test('AudioManager new-round cue respects the deal category switch', () => {
+    const audio = new AudioManager();
+    const tones = [];
+    audio._tone = freq => tones.push(freq);
+    audio._sfxSettings.deal = false;
+
+    audio.playNewRound();
+
+    const pending = audio._sfxTimeouts.size;
+    audio.destroy();
+    assert(tones.length === 0 && pending === 0,
+        `disabled deal category played new-round cue: tones=${tones.join(',')}, pending=${pending}`);
+});
+
 await testAsync('AudioManager rocket sound respects the bomb category switch', async () => {
     const audio = new AudioManager();
     let contextAttempts = 0;

@@ -754,6 +754,7 @@ class AudioManager {
 
     playNewRound() {
         if (!this.sfxEnabled) return;
+        if (!this._isSfxEnabled('deal')) return;
         if (!this._shouldPlaySfx('newRound', 300)) return;
         // 新一轮开始：提示音
         this._tone(523, 0.1, 'sine', 0.1);

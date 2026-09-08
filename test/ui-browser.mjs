@@ -369,6 +369,27 @@ async function run() {
             }
             console.log('  ✅ BGM 滑块同步视觉进度与无障碍数值');
         }
+        const sfxPreview = await page.evaluate(async () => {
+            const app = window.gameApp;
+            const audio = app?.menuAudio;
+            const slider = document.getElementById('cfg-sfx-volume');
+            if (!app || !audio || !slider) return null;
+            const calls = { slider: 0, tick: 0 };
+            const originalSlider = audio.playSettingSlider;
+            const originalTick = audio.playTick;
+            audio.playSettingSlider = () => { calls.slider++; };
+            audio.playTick = () => { calls.tick++; };
+            slider.value = '0.6';
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+            await new Promise(resolve => setTimeout(resolve, 220));
+            audio.playSettingSlider = originalSlider;
+            audio.playTick = originalTick;
+            return calls;
+        });
+        if (!sfxPreview || sfxPreview.slider !== 1 || sfxPreview.tick !== 0) {
+            throw new Error(`SFX 音量试听错误依赖倒计时音效: ${JSON.stringify(sfxPreview)}`);
+        }
+        console.log('  ✅ SFX 音量使用独立试听音，不受倒计时分类影响');
         const voiceAndChatSettingsGone = await page.evaluate(() => {
             const text = document.querySelector('#settings-overlay')?.textContent || '';
             return !text.includes('语音播报') &&
@@ -428,6 +449,34 @@ async function run() {
         const headerIconCount = await page.$$eval('.header-controls .btn-small .ui-icon use[href^="#icon-"]', icons => icons.length);
         if (headerIconCount !== 3) throw new Error(`游戏页头部 SVG 图标数量异常: ${headerIconCount}`);
         console.log('  ✅ 游戏页头部使用统一 SVG 图标');
+        const duplicateIds = await page.evaluate(() => {
+            const counts = new Map();
+            document.querySelectorAll('[id]').forEach(el => counts.set(el.id, (counts.get(el.id) || 0) + 1));
+            return Array.from(counts.entries()).filter(([, count]) => count > 1);
+        });
+        if (duplicateIds.length > 0) {
+            throw new Error(`页面存在重复 ID: ${JSON.stringify(duplicateIds)}`);
+        }
+        console.log('  ✅ 游戏页不存在重复 ID');
+        const fallbackToast = await page.evaluate(() => {
+            const app = window.gameApp;
+            if (!app?.renderer) return null;
+            let alertCalls = 0;
+            const originalAlert = window.alert;
+            window.alert = () => { alertCalls++; };
+            const before = document.querySelectorAll('.toast-message').length;
+            app._showFallbackToast('__toast_probe__', 'info');
+            const after = document.querySelectorAll('.toast-message').length;
+            window.alert = originalAlert;
+            document.querySelectorAll('.toast-message').forEach(toast => {
+                if (toast.textContent === '__toast_probe__') toast.remove();
+            });
+            return { alertCalls, added: after - before };
+        });
+        if (!fallbackToast || fallbackToast.alertCalls !== 0 || fallbackToast.added !== 1) {
+            throw new Error(`Toast fallback 重复触发系统 alert: ${JSON.stringify(fallbackToast)}`);
+        }
+        console.log('  ✅ Renderer Toast 显示时不会额外触发系统 alert');
         const readHandMetrics = async () => page.$eval('#player-right .hand-front', (hand) => {
             const cards = Array.from(hand.querySelectorAll('.card'));
             const first = cards[0]?.getBoundingClientRect();
@@ -456,8 +505,9 @@ async function run() {
             };
         });
         const assertHandOnScreen = (metrics, label) => {
-            if (metrics.cardWidth < 140 || metrics.cardHeight < 195) {
-                throw new Error(`${label}玩家手牌过小: ${JSON.stringify(metrics)}`);
+            if (metrics.cardWidth < 71 || metrics.cardHeight < 99 ||
+                metrics.cardWidth > 145 || metrics.cardHeight > 201) {
+                throw new Error(`${label}玩家手牌尺寸超出桌面安全范围: ${JSON.stringify(metrics)}`);
             }
             if (metrics.handScrollWidth > metrics.handClientWidth + 1) {
                 throw new Error(`${label}玩家手牌产生水平溢出: ${JSON.stringify(metrics)}`);
@@ -478,20 +528,24 @@ async function run() {
         let handMetrics = await readHandMetrics();
         assertHandOnScreen(handMetrics, '初始');
         console.log(`  ✅ 玩家17张手牌完整在屏内: ${Math.round(handMetrics.cardWidth)}×${Math.round(handMetrics.cardHeight)}px`);
-        await page.setViewportSize({ width: 1920, height: 1080 });
+        await page.setViewportSize({ width: 1920, height: 800 });
+        await page.waitForTimeout(delays.short);
+        const sameHeightHandMetrics = await readHandMetrics();
+        assertHandOnScreen(sameHeightHandMetrics, '同高度宽屏');
+        if (Math.abs(sameHeightHandMetrics.cardWidth - handMetrics.cardWidth) > 1 ||
+            Math.abs(sameHeightHandMetrics.cardHeight - handMetrics.cardHeight) > 1) {
+            throw new Error(`玩家手牌尺寸不应随同高度视口变宽而变化: ${JSON.stringify({
+                baseline: handMetrics,
+                sameHeight: sameHeightHandMetrics,
+            })}`);
+        }
+        await page.setViewportSize({ width: 2560, height: 1440 });
         await page.waitForTimeout(delays.short);
         const largeViewportHandMetrics = await readHandMetrics();
         assertHandOnScreen(largeViewportHandMetrics, '大桌面');
-        if (largeViewportHandMetrics.cardWidth > handMetrics.cardWidth + 1 ||
-            largeViewportHandMetrics.cardHeight > handMetrics.cardHeight + 1) {
-            throw new Error(`大桌面视口不应继续放大玩家手牌: ${JSON.stringify({
-                baseline: handMetrics,
-                largeViewport: largeViewportHandMetrics,
-            })}`);
-        }
         await page.setViewportSize({ width: 1280, height: 800 });
         await page.waitForTimeout(delays.short);
-        console.log('  ✅ 大桌面视口保持玩家手牌尺寸上限');
+        console.log('  ✅ 桌面手牌仅随可用高度变化并保持尺寸上限');
         const handStage = await page.$eval('#player-right .hand-front', (hand) => {
             const tray = getComputedStyle(hand, '::before');
             const firstCard = hand.querySelector('.card');
@@ -574,6 +628,94 @@ async function run() {
         if (handMetrics.count < 20) throw new Error(`叫地主后手牌未增加到底牌: ${JSON.stringify(handMetrics)}`);
         assertHandOnScreen(handMetrics, '地主20张');
         console.log('  ✅ 地主20张手牌完整在屏内');
+        await page.evaluate(() => {
+            const renderer = window.gameApp?.renderer;
+            if (!renderer?.gameState) return;
+            document.documentElement.style.setProperty('--ddz-played-card-scale', '1.15');
+            [1, 2].forEach(playerIndex => {
+                renderer.animatePlay({
+                    playerIndex,
+                    cards: renderer.gameState.players[playerIndex].hand.slice(0, 12),
+                    remaining: renderer.gameState.players[playerIndex].hand.length - 12,
+                    pattern: { type: 'TRIPLE_STRAIGHT_WITH_SINGLES' },
+                });
+            });
+        });
+        await page.waitForTimeout(delays.medium);
+        const desktopViewports = [
+            { width: 901, height: 600 },
+            { width: 1024, height: 600 },
+            { width: 1280, height: 600 },
+            { width: 1280, height: 720 },
+            { width: 1280, height: 800 },
+            { width: 1920, height: 800 },
+            { width: 1920, height: 1080 },
+            { width: 2560, height: 1440 },
+        ];
+        const desktopGeometry = [];
+        for (const viewport of desktopViewports) {
+            await page.setViewportSize(viewport);
+            await page.waitForTimeout(delays.short);
+            desktopGeometry.push(await page.evaluate(({ width, height }) => {
+                const humanCards = Array.from(document.querySelectorAll('#player-right .hand-front .card'));
+                const opponentCards = Array.from(document.querySelectorAll('#player-top .table-play-card, #player-left .table-play-card'));
+                const intersects = (a, b) => a.left < b.right - 1 && a.right > b.left + 1 &&
+                    a.top < b.bottom - 1 && a.bottom > b.top + 1;
+                const humanRects = humanCards.map(card => card.getBoundingClientRect());
+                const opponentRects = opponentCards.map(card => card.getBoundingClientRect());
+                const topRects = Array.from(document.querySelectorAll('#player-top .table-play-card'))
+                    .map(card => card.getBoundingClientRect());
+                const leftRects = Array.from(document.querySelectorAll('#player-left .table-play-card'))
+                    .map(card => card.getBoundingClientRect());
+                const controlRects = Array.from(document.querySelectorAll(
+                    '#controls-area > #call-controls:not(.hidden), #controls-area > #play-controls:not(.hidden), #controls-area > #game-info'
+                )).map(element => element.getBoundingClientRect()).filter(rect => rect.width > 0 && rect.height > 0);
+                const utilityRect = document.getElementById('side-panels')?.getBoundingClientRect();
+                const opponentInfoRects = Array.from(document.querySelectorAll(
+                    '#player-top .player-info, #player-top .opponent-hand-summary, #player-left .player-info, #player-left .opponent-hand-summary'
+                )).map(element => element.getBoundingClientRect());
+                const firstHuman = humanRects[0];
+                return {
+                    width,
+                    height,
+                    cardWidth: firstHuman?.width || 0,
+                    cardHeight: firstHuman?.height || 0,
+                    opponentCount: opponentRects.length,
+                    humanTop: humanRects.length ? Math.min(...humanRects.map(rect => rect.top)) : 0,
+                    humanBottom: humanRects.length ? Math.max(...humanRects.map(rect => rect.bottom)) : 0,
+                    opponentTop: opponentRects.length ? Math.min(...opponentRects.map(rect => rect.top)) : 0,
+                    opponentBottom: opponentRects.length ? Math.max(...opponentRects.map(rect => rect.bottom)) : 0,
+                    opponentLeft: opponentRects.length ? Math.min(...opponentRects.map(rect => rect.left)) : 0,
+                    opponentRight: opponentRects.length ? Math.max(...opponentRects.map(rect => rect.right)) : 0,
+                    outOfBounds: opponentRects.filter(rect => rect.left < -1 || rect.right > innerWidth + 1 ||
+                        rect.top < -1 || rect.bottom > innerHeight + 1).length,
+                    opponentOverlaps: topRects.reduce((count, rect) =>
+                        count + leftRects.filter(leftRect => intersects(rect, leftRect)).length, 0),
+                    controlOverlaps: controlRects.reduce((count, rect) => count +
+                        opponentRects.filter(opponentRect => intersects(rect, opponentRect)).length +
+                        humanRects.filter(humanRect => intersects(rect, humanRect)).length, 0),
+                    utilityOverlaps: utilityRect ? opponentInfoRects.filter(rect => intersects(utilityRect, rect)).length : 0,
+                    overlaps: opponentRects.reduce((count, rect) =>
+                        count + humanRects.filter(humanRect => intersects(rect, humanRect)).length, 0),
+                };
+            }, viewport));
+        }
+        const unsafeDesktopGeometry = desktopGeometry.filter(item => item.opponentCount !== 24 ||
+            item.outOfBounds > 0 || item.opponentOverlaps > 0 || item.controlOverlaps > 0 ||
+            item.utilityOverlaps > 0 || item.overlaps > 0 ||
+            item.cardWidth < 71 || item.cardHeight < 99 || item.cardWidth > 145 || item.cardHeight > 201);
+        if (unsafeDesktopGeometry.length > 0) {
+            throw new Error(`桌面出牌区越界或遮挡玩家手牌: ${JSON.stringify(unsafeDesktopGeometry)}`);
+        }
+        const shortDesktop = desktopGeometry.find(item => item.width === 1024 && item.height === 600);
+        const mediumDesktop = desktopGeometry.find(item => item.width === 1280 && item.height === 800);
+        if (!shortDesktop || !mediumDesktop || shortDesktop.cardHeight >= mediumDesktop.cardHeight - 1) {
+            throw new Error(`低高度桌面未收缩玩家手牌: ${JSON.stringify({ shortDesktop, mediumDesktop })}`);
+        }
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await page.waitForTimeout(delays.short);
+        await page.evaluate(() => document.documentElement.style.setProperty('--ddz-played-card-scale', '1'));
+        console.log('  ✅ 八组桌面视口下出牌不越界、不互遮，手牌随高度收缩');
         const handValues = await page.$$eval('#player-right .hand-front .card', (cards) => cards.map((card) => Number(card.dataset.value)));
         for (let i = 1; i < handValues.length; i++) {
             if (handValues[i] < handValues[i - 1]) {
@@ -855,6 +997,126 @@ async function run() {
         }
         console.log('  ✅ BGM 开关不重播一次性结算音乐');
 
+        const modalCases = [
+            {
+                name: '回合结算',
+                first: 'btn-next-round',
+                last: 'btn-round-back-menu',
+                open: () => page.evaluate(() => window.gameApp.renderer.showRoundResult({
+                    winnerIndex: 0,
+                    isLandlordWin: true,
+                    multiplier: 1,
+                    baseScore: 1,
+                    scores: [2, -1, -1],
+                    springType: null,
+                })),
+            },
+            {
+                name: '教练复盘',
+                first: 'btn-coach-close',
+                last: 'btn-coach-close',
+                open: () => page.evaluate(() => {
+                    const renderer = window.gameApp.renderer;
+                    renderer.showCoachReview({ summary: { score: 88 }, suggestions: [] },
+                        renderer.container.querySelector('#modal-overlay'),
+                        renderer.container.querySelector('#modal-content'));
+                }),
+            },
+            {
+                name: '锦标赛结算',
+                first: 'btn-tour-share',
+                last: 'btn-tour-menu',
+                open: () => page.evaluate(() => window.gameApp.renderer.showTournamentResult({
+                    matchScores: [10, 0, -10],
+                    roundResults: [],
+                    totalRounds: 3,
+                })),
+            },
+            {
+                name: '残局结算',
+                first: 'btn-endgame-retry',
+                last: 'btn-endgame-back',
+                open: () => page.evaluate(() => window.gameApp.renderer.showEndgameResult(false, 0, 0, {
+                    passed: 0,
+                    total: 1,
+                    totalStars: 0,
+                    maxStars: 3,
+                })),
+            },
+            {
+                name: '极限挑战结算',
+                first: 'btn-challenge-retry',
+                last: 'btn-challenge-back',
+                open: () => page.evaluate(() => window.gameApp.renderer.showExtremeChallengeResult(false, 0, {
+                    id: 1,
+                    icon: '⚔️',
+                    title: '测试挑战',
+                }, {
+                    passed: 0,
+                    total: 1,
+                    totalStars: 0,
+                    maxStars: 3,
+                })),
+            },
+        ];
+        const modalFailures = [];
+        for (const modalCase of modalCases) {
+            await modalCase.open();
+            await page.waitForTimeout(50);
+            const state = await page.$eval('#game-table #modal-overlay', overlay => ({
+                role: overlay.getAttribute('role'),
+                modal: overlay.getAttribute('aria-modal'),
+                labelledBy: overlay.getAttribute('aria-labelledby'),
+                titleId: overlay.querySelector('#modal-content h2')?.id || '',
+                focus: document.activeElement?.id || '',
+            }));
+            await page.keyboard.press('Shift+Tab');
+            state.wrappedFocus = await page.evaluate(() => document.activeElement?.id || '');
+            if (state.role !== 'dialog' || state.modal !== 'true' || !state.titleId ||
+                state.labelledBy !== state.titleId || state.focus !== modalCase.first ||
+                state.wrappedFocus !== modalCase.last) {
+                modalFailures.push({ name: modalCase.name, ...state });
+            }
+        }
+        if (modalFailures.length > 0) {
+            throw new Error(`结算弹窗语义或焦点约束不完整: ${JSON.stringify(modalFailures)}`);
+        }
+        await page.evaluate(() => window.gameApp.renderer.showRoundResult({
+            winnerIndex: 0,
+            isLandlordWin: true,
+            multiplier: 1,
+            baseScore: 1,
+            scores: [2, -1, -1],
+            springType: null,
+        }, {
+            isMatchMode: true,
+            isFinished: true,
+            isTournament: true,
+            currentRound: 1,
+            totalRounds: 1,
+            matchScores: [2, -1, -1],
+            roundResults: [],
+        }));
+        await page.click('#btn-next-round');
+        await page.waitForTimeout(350);
+        const tournamentTransition = await page.$eval('#game-table #modal-overlay', overlay => ({
+            visible: !overlay.classList.contains('hidden') && !overlay.classList.contains('modal-exit'),
+            title: overlay.querySelector('#modal-content h2')?.textContent || '',
+            focus: document.activeElement?.id || '',
+        }));
+        if (!tournamentTransition.visible || !tournamentTransition.title.includes('锦标赛结算') ||
+            tournamentTransition.focus !== 'btn-tour-share') {
+            throw new Error(`旧关闭定时器隐藏了新结算弹窗: ${JSON.stringify(tournamentTransition)}`);
+        }
+        await page.evaluate(() => {
+            const renderer = window.gameApp?.renderer;
+            const overlay = renderer?.container?.querySelector('#modal-overlay');
+            const content = renderer?.container?.querySelector('#modal-content');
+            renderer?._closeModal(overlay, content);
+        });
+        await page.waitForTimeout(delays.short);
+        console.log('  ✅ 五类结算弹窗具备 dialog 语义、初始焦点和焦点环回');
+
         // ===== 4. 暂停 overlay =====
         console.log('\n--- 4. 暂停 overlay ---');
         await page.click('#btn-pause');
@@ -1102,6 +1364,45 @@ async function run() {
         await mobilePage.click('#btn-ai-mode');
         await mobilePage.waitForTimeout(delays.long);
         await screenshot(mobilePage, '14-game-mobile-landscape');
+
+        const mobileViewports = [
+            { width: 812, height: 375 },
+            { width: 740, height: 360 },
+            { width: 375, height: 667 },
+        ];
+        const opponentBounds = [];
+        for (const viewport of mobileViewports) {
+            await mobilePage.setViewportSize(viewport);
+            await mobilePage.waitForTimeout(delays.short);
+            opponentBounds.push(await mobilePage.evaluate(({ width, height }) => ({
+                width,
+                height,
+                opponents: Array.from(document.querySelectorAll('#player-top .opponent-hand-summary, #player-left .opponent-hand-summary'))
+                    .map(summary => {
+                        const rect = summary.getBoundingClientRect();
+                        return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+                    }),
+            }), viewport));
+        }
+        const unsafeOpponentBounds = opponentBounds.filter(item => item.opponents.length !== 2 ||
+            item.opponents.some(rect => rect.left < -1 || rect.right > item.width + 1 ||
+                rect.top < -1 || rect.bottom > item.height + 1));
+        if (unsafeOpponentBounds.length > 0) {
+            throw new Error(`移动端对手牌背被视口裁切: ${JSON.stringify(unsafeOpponentBounds)}`);
+        }
+        await mobilePage.setViewportSize({ width: 812, height: 375 });
+        await mobilePage.waitForTimeout(delays.short);
+        const mobileHeaderTargets = await mobilePage.evaluate(() => Array.from(document.querySelectorAll(
+            '#btn-back-menu, .header-controls .btn-small'
+        )).map(button => {
+            const rect = button.getBoundingClientRect();
+            return { id: button.id, width: rect.width, height: rect.height };
+        }));
+        const undersizedHeaderTargets = mobileHeaderTargets.filter(target => target.width < 44 || target.height < 44);
+        if (mobileHeaderTargets.length !== 4 || undersizedHeaderTargets.length > 0) {
+            throw new Error(`移动端头部触控目标不足 44px: ${JSON.stringify(mobileHeaderTargets)}`);
+        }
+        console.log('  ✅ 移动端对手牌背完整可见，头部触控目标均不小于 44px');
 
         const mobileUtilityLayout = await mobilePage.evaluate(() => {
             const tools = document.querySelector('#side-panels');

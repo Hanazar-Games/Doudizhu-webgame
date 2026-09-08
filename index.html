@@ -174,7 +174,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.49</span>
+                <span class="version-info">v1.2.50</span>
             </footer>
         </div>
     </div>
@@ -1206,11 +1206,6 @@
         <div id="memory-counter" class="debug-counter debug-counter--mem">MEM: --</div>
     </div>
 
-    <!-- 全局模态弹窗 -->
-    <div id="modal-overlay" class="hidden">
-        <div id="modal-content"></div>
-    </div>
-
     <!-- LAN 联机界面 -->
     <div id="lan-screen" class="screen hidden">
         <div class="screen-bg-decoration"></div>
@@ -1613,18 +1608,29 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.49</div>
-                    <h3>📱 移动横屏交互收尾</h3>
+                    <div class="changelog-version-badge">v1.2.50</div>
+                    <h3>🛠️ 全面交互与音频稳定性修复</h3>
                     <ul>
-                        <li>🤖 <strong>玩家信息可见</strong>：横屏下记牌器与历史按钮不再遮挡右侧 AI 头像、名称和手牌</li>
-                        <li>👆 <strong>触控安全区</strong>：工具组移至右下角空白区，保留 44px 触控区并适配设备安全边距</li>
-                        <li>🗂️ <strong>面板展开优化</strong>：记牌器和出牌历史从工具栏上方展开，保持在视口内且不压住叫分区</li>
-                        <li>🧪 <strong>横屏回归补强</strong>：新增玩家信息重叠、触控尺寸与面板边界检查</li>
+                        <li>🃏 <strong>桌面牌桌重排</strong>：手牌按可用高度自适应，控制栏、双方出牌和玩家手牌不再互相遮挡或越界</li>
+                        <li>📱 <strong>移动安全区修复</strong>：对手牌背完整收拢到视口内，返回与头部图标统一达到 44px 触控尺寸</li>
+                        <li>♿ <strong>结算弹窗修复</strong>：五类结果弹窗补齐语义、标题关联、初始焦点和 Tab 环回，并修复连续切换后被旧定时器隐藏的问题</li>
+                        <li>🔊 <strong>音频反馈修复</strong>：关闭发牌音效后新一局提示保持静音，SFX 音量使用独立试听音，不再依赖倒计时开关</li>
+                        <li>🧹 <strong>交互稳定性修复</strong>：移除重复弹窗 ID，Toast 不再额外触发系统提示，并补强多视口、弹窗与音频回归</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.49</div>
+                            <h4>📱 移动横屏交互收尾</h4>
+                            <ul>
+                                <li>🤖 <strong>玩家信息可见</strong>：横屏下记牌器与历史按钮不再遮挡右侧 AI 头像、名称和手牌</li>
+                                <li>👆 <strong>触控安全区</strong>：工具组移至右下角空白区，保留 44px 触控区并适配设备安全边距</li>
+                                <li>🗂️ <strong>面板展开优化</strong>：记牌器和出牌历史从工具栏上方展开，保持在视口内且不压住叫分区</li>
+                                <li>🧪 <strong>横屏回归补强</strong>：新增玩家信息重叠、触控尺寸与面板边界检查</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.48</div>
                             <h4>🎨 交互音效与部署稳定性修复</h4>
