@@ -1233,11 +1233,28 @@ async function run() {
 
         // ===== 6. LAN 模式 =====
         console.log('\n--- 6. LAN 模式 ---');
+        const pagesRequests = [];
+        const recordPagesRequest = request => {
+            if (/\/(?:api|ws)(?:\/|$)/.test(new URL(request.url()).pathname)) pagesRequests.push(request.url());
+        };
+        page.on('request', recordPagesRequest);
+        await page.evaluate(() => { window.gameApp._isGitHubPages = () => true; });
         await page.click('#btn-lan-mode');
-        await page.waitForTimeout(delays.medium);
+        await page.waitForTimeout(delays.long);
         await screenshot(page, '07-lan-mode');
+        page.off('request', recordPagesRequest);
+        const pagesLanState = await page.evaluate(() => ({
+            noticeVisible: !document.getElementById('lan-static-notice')?.classList.contains('hidden'),
+            hostDisabled: document.getElementById('btn-lan-host')?.disabled,
+            joinDisabled: document.getElementById('btn-lan-join')?.disabled,
+        }));
+        if (!pagesLanState.noticeVisible || !pagesLanState.hostDisabled || !pagesLanState.joinDisabled || pagesRequests.length > 0) {
+            throw new Error(`GitHub Pages LAN 降级仍触发无效请求: ${JSON.stringify({ pagesLanState, pagesRequests })}`);
+        }
+        console.log('  ✅ GitHub Pages LAN 入口不再触发 /api 或 /ws 404');
         await page.click('#btn-back-lan');
         await page.waitForTimeout(delays.short);
+        await page.evaluate(() => { delete window.gameApp._isGitHubPages; });
 
         // ===== 7. 回放 / 成就 / 教程 / 牌风分析 =====
         console.log('\n--- 7. 其他菜单页面 ---');

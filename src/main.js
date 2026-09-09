@@ -1696,14 +1696,27 @@ class GameApp {
 
     async _refreshLANHostInfo() {
         const status = document.getElementById('lan-status');
+        const dot = document.getElementById('lan-status-dot');
+        const notice = document.getElementById('lan-static-notice');
         const row = document.getElementById('lan-host-url-row');
         const input = document.getElementById('lan-host-url');
         if (!status || !row || !input) return;
 
-        status.className = 'lan-host-status';
+        const isGitHubPages = this._isGitHubPages();
+        notice?.classList.toggle('hidden', !isGitHubPages);
+        document.getElementById('btn-lan-host')?.toggleAttribute('disabled', isGitHubPages);
+        document.getElementById('btn-lan-join')?.toggleAttribute('disabled', isGitHubPages);
+        status.className = 'lan-status-text';
+        if (dot) dot.className = 'lan-status-dot';
         status.textContent = '正在检测本机托管服务...';
         row.classList.add('hidden');
         input.value = '';
+
+        if (isGitHubPages) {
+            dot?.classList.add('offline');
+            status.textContent = 'GitHub Pages 不提供联机服务器，请按上方说明从房主的局域网地址进入。';
+            return;
+        }
 
         try {
             const res = await fetch('./api/lan-info', { cache: 'no-store' });
@@ -1713,12 +1726,16 @@ class GameApp {
             const lanUrl = urls.find(url => !url.includes('localhost')) || urls[0] || window.location.origin;
             input.value = lanUrl;
             row.classList.remove('hidden');
-            status.classList.add('online');
+            dot?.classList.add('online');
             status.textContent = '本机托管服务已就绪。创建房间后，把地址和房间号发给其他玩家。';
         } catch (err) {
-            status.classList.add('offline');
+            dot?.classList.add('offline');
             status.textContent = '当前页面没有连接到房主服务。房主电脑运行 npm run lan:host 后，再打开终端里显示的局域网地址。';
         }
+    }
+
+    _isGitHubPages() {
+        return /\.github\.io$/i.test(window.location.hostname);
     }
 
     _initCustomListeners() {

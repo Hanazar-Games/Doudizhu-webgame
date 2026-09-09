@@ -35,17 +35,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Audit dependencies
+        run: npm audit --audit-level=moderate
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
       - name: Run tests
         run: npm run test:all
 
-      - name: Build
-        run: npm run build
+      - name: Configure Pages
+        id: pages
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: actions/configure-pages@v5
 
-      - name: Audit dependencies
-        run: npm audit --audit-level=moderate
+      - name: Build
+        run: npm run build -- --base "${{ steps.pages.outputs.base_path }}/"
+
+      - name: Test Pages artifact
+        run: npm run test:pages -- "${{ steps.pages.outputs.base_path }}/"
 
       - name: Upload UI test screenshots on failure
         if: failure()
@@ -55,10 +63,6 @@ jobs:
           path: test/ui-screenshots/
           if-no-files-found: ignore
           retention-days: 3
-
-      - name: Configure Pages
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-        uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'

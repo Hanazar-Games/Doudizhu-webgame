@@ -72,7 +72,8 @@ docker inspect --format='{{.State.Health.Status}}' doudizhu-game
 CI 流程包含：
 - `npm ci` 安装依赖
 - `npm run test:all` 运行全部测试（核心 / 每日挑战 / 残局 / AI 教练 / LAN / UI）
-- `npm run build` 生产构建
+- 使用 Pages 提供的仓库 `base_path` 执行生产构建
+- `npm run test:pages` 校验构建产物、PWA 图标与 404 fallback
 - `npm audit --audit-level=moderate` 依赖安全审计
 - 测试失败时自动上传 UI 截图作为 Artifact
 

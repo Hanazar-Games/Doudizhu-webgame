@@ -78,8 +78,8 @@ app.get('/api/rooms', (req, res) => {
 if (!isDev) {
     const distDir = resolve(__dirname, '../dist');
     app.use(express.static(distDir));
-    app.get('*', (req, res, next) => {
-        if (req.path.startsWith('/api/') || req.path.includes('.')) {
+    app.use((req, res, next) => {
+        if (req.method !== 'GET' || req.path.startsWith('/api/') || req.path.includes('.')) {
             return next();
         }
         res.sendFile(resolve(distDir, 'index.html'));

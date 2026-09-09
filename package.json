@@ -16,6 +16,7 @@
     "test:core": "node test/core.test.mjs",
     "test:daily": "node test/daily-challenge.test.mjs",
     "test:lan": "node test/run-lan-test.mjs",
+    "test:pages": "node test/pages-deployment.test.mjs",
     "test:ui": "node test/ui-browser.mjs",
     "test:endgame": "node test/endgame.test.mjs",
     "test:coach": "node test/coach-analyzer.test.mjs",
@@ -40,7 +41,7 @@
     "vite": "^6.4.2"
   },
   "dependencies": {
-    "express": "^4.18.0",
+    "express": "^5.2.1",
     "ws": "^8.14.0"
   }
 }

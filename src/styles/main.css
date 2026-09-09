@@ -2819,6 +2819,11 @@ body[data-theme="purple"] {
     line-height: 1.4;
 }
 
+.screen-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
 .lan-room-info {
     margin-bottom: 16px;
 }

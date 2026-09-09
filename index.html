@@ -7,8 +7,9 @@
     <title>斗地主 - 经典棋牌游戏</title>
     <meta name="description" content="经典三人棋牌斗地主 — 支持人机对战、局域网联机、自定义规则和牌局回放。">
     <link rel="stylesheet" href="./src/styles/main.css">
-    <link rel="manifest" href="./manifest.json">
-    <link rel="apple-touch-icon" href="./icon-192.png">
+    <link rel="manifest" href="%BASE_URL%manifest.json">
+    <link rel="icon" href="%BASE_URL%icon-192.png" type="image/png">
+    <link rel="apple-touch-icon" href="%BASE_URL%icon-192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
@@ -1215,6 +1216,10 @@
                 <h2 class="screen-header__title">局域网联机</h2>
                 <p class="screen-header__subtitle">与好友在同一网络下实时对战</p>
             </header>
+            <div id="lan-static-notice" class="lan-status-card hidden" role="status">
+                <span class="lan-status-dot offline"></span>
+                <p class="lan-status-text">GitHub Pages 仅托管单机游戏。联机时请在房主电脑运行 npm run lan:host，并让所有玩家打开终端显示的局域网地址。</p>
+            </div>
             <div class="lan-tabs">
                 <button class="lan-tab active" data-tab="join">
                     <span class="lan-tab__icon">🚪</span>
@@ -1615,6 +1620,7 @@
                         <li>📱 <strong>移动安全区修复</strong>：对手牌背完整收拢到视口内，返回与头部图标统一达到 44px 触控尺寸</li>
                         <li>♿ <strong>结算弹窗修复</strong>：五类结果弹窗补齐语义、标题关联、初始焦点和 Tab 环回，并修复连续切换后被旧定时器隐藏的问题</li>
                         <li>🔊 <strong>音频反馈修复</strong>：关闭发牌音效后新一局提示保持静音，SFX 音量使用独立试听音，不再依赖倒计时开关</li>
+                        <li>🌐 <strong>GitHub Pages 修复</strong>：统一由 Actions 发布带仓库子路径的构建产物，补齐 PWA 与 404 校验，并阻止静态站点发起无效联机请求</li>
                         <li>🧹 <strong>交互稳定性修复</strong>：移除重复弹窗 ID，Toast 不再额外触发系统提示，并补强多视口、弹窗与音频回归</li>
                     </ul>
                 </div>
