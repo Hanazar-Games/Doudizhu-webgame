@@ -11,6 +11,7 @@ global.WebSocket = class MockWebSocket {
     close() {}
 };
 global.document = { getElementById: () => null };
+global.localStorage = { getItem: () => JSON.stringify({ timerEnabled: false }), setItem() {} };
 
 const { LANMode } = await import('../src/modes/lan-mode.js');
 const { Card } = await import('../src/core/card.js');
@@ -79,6 +80,27 @@ function createGuestMode() {
 
 // ===== 测试开始 =====
 
+test('active snapshots never expose initial hands', () => {
+    const host = createHostMode();
+    let message;
+    host._send = msg => { message = msg; };
+    host._sendStateSync('p2');
+    assertEq(message.data.initialHands, undefined, 'opponent initial hands are private');
+    assertEq(message.data.initialBottom, undefined, 'unrevealed bottom is private');
+});
+
+test('guest actions wait for host validation', () => {
+    const guest = createGuestMode();
+    guest.gameState.phase = 'PLAYING';
+    guest.gameState.currentTurn = 1;
+    guest.gameState.players[1].setHand([Card.createDeck()[0]]);
+    guest._send = () => {};
+    guest.networkReady = true;
+    guest.humanPlay([...guest.gameState.players[1].hand]);
+    assertEq(guest.gameState.players[1].hand.length, 1, 'local action does not settle game');
+    guest.destroy();
+});
+
 test('_sendStateSync 包含完整游戏规则变体', () => {
     const mode = createHostMode();
     const originalSend = mode._send.bind(mode);
@@ -112,7 +134,8 @@ test('_sendStateSync 包含完整游戏规则变体', () => {
     assertEq(syncData.players[0].isLandlord, false, 'player0 not landlord');
     assertEq(syncData.players[0].seatIndex, 0, 'player0 seatIndex');
     // 不含手牌内容（只含数量）
-    assertEq(syncData.ownHand, undefined, 'no ownHand without targetPeerId');
+    assert(captured.targetPeerId, 'all snapshots are targeted');
+    assertEq(syncData.initialHands, undefined, 'opponent initial hands are private');
 });
 
 test('_sendStateSync targetPeerId 只给目标玩家发送 ownHand', () => {
@@ -260,7 +283,8 @@ test('_applySync 不泄露其他玩家真实手牌', () => {
     host._send = originalSend;
 
     const syncData = captured.data;
-    assertEq(syncData.ownHand, undefined, 'broadcast sync has no ownHand');
+    assertEq(syncData.initialHands, undefined, 'initial hands are private');
+    delete syncData.ownHand;
 
     // Guest 应用 sync
     guest._applySync(syncData);
@@ -281,8 +305,8 @@ test('叫分后 host 自动广播 game_state_sync', () => {
     mode.humanCall(1);
 
     const syncMsgs = messages.filter(m => m.type === 'game_state_sync');
-    assertEq(syncMsgs.length, 1, 'host broadcasts sync after call');
-    assertEq(syncMsgs[0].broadcast, true, 'sync is broadcast');
+    assertEq(syncMsgs.length, 2, 'host sends one private snapshot per guest');
+    assert(syncMsgs.every(m => m.targetPeerId && !m.broadcast), 'snapshots are private');
 
     mode._send = originalSend;
 });
@@ -302,8 +326,8 @@ test('出牌后 host 自动广播 game_state_sync', () => {
     mode.humanPlay([card]);
 
     const syncMsgs = messages.filter(m => m.type === 'game_state_sync');
-    assertEq(syncMsgs.length, 1, 'host broadcasts sync after play');
-    assertEq(syncMsgs[0].broadcast, true, 'sync is broadcast');
+    assertEq(syncMsgs.length, 2, 'host sends one private snapshot per guest');
+    assert(syncMsgs.every(m => m.targetPeerId && !m.broadcast), 'snapshots are private');
 
     mode._send = originalSend;
 });
@@ -328,13 +352,13 @@ test('pass 后 host 自动广播 game_state_sync', () => {
     mode.humanPass();
 
     const syncMsgs = messages.filter(m => m.type === 'game_state_sync');
-    assertEq(syncMsgs.length, 1, 'host broadcasts sync after pass');
-    assertEq(syncMsgs[0].broadcast, true, 'sync is broadcast');
+    assertEq(syncMsgs.length, 2, 'host sends one private snapshot per guest');
+    assert(syncMsgs.every(m => m.targetPeerId && !m.broadcast), 'snapshots are private');
 
     mode._send = originalSend;
 });
 
-test('非 host action 失败后请求状态同步', () => {
+test('非 host 不执行其他玩家的原始动作', () => {
     const guest = createGuestMode();
     guest.isHost = false;
     guest.hostPeerId = 'host_test';
@@ -358,13 +382,12 @@ test('非 host action 失败后请求状态同步', () => {
     });
 
     const requestMsgs = messages.filter(m => m.type === 'request_state_sync');
-    assertEq(requestMsgs.length, 1, 'guest requests state sync on play failure');
-    assertEq(requestMsgs[0].targetPeerId, 'host_test', 'requests from host');
+    assertEq(requestMsgs.length, 0, 'guest ignores unvalidated raw actions');
 
     guest._send = originalSend;
 });
 
-test('非 host pass 失败后请求状态同步', () => {
+test('非 host 不执行未经房主确认的过牌', () => {
     const guest = createGuestMode();
     guest.isHost = false;
     guest.hostPeerId = 'host_test';
@@ -382,9 +405,23 @@ test('非 host pass 失败后请求状态同步', () => {
     });
 
     const requestMsgs = messages.filter(m => m.type === 'request_state_sync');
-    assertEq(requestMsgs.length, 1, 'guest requests state sync on pass failure');
+    assertEq(requestMsgs.length, 0, 'guest ignores unvalidated passes');
 
     guest._send = originalSend;
+});
+
+test('guest snapshots preserve local auto play and honor explicit open hands', () => {
+    const host = createHostMode();
+    const guest = createGuestMode();
+    guest.gameState.players[1].isAuto = true;
+    host._send = message => guest._applySync(message.data);
+    host._sendStateSync('p2');
+    assertEq(guest.gameState.players[1].isAuto, true);
+    host.gameState.showCards = true;
+    host._sendStateSync('p2');
+    assertEq(guest.gameState.players[2].hand.map(c => c.displayName).join(','), host.gameState.players[2].hand.map(c => c.displayName).join(','));
+    host.destroy();
+    guest.destroy();
 });
 
 // 总结

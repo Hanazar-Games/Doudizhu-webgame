@@ -12,6 +12,7 @@ import { Storage } from '../utils/storage.js';
 class BaseMode {
     constructor(modeName) {
         this.modeName = modeName;
+        this._generation = 0;
         this.gameState = new GameState();
         this.renderer = null;
         this.isRunning = false;
@@ -41,6 +42,10 @@ class BaseMode {
     }
 
     destroy() {
+        this._generation++;
+        this._isProcessingCalling = false;
+        this._isProcessingPlay = false;
+        this._isAutoPlaying = false;
         this.isRunning = false;
         this._stopCountdown();
         for (const t of this._pendingTimers) {
@@ -67,6 +72,8 @@ class BaseMode {
     
     // 设置比赛参数
     setMatchRounds(rounds) {
+        this.gameState.scores = [0, 0, 0];
+        this.gameState.roundCount = 0;
         this.matchConfig.totalRounds = rounds;
         this.matchConfig.isMatchMode = rounds > 1;
         this.matchConfig.currentRound = 0;
@@ -145,12 +152,7 @@ class BaseMode {
 
     // 开始一局
     async startGame() {
-        // 清理上一局遗留的定时器，防止旧定时器干扰新局
-        for (const t of this._pendingTimers) {
-            clearTimeout(t.id);
-            try { t.resolve?.(new Error('New game started')); } catch (e) {}
-        }
-        this._pendingTimers = [];
+        this.destroy();
         this.isRunning = true;
         this._applyGameRules();
 
@@ -173,8 +175,9 @@ class BaseMode {
     async _processCalling() {
         if (this._isProcessingCalling) return;
         this._isProcessingCalling = true;
+        const generation = this._generation;
         try {
-            while (this.isRunning && this.gameState.phase === PHASE.CALLING) {
+            while (this.isRunning && generation === this._generation && this.gameState.phase === PHASE.CALLING) {
                 const idx = this.gameState.currentTurn;
                 const player = this.gameState.players[idx];
                 
@@ -211,7 +214,7 @@ class BaseMode {
                     } catch (e) {
                         return;
                     }
-                    if (!this.isRunning) return;
+                    if (!this.isRunning || generation !== this._generation) return;
                     // 观战模式下增加额外延迟，方便观众观察
                     if (this.humanIndex < 0) {
                         const spectatorDelay = Math.max(0, Math.min(5000, Storage.getSettings().spectatorDelay ?? 0));
@@ -223,7 +226,7 @@ class BaseMode {
                             }
                         }
                     }
-                    if (!this.isRunning) return;
+                    if (!this.isRunning || generation !== this._generation) return;
                     this.renderer?.hideThinking(idx);
                     // delay 后重新检查回合，防止人类在此期间已行动
                     if (this.gameState.currentTurn !== idx) continue;
@@ -245,7 +248,7 @@ class BaseMode {
         } catch (err) {
             console.error('[_processCalling] 异常:', err);
         } finally {
-            this._isProcessingCalling = false;
+            if (generation === this._generation) this._isProcessingCalling = false;
         }
     }
 
@@ -282,8 +285,9 @@ class BaseMode {
     async _processPlay() {
         if (this._isProcessingPlay) return;
         this._isProcessingPlay = true;
+        const generation = this._generation;
         try {
-            while (this.isRunning && this.gameState.phase === PHASE.PLAYING) {
+            while (this.isRunning && generation === this._generation && this.gameState.phase === PHASE.PLAYING) {
                 const idx = this.gameState.currentTurn;
                 const player = this.gameState.players[idx];
                 
@@ -316,7 +320,7 @@ class BaseMode {
                     } catch (e) {
                         return;
                     }
-                    if (!this.isRunning) return;
+                    if (!this.isRunning || generation !== this._generation) return;
                     // 观战模式下增加额外延迟，方便观众观察
                     if (this.humanIndex < 0) {
                         const spectatorDelay = Math.max(0, Math.min(5000, Storage.getSettings().spectatorDelay ?? 0));
@@ -328,7 +332,7 @@ class BaseMode {
                             }
                         }
                     }
-                    if (!this.isRunning) return;
+                    if (!this.isRunning || generation !== this._generation) return;
                     this.renderer?.hideThinking(idx);
                     this.renderer?.hideAIHint?.(idx);
                     
@@ -362,7 +366,7 @@ class BaseMode {
         } catch (err) {
             console.error('[_processPlay] 异常:', err);
         } finally {
-            this._isProcessingPlay = false;
+            if (generation === this._generation) this._isProcessingPlay = false;
         }
     }
 
@@ -394,11 +398,12 @@ class BaseMode {
     async _autoPlayForHuman(playerIndex) {
         if (this._isAutoPlaying) return;
         this._isAutoPlaying = true;
+        const generation = this._generation;
         try {
             this.renderer?.showThinking(playerIndex);
             await this._delay(1200);
             // 游戏可能已结束，提前退出
-            if (!this.isRunning || this.gameState.phase !== PHASE.PLAYING) return;
+            if (!this.isRunning || generation !== this._generation || this.gameState.phase !== PHASE.PLAYING) return;
             const player = this.gameState.players[playerIndex];
             if (!player?.isAuto) return;
             
@@ -410,7 +415,7 @@ class BaseMode {
             this.renderer?.hideThinking(playerIndex);
             
             // 再次检查游戏状态，防止 delay 期间游戏结束或轮次已切换
-            if (!this.isRunning || this.gameState.phase !== PHASE.PLAYING) return;
+            if (!this.isRunning || generation !== this._generation || this.gameState.phase !== PHASE.PLAYING) return;
             if (this.gameState.currentTurn !== playerIndex) return;
             
             if (cards.length === 0) {
@@ -432,8 +437,10 @@ class BaseMode {
                 }
             }
         } finally {
-            this._isAutoPlaying = false;
-            this.renderer?.hideThinking(playerIndex);
+            if (generation === this._generation) {
+                this._isAutoPlaying = false;
+                this.renderer?.hideThinking(playerIndex);
+            }
         }
     }
 
@@ -483,10 +490,10 @@ class BaseMode {
         this._stopCountdown();
         const settings = Storage.getSettings();
         // timerEnabled 在 HTML 中是 select，值为字符串 "true"/"false"
-        if (settings.timerEnabled === false || settings.timerEnabled === 'false') {
+        if (!this.turnTimeLimit && (settings.timerEnabled === false || settings.timerEnabled === 'false')) {
             return; // 倒计时关闭，不启动
         }
-        this._turnCountdown = Math.max(10, Math.min(120, settings.timerSeconds ?? 30));
+        this._turnCountdown = this.turnTimeLimit || Math.max(10, Math.min(120, settings.timerSeconds ?? 30));
         // 只在人类玩家回合显示倒计时
         if (playerIndex === this.humanIndex) {
             this.renderer?.showCountdown(playerIndex, this._turnCountdown);
@@ -554,13 +561,7 @@ class BaseMode {
     // ---- 倒计时相关 ----
     pauseGame() {
         if (!this.isRunning || this.gameState.phase === PHASE.ENDED) return false;
-        this._stopCountdown();
-        this.isRunning = false;
-        for (const t of this._pendingTimers) {
-            clearTimeout(t.id);
-            try { t.resolve?.(); } catch (e) {}
-        }
-        this._pendingTimers = [];
+        this.destroy();
         return true;
     }
 
@@ -583,7 +584,7 @@ class BaseMode {
             // 切换到游戏BGM
             this.renderer?.audio?.stopBGM();
             this._setTimer(() => {
-                if (this.isRunning) this.renderer?.audio?.playGameBGM();
+                if (this.isRunning && this.gameState.phase === PHASE.PLAYING) this.renderer?.audio?.playGameBGM();
             }, 500);
         }
         else if (data.phase === PHASE.ENDED) {
@@ -617,6 +618,7 @@ class BaseMode {
     onDealComplete(data) {
         if (this.renderer) {
             // 发牌完成后初始化记牌器（满牌 54 张，等待出牌后递减）
+            this.renderer.resetRoundView();
             this.renderer._resetCardTracker();
             this.renderer.renderHands();
             this.renderer.highlightTurn(this.gameState.currentTurn);
@@ -663,7 +665,7 @@ class BaseMode {
         if (this.renderer) this.renderer.highlightTurn(data.currentTurn);
     }
 
-    onRoundEnd(data) {
+    onRoundEnd(data, { showResult = true, isHumanWin: resultWin } = {}) {
         console.log('[RoundEnd]', data);
         this._lastWinnerIndex = data.winnerIndex;
         // 累计比赛分数
@@ -680,6 +682,7 @@ class BaseMode {
             isHumanWin = data.winnerIndex === this.humanIndex ||
                 (data.winnerIndex !== this.gameState.landlordIndex && this.humanIndex !== this.gameState.landlordIndex);
         }
+        if (resultWin !== undefined) isHumanWin = resultWin;
         // 得分变化音效
         // 使用本局胜负判断音效，而非跨局累加分数
         if (this.humanIndex >= 0) {
@@ -696,7 +699,7 @@ class BaseMode {
             }
         }, 400);
         
-        if (this.renderer) this.renderer.showRoundResult(data, this.getMatchStatus());
+        if (this.renderer && showResult) this.renderer.showRoundResult(data, this.getMatchStatus());
     }
 
 }

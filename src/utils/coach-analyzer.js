@@ -12,7 +12,7 @@ function adaptCard(c) {
         suit: typeof c.suit === 'string' ? { name: c.suit } : (c.suit || null),
         rankKey: c.rank,
         displayName: c.displayName,
-        isLaizi: false,
+        isLaizi: c.isLaizi === true,
     };
 }
 
@@ -90,7 +90,9 @@ export class CoachAnalyzer {
 
         // 1. 叫分分析（残局模式跳过）
         if (!isEndgame) {
-            const callSuggestion = this._analyzeCall(initialHands[humanIndex], currentCall, humanIndex, landlordIndex);
+            const callHand = (initialHands[humanIndex] || []).filter(card => humanIndex !== landlordIndex ||
+                !(fullGame.initialBottom || []).some(bottom => sameCard(card, bottom)));
+            const callSuggestion = this._analyzeCall(callHand, currentCall, humanIndex, landlordIndex);
             if (callSuggestion) suggestions.push(callSuggestion);
         }
 

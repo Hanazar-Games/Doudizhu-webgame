@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import fs from 'fs';
 import net from 'net';
+import { testModeFlows, testLANBrowserFlow } from './mode-flows-browser.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
@@ -1008,6 +1009,7 @@ async function run() {
                     multiplier: 1,
                     baseScore: 1,
                     scores: [2, -1, -1],
+                    roundScores: [2, -1, -1],
                     springType: null,
                 })),
             },
@@ -1087,6 +1089,7 @@ async function run() {
             multiplier: 1,
             baseScore: 1,
             scores: [2, -1, -1],
+                    roundScores: [2, -1, -1],
             springType: null,
         }, {
             isMatchMode: true,
@@ -1312,6 +1315,8 @@ async function run() {
         await screenshot(page, '12-changelog');
         const changelogVisible = await page.$eval('#changelog-overlay', (el) => !el.classList.contains('hidden'));
         if (!changelogVisible) throw new Error('公告面板未显示');
+        const closeSize = await page.locator('#btn-close-changelog').boundingBox();
+        if (!closeSize || closeSize.width < 44 || closeSize.height < 44) throw new Error('公告关闭按钮触控区域不足 44px');
         const changelogOpenFocus = await page.evaluate(() => document.activeElement?.id || '');
         if (changelogOpenFocus !== 'btn-close-changelog') {
             throw new Error(`公告打开后焦点未进入弹窗: ${changelogOpenFocus}`);
@@ -1632,6 +1637,9 @@ async function run() {
         console.log('  ✅ 竖屏横向触摸交由原生滚动且未误选牌');
 
         await mobilePage.close();
+
+        await testModeFlows(browser, baseUrl, consoleCollector);
+        await testLANBrowserFlow(browser, baseUrl, consoleCollector);
 
         // 最终统一断言 console errors
         console.log('\n--- Console Error 最终检查 ---');

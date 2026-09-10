@@ -20,6 +20,7 @@ global.document = {
 };
 global.window = {
     gameApp: {
+        _getActiveAudio() { return this.renderer.audio; },
         renderer: {
             audio: {
                 playButtonClick: () => {},

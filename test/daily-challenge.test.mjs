@@ -102,7 +102,7 @@ test('DailyChallengeGenerator difficulty rotates by date', () => {
         difficulties.add(c.difficulty);
     }
     assert(difficulties.size >= 1, 'Should produce at least one difficulty');
-    assert(['easy', 'normal', 'hard'].every(d => difficulties.has(d) || true), 'All difficulties should be valid');
+    assert([...difficulties].every(d => ['easy', 'normal', 'hard'].includes(d)), 'All difficulties should be valid');
 });
 
 test('getToday returns challenge for today', () => {

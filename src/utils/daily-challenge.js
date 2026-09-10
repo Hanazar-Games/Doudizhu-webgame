@@ -38,7 +38,7 @@ class SeededRandom {
 function getTodayString() {
     const now = new Date();
     // 转换为 UTC+8 的日历日期（使用 UTC 方法避免本地时区影响）
-    const utc8Time = now.getTime() + (now.getTimezoneOffset() + 480) * 60000;
+    const utc8Time = now.getTime() + 480 * 60000;
     const y = new Date(utc8Time).getUTCFullYear();
     const m = String(new Date(utc8Time).getUTCMonth() + 1).padStart(2, '0');
     const d = String(new Date(utc8Time).getUTCDate()).padStart(2, '0');
@@ -244,12 +244,12 @@ const ChallengeRecordManager = {
         // 计算连续获胜天数（从今天往前数）
         // 统一使用 UTC+8，与 getTodayString / 记录保存保持一致
         const now = new Date();
-        const utc8 = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+        const utc8 = new Date(now.getTime() + 480 * 60000);
         let streak = 0;
         for (let i = 0; i < 30; i++) {
             const d = new Date(utc8);
-            d.setDate(d.getDate() - i);
-            const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            d.setUTCDate(d.getUTCDate() - i);
+            const ds = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
             const rec = records.find(r => r.date === ds);
             if (rec && rec.isWin) {
                 streak++;

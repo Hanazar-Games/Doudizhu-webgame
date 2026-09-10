@@ -167,12 +167,22 @@ function handleMessage(ws, msg) {
             // 先离开当前房间，防止一个 ws 在多个房间
             roomManager.leaveRoom(ws);
             const peerId = msg.peerId || generatePeerId();
-            const room = roomManager.createRoom(ws, peerId);
+            const room = roomManager.createRoom(ws, peerId, msg.reconnectToken, msg.name);
+            if (!room) {
+                roomManager.sendToPeer(ws, { type: 'error', message: '重连凭证无效' });
+                return;
+            }
             roomManager.sendToPeer(ws, {
                 type: 'room_created',
+                reconnectToken: room.players.get(peerId).reconnectToken,
+                reconnected: room.gameStarted,
                 roomId: room.id,
                 peerId,
                 playerCount: room.players.size,
+            });
+            roomManager.broadcastToRoom(room, {
+                type: 'player_list_update',
+                players: [...room.players.values()].map(({ peerId, name, seatIndex, connected }) => ({ peerId, name, seatIndex, connected })),
             });
             console.log(`[Room ${room.id}] created by ${peerId}`);
             break;
@@ -185,7 +195,7 @@ function handleMessage(ws, msg) {
                 roomManager.sendToPeer(ws, { type: 'error', message: 'Room ID is required' });
                 return;
             }
-            const result = roomManager.joinRoom(ws, roomId, peerId);
+            const result = roomManager.joinRoom(ws, roomId, peerId, msg.reconnectToken, msg.name);
             if (!result.success) {
                 roomManager.sendToPeer(ws, { type: 'error', message: result.error });
             } else {
@@ -194,82 +204,40 @@ function handleMessage(ws, msg) {
             break;
         }
 
-        // ---- 两阶段游戏启动协议 ----
-        //
-        // Phase 1: start_game — 房主请求开始，server 验证后广播 game_starting（预通知）。
-        //   当前客户端未使用此消息，保留供测试或未来扩展（如加载画面同步）。
-        //
-        // Phase 2: game_start — 房主生成牌局后发送，携带 deck/bottomCards/dealerIndex。
-        //   server 验证并 relay 给其他玩家（排除房主），其他玩家收到后进入 _syncGameStart。
-        //   房主本地直接调用 _syncGameStart，不依赖网络回传。
-        //
-        // 两阶段互不依赖；当前生产客户端只发送 Phase 2。
-
-        case 'start_game': {
-            const roomId = roomManager.playerToRoom.get(ws);
-            if (!roomId) {
-                roomManager.sendToPeer(ws, { type: 'error', message: 'Not in a room' });
-                return;
-            }
-            const room = roomManager.rooms.get(roomId);
-            if (!room) return;
-            if (room.hostId !== roomManager._getPeerIdByWs(room, ws)) {
-                roomManager.sendToPeer(ws, { type: 'error', message: 'Only host can start' });
-                return;
-            }
-            if (room.players.size !== 3) {
-                roomManager.sendToPeer(ws, { type: 'error', message: 'Need exactly 3 players' });
-                return;
-            }
-            if (room.gameStarted) {
-                roomManager.sendToPeer(ws, { type: 'error', message: 'Game already started' });
-                return;
-            }
-            roomManager.startGame(roomId);
-            roomManager.broadcastToRoom(room, {
-                type: 'game_starting',
-                roomId,
-                playerCount: room.players.size,
-            });
-            console.log(`[Room ${roomId}] game started`);
-            break;
-        }
-
         case 'game_start': {
-            // Phase 2: 房主发送牌局数据，server 验证后 relay 给其他玩家
-            const roomId2 = roomManager.playerToRoom.get(ws);
-            if (!roomId2) {
-                roomManager.sendToPeer(ws, { type: 'error', message: 'Not in a room' });
-                break;
-            }
-            const room2 = roomManager.rooms.get(roomId2);
-            if (!room2) {
-                roomManager.sendToPeer(ws, { type: 'error', message: 'Room not found' });
-                break;
-            }
-            const senderPeerId = roomManager._getPeerIdByWs(room2, ws);
-            if (senderPeerId !== room2.hostId) {
-                roomManager.sendToPeer(ws, { type: 'error', message: 'Only host can start game' });
-                break;
-            }
-            if (room2.players.size !== 3) {
-                roomManager.sendToPeer(ws, { type: 'error', message: 'Need exactly 3 players' });
-                break;
-            }
-            if (room2.gameStarted) {
-                roomManager.sendToPeer(ws, { type: 'error', message: 'Game already started' });
-                break;
-            }
-            roomManager.startGame(roomId2);
-            roomManager.relayMessage(ws, msg);
+            const room = roomManager.rooms.get(roomManager.playerToRoom.get(ws));
+            const sender = room && roomManager._getPeerIdByWs(room, ws);
+            let error;
+            if (!room) error = 'Not in a room';
+            else if (sender !== room.hostId) error = 'Only host can start game';
+            else if (room.players.size !== 3 || [...room.players.values()].some(p => !p.connected)) error = 'Need exactly 3 players';
+            else if (room.gameStarted) error = 'Game already started';
+            if (error) return roomManager.sendToPeer(ws, { type: 'error', message: error });
+            roomManager.startGame(room.id);
+            roomManager.broadcastToRoom(room, { type: 'game_starting', playerCount: 3 });
             break;
         }
 
         case 'player_action':
         case 'game_state_sync':
-        case 'request_state_sync':
-        case 'chat': {
-            roomManager.relayMessage(ws, msg);
+        case 'request_state_sync': {
+            const room = roomManager.rooms.get(roomManager.playerToRoom.get(ws));
+            if (!room) return;
+            const peerId = roomManager._getPeerIdByWs(room, ws);
+            const player = room.players.get(peerId);
+            if (!player) return;
+            if (type === 'game_state_sync') {
+                if (peerId !== room.hostId) return roomManager.sendToPeer(ws, { type: 'error', message: 'Only host can synchronize state' });
+                if (msg.data?.phase === 'ENDED') room.gameStarted = false;
+                roomManager.relayMessage(ws, msg);
+            } else if (type === 'request_state_sync') {
+                roomManager.sendToPeer(room.hostWs, { type, peerId });
+            } else {
+                if (!room.gameStarted || msg.playerIndex !== player.seatIndex || !['call', 'play', 'pass'].includes(msg.action)) {
+                    return roomManager.sendToPeer(ws, { type: 'error', message: 'Invalid player action' });
+                }
+                roomManager.sendToPeer(room.hostWs, { ...msg, peerId, playerIndex: player.seatIndex });
+            }
             break;
         }
 

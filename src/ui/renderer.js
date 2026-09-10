@@ -624,6 +624,10 @@ class Renderer {
     }
 
     _pauseGame() {
+        if (this.mode?.modeName === 'lan') {
+            this.showToast('联机对局不能暂停，可使用托管', 'info');
+            return;
+        }
         if (this._isPaused) return;
         this._pauseReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         this._isPaused = true;
@@ -1051,9 +1055,11 @@ class Renderer {
         const btnPlay = this.container?.querySelector('#btn-play');
         if (!btnPlay) return;
         const cards = this._getSelectedCards();
-        const pattern = Rules.analyze(cards);
-        const allowed = this.gameState?._isPatternAllowed?.(pattern, cards) ?? pattern.isValid();
-        const canPlay = cards.length > 0 && pattern.isValid() && allowed;
+        const playable = this._getPlayableSelection(cards);
+        const { lastPattern, isNewRound } = this._getPlayContext();
+        const canPlay = this._isHumanPlayTurn() && playable.cards.length > 0 && playable.pattern.isValid() &&
+            this.gameState._isPatternAllowed(playable.pattern, playable.cards) &&
+            (isNewRound || this._canBeat(lastPattern, playable.pattern));
         btnPlay.disabled = !canPlay;
         btnPlay.style.opacity = canPlay ? '1' : '0.45';
         btnPlay.style.cursor = canPlay ? 'pointer' : 'not-allowed';
@@ -1127,6 +1133,11 @@ class Renderer {
         return { playerIndex, lastPattern, isNewRound };
     }
 
+    _canBeat(lastPattern, pattern) {
+        return Rules.canBeat(lastPattern, pattern) ||
+            (this.gameState?.bombAsRocket && lastPattern?.type === HAND_TYPE.ROCKET && pattern.type === HAND_TYPE.BOMB);
+    }
+
     _getPlayableSelection(cards) {
         const sorted = Card.sortByValue(cards || []);
         const empty = { cards: [], pattern: Rules.analyze([]), optimized: false, dropped: 0 };
@@ -1135,7 +1146,7 @@ class Renderer {
         const { lastPattern, isNewRound } = this._getPlayContext();
         const directPattern = Rules.analyze(sorted);
         const directAllowed = this.gameState?._isPatternAllowed?.(directPattern, sorted) ?? directPattern.isValid();
-        if (directPattern.isValid() && directAllowed && (isNewRound || Rules.canBeat(lastPattern, directPattern))) {
+        if (directPattern.isValid() && directAllowed && (isNewRound || this._canBeat(lastPattern, directPattern))) {
             return { cards: sorted, pattern: directPattern, optimized: false, dropped: 0 };
         }
 
@@ -1147,7 +1158,7 @@ class Renderer {
         ].filter(candidate => {
             if (!candidate.pattern?.isValid?.()) return false;
             if (!(this.gameState?._isPatternAllowed?.(candidate.pattern, candidate.cards) ?? true)) return false;
-            return isNewRound || Rules.canBeat(lastPattern, candidate.pattern);
+            return isNewRound || this._canBeat(lastPattern, candidate.pattern);
         });
 
         if (candidates.length === 0) {
@@ -1545,7 +1556,7 @@ class Renderer {
         if (this._controlListeners) {
             const toRemove = [];
             for (const item of this._controlListeners) {
-                if (item.el?.closest?.('.hand-front')) {
+                if (item.el?.matches?.('.card') && item.el.closest('.hand-front')) {
                     try { item.el.removeEventListener(item.type, item.handler, item.options); } catch (e) {}
                     toRemove.push(item);
                 }
@@ -1667,6 +1678,7 @@ class Renderer {
                     const toggle = (e) => {
                         // 双击的第二次 click 不触发选牌切换
                         if (e.detail > 1) return;
+                        if (e.type === 'click' && Storage.getSettings().clickToSelect === false) return;
                         if (this.gameState?.phase !== PHASE.PLAYING) {
                             this.showToast('请先完成叫地主', 'info');
                             return;
@@ -2764,7 +2776,7 @@ class Renderer {
             ${multText}
             <p>获胜者: ${esc(winner?.name || '未知')}</p>
             <div class="score-board">
-                ${data.scores.map((s, i) => `
+                ${data.roundScores.map((s, i) => `
                     <div class="score-item ${i === this.gameState.landlordIndex ? 'landlord' : ''}">
                         <span>${esc(this.gameState.players[i]?.name || '?')}</span>
                         <span class="score-value" data-target="${s}" data-sign="${s >= 0 ? '+' : ''}">0</span>
@@ -2848,6 +2860,10 @@ class Renderer {
 
         const btnNext = content.querySelector('#btn-next-round');
         if (btnNext) {
+            if (this.mode?.modeName === 'lan' && !this.mode.isHost) {
+                btnNext.disabled = true;
+                btnNext.textContent = '等待房主开始下一局';
+            }
             btnNext._roundClickHandler = () => {
                 this.audio.playButtonClick();
                 this._closeModal(overlay, content);
@@ -3116,7 +3132,7 @@ class Renderer {
         if (data.multiplier > 1) lines.push(`💥 倍数: ${data.multiplier}倍`);
         lines.push('');
         lines.push('📊 本局得分:');
-        data.scores.forEach((s, i) => {
+        data.roundScores.forEach((s, i) => {
             const p = gs?.players[i];
             const role = i === gs?.landlordIndex ? '地主' : '农民';
             lines.push(`  ${p?.name || '?'} (${role}): ${s > 0 ? '+' : ''}${s}`);
@@ -3379,7 +3395,7 @@ class Renderer {
                     </div>
                 `;
                 this.container.appendChild(el);
-                this.audio?.playWin?.();
+                this.audio?.playChat?.();
                 this._setTimer(() => {
                     el.style.transition = 'all 0.5s ease-in';
                     el.style.opacity = '0';
@@ -3419,7 +3435,7 @@ class Renderer {
                     </div>
                 `;
                 this.container.appendChild(el);
-                this.audio?.playWin?.();
+                this.audio?.playChat?.();
                 this._setTimer(() => {
                     el.style.transition = 'all 0.5s ease-in';
                     el.style.opacity = '0';
@@ -3487,6 +3503,13 @@ class Renderer {
             { key: 'JOKER_BIG', label: '大王', count: 1 },
         ];
 
+        if (this.gameState?.jokerRule === 'disabled') {
+            rankGroups.filter(group => group.key.startsWith('JOKER')).forEach(group => { group.count = 0; });
+        }
+        if (this.mode?.modeName === 'endgame') {
+            const cards = this.gameState.initialHands.flat();
+            rankGroups.forEach(group => { group.count = cards.filter(card => card.rank === group.key).length; });
+        }
         let html = '';
         for (const g of rankGroups) {
             html += `<div class="tracker-rank" data-rank="${g.key}">
@@ -3539,10 +3562,22 @@ class Renderer {
         }
     }
 
-    /**
-     * 初始化或重置记牌器为满牌 54 张。
-     * 记牌器只追踪"已打出的牌"，开局时所有牌都显示为剩余。
-     */
+    resetRoundView() {
+        for (const id of this._activeTimers) clearTimeout(id);
+        this._activeTimers.clear();
+        this.anim?.cancelAll();
+        this.audio?._clearPendingSfx();
+        this._lowCardReminderShown.clear();
+        this._comboData = null;
+        this.container.querySelectorAll('.played-area').forEach(area => {
+            if (area._clearTimeout) clearTimeout(area._clearTimeout);
+            area.innerHTML = '';
+        });
+        const history = this.container.querySelector('#history-content');
+        if (history) history.innerHTML = '';
+        this.container.querySelector('#bottom-cards')?.classList.add('hidden');
+    }
+
     _resetCardTracker() {
         this._initCardTracker();
     }

@@ -52,12 +52,7 @@ class ChallengeMode extends AIMode {
     }
 
     async startGame() {
-        // 清理上一局定时器
-        for (const t of this._pendingTimers) {
-            clearTimeout(t.id);
-            try { t.resolve?.(new Error('New game started')); } catch (e) {}
-        }
-        this._pendingTimers = [];
+        super.destroy();
         this.isRunning = true;
 
         // 应用标准游戏规则
@@ -87,29 +82,12 @@ class ChallengeMode extends AIMode {
             if (landlord) {
                 landlord.isLandlord = true;
                 // 给地主底牌
-                for (const c of bottom) {
+                for (const c of this.gameState.bottomCards) {
                     landlord.hand.push(c);
                 }
                 landlord.hand.sort((a, b) => b.value - a.value);
             }
-            // 保存初始手牌（供回放/教练使用）
-            for (let i = 0; i < 3; i++) {
-                const p = this.gameState.players[i];
-                if (p) {
-                    this.gameState.initialHands[i] = p.hand.map(c => ({
-                        value: c.value,
-                        suit: c.suit?.name || null,
-                        rank: c.rankKey,
-                        displayName: c.displayName,
-                    }));
-                }
-            }
-            this.gameState.bottomCards = bottom.map(c => ({
-                value: c.value,
-                suit: c.suit?.name || null,
-                rank: c.rankKey,
-                displayName: c.displayName,
-            }));
+            this.gameState.captureInitialHands();
             this.gameState.currentTurn = this.humanIndex;
             this.gameState.phase = PHASE.PLAYING;
             this.gameState.passCount = 0;
@@ -120,7 +98,7 @@ class ChallengeMode extends AIMode {
             // 手动调度游戏BGM（直接赋值phase绕过了phaseChange事件）
             this.renderer?.audio?.stopBGM();
             this._setTimer(() => {
-                if (this.isRunning) this.renderer?.audio?.playGameBGM();
+                if (this.isRunning && this.gameState.phase === PHASE.PLAYING) this.renderer?.audio?.playGameBGM();
             }, 500);
 
             // 音效 + 渲染
@@ -165,7 +143,8 @@ class ChallengeMode extends AIMode {
 
         // 时间限制
         if (cfg.turnTimeLimit !== undefined) {
-            this._turnCountdown = Math.max(5, Math.min(60, cfg.turnTimeLimit));
+            this.turnTimeLimit = Math.max(5, Math.min(60, cfg.turnTimeLimit));
+            this._turnCountdown = this.turnTimeLimit;
         }
 
         // 得分倍率
@@ -220,17 +199,7 @@ class ChallengeMode extends AIMode {
             }
         }
 
-        // 检测炸弹压王炸
-        if (pattern.type === 'BOMB' && this._lastWasRocket) {
-            this._bombBeatRocket = true;
-        }
-
-        const result = super.humanPlay(cards);
-        if (result) {
-            if (pattern.type === 'ROCKET') this._lastWasRocket = true;
-            else this._lastWasRocket = false;
-        }
-        return result;
+        return super.humanPlay(cards);
     }
 
     onPlayerPlay(data) {
@@ -242,7 +211,7 @@ class ChallengeMode extends AIMode {
         if (data.pattern?.type === 'ROCKET') {
             this._lastWasRocket = true;
         } else if (data.pattern?.type === 'BOMB') {
-            if (this._lastWasRocket) {
+            if (this._lastWasRocket && data.playerIndex === this.humanIndex) {
                 this._bombBeatRocket = true;
             }
             // 炸弹之后重置火箭追踪（王炸 → 炸弹 只计一次）
@@ -252,19 +221,12 @@ class ChallengeMode extends AIMode {
         }
     }
 
-    onRoundEnd(data) {
-        // 父类处理 BGM、音效等，但不显示普通结果面板
-        // 保存 renderer 的 showRoundResult 方法，临时禁用
-        const originalShowRoundResult = this.renderer?.showRoundResult;
-        if (this.renderer) {
-            this.renderer.showRoundResult = () => {};
-        }
-        super.onRoundEnd(data);
-        // 恢复原始方法
-        if (this.renderer) {
-            this.renderer.showRoundResult = originalShowRoundResult;
-        }
+    onPlayerPass(data) {
+        super.onPlayerPass(data);
+        if (this.gameState.passCount >= 2) this._lastWasRocket = false;
+    }
 
+    onRoundEnd(data) {
         if (!this.challenge) return;
 
         const result = calculateChallengeStars(
@@ -281,6 +243,7 @@ class ChallengeMode extends AIMode {
             result.passed = false;
             result.stars = 0;
         }
+        super.onRoundEnd(data, { showResult: false, isHumanWin: result.passed });
 
         if (result.passed) {
             ExtremeChallengeRecordManager.saveRecord(this.challengeId, result.stars);

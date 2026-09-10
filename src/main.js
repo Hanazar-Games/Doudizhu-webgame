@@ -894,6 +894,7 @@ class GameApp {
     }
 
     _checkAutoShowChangelog() {
+        if (this.currentMode || this._hasUserInteracted || document.getElementById('menu-screen')?.classList.contains('hidden')) return;
         try {
             const last = localStorage.getItem('ddz_last_changelog_version') || '';
             if (last !== this._version) {
@@ -1375,7 +1376,7 @@ class GameApp {
         });
 
         setTimeout(() => {
-            overlay.classList.remove('hidden');
+            if (!this.currentMode && !this._hasUserInteracted && !document.getElementById('menu-screen')?.classList.contains('hidden')) overlay.classList.remove('hidden');
         }, 1000);
     }
 
@@ -1396,17 +1397,17 @@ class GameApp {
             this.stats.losses++;
             this.stats.streak = Math.min(-1, this.stats.streak - 1);
         }
-        this.stats.totalScore += data.scores[humanIdx] || 0;
+        this.stats.totalScore += data.roundScores[humanIdx] || 0;
         // 更新最高记录
         const currentStreak = this.stats.streak > 0 ? this.stats.streak : 0;
         if (currentStreak > (this.stats.maxStreak || 0)) {
             this.stats.maxStreak = currentStreak;
         }
-        const roundScore = data.scores[humanIdx] || 0;
+        const roundScore = data.roundScores[humanIdx] || 0;
         if (roundScore > (this.stats.maxScore || 0)) {
             this.stats.maxScore = roundScore;
         }
-        const bombs = (gs?.history?.filter(h => h.pattern?.type === 'BOMB' || h.pattern?.type === 'ROCKET') || []).length;
+        const bombs = (gs?.history?.filter(h => h.playerIndex === humanIdx && (h.pattern?.type === 'BOMB' || h.pattern?.type === 'ROCKET')) || []).length;
         if (bombs > (this.stats.maxBombsInGame || 0)) {
             this.stats.maxBombsInGame = bombs;
         }
@@ -1433,20 +1434,20 @@ class GameApp {
             mode: this.currentMode?.modeName || 'unknown',
             isWin: isHumanWin,
             isLandlord: this.currentMode?.humanIndex === gs?.landlordIndex,
-            score: data.scores[this.currentMode?.humanIndex] || 0,
+            score: data.roundScores[humanIdx] || 0,
             difficulty: this.currentMode instanceof AIMode ? this.currentMode.difficulty : null,
         };
         Storage.saveGameRecord(record);
 
         // 成就检查
-        const bombsPlayed = (gs?.history?.filter(h => h.pattern?.type === 'BOMB' || h.pattern?.type === 'ROCKET') || []).length;
-        const rocketPlayed = gs?.history?.some(h => h.pattern?.type === 'ROCKET') || false;
+        const bombsPlayed = (gs?.history?.filter(h => h.playerIndex === humanIdx && (h.pattern?.type === 'BOMB' || h.pattern?.type === 'ROCKET')) || []).length;
+        const rocketPlayed = gs?.history?.some(h => h.playerIndex === humanIdx && h.pattern?.type === 'ROCKET') || false;
         const cleanSweep = gs?.players?.[humanIdx]?.hand?.length === 0;
         const roundData = {
             isWin: isHumanWin,
             isLandlord: humanIdx === gs?.landlordIndex,
             streak: this.stats.streak,
-            isSpring: data.springType === 'spring',
+            isSpring: isHumanWin && data.springType === 'spring',
             bombsPlayed,
             rocketPlayed,
             cleanSweep,
@@ -1463,8 +1464,8 @@ class GameApp {
             isLandlord: humanIdx === gs?.landlordIndex,
             bombCount: bombsPlayed,
             hasRocket: rocketPlayed,
-            isSpring: data.springType === 'spring',
-            isAntiSpring: data.springType === 'anti_spring',
+            isSpring: isHumanWin && data.springType === 'spring',
+            isAntiSpring: isHumanWin && data.springType === 'anti_spring',
             mode: modeName,
         });
         if (questCompleted.length > 0) {
@@ -1493,7 +1494,7 @@ class GameApp {
                 result: {
                     winnerIndex: data.winnerIndex,
                     isLandlordWin: data.isLandlordWin,
-                    scores: data.scores,
+                    scores: data.roundScores,
                     springType: data.springType,
                     multiplier: data.multiplier,
                     baseScore: data.baseScore,
@@ -1543,6 +1544,7 @@ class GameApp {
             // 计算最大连击（连续出牌次数）
             let maxCombo = 0, currentCombo = 0, lastPlayer = -1;
             for (const h of gs?.history || []) {
+                if (h.pattern?.type === 'PASS') continue;
                 if (h.playerIndex === lastPlayer) {
                     currentCombo++;
                 } else {
@@ -1560,8 +1562,8 @@ class GameApp {
             this.playStyle.recordGame({
                 isWin: isHumanWin,
                 isLandlord,
-                isSpring: data.springType === 'spring',
-                isAntiSpring: data.springType === 'anti_spring',
+                isSpring: isHumanWin && data.springType === 'spring',
+                isAntiSpring: isHumanWin && data.springType === 'anti_spring',
                 bombs: bombs,
                 rocket: rocketPlayed,
                 maxCombo,
@@ -1589,6 +1591,17 @@ class GameApp {
     }
 
     _initLANListeners() {
+        for (const tab of document.querySelectorAll('.lan-tab')) {
+            tab.addEventListener('click', () => {
+                this._playButtonClick();
+                for (const item of document.querySelectorAll('.lan-tab')) {
+                    const active = item === tab;
+                    item.classList.toggle('active', active);
+                    item.setAttribute('aria-selected', String(active));
+                    document.getElementById(`lan-${item.dataset.tab}-panel`)?.classList.toggle('hidden', !active);
+                }
+            });
+        }
         const btnCreate = document.getElementById('btn-lan-host');
         const btnJoin = document.getElementById('btn-lan-join');
         const btnStart = document.getElementById('btn-lan-start');
@@ -1612,15 +1625,20 @@ class GameApp {
         btnCreate?.addEventListener('click', async () => {
             this._playButtonClick();
             if (!this.currentMode || !(this.currentMode instanceof LANMode)) return;
+            const mode = this.currentMode;
+            btnCreate.disabled = btnJoin.disabled = true;
             try {
-                const roomId = await this.currentMode.createRoom();
+                mode._desiredPlayerName = document.getElementById('lan-player-name')?.value.trim() || this.settings.playerName;
+                const roomId = await mode.createRoom();
+                if (this.currentMode !== mode) return;
                 document.getElementById('room-id-display').textContent = roomId;
                 document.getElementById('room-info')?.classList.remove('hidden');
                 document.getElementById('lan-status').textContent = '等待玩家加入...';
                 btnStart?.classList.remove('hidden');
             } catch (err) {
-                console.error('创建房间失败:', err);
-                alert('连接房主服务失败。房主电脑请运行 npm run lan:host，然后所有玩家打开房主的局域网地址。');
+                if (this.currentMode === mode) document.getElementById('lan-status').textContent = err.message || '创建房间失败，请检查连接';
+            } finally {
+                btnCreate.disabled = btnJoin.disabled = false;
             }
         });
 
@@ -1629,12 +1647,17 @@ class GameApp {
             if (!this.currentMode || !(this.currentMode instanceof LANMode)) return;
             const roomId = document.getElementById('lan-room-id')?.value?.trim();
             if (!roomId) return alert('请输入房间号');
+            const mode = this.currentMode;
+            btnCreate.disabled = btnJoin.disabled = true;
             try {
-                await this.currentMode.joinRoom(roomId);
+                mode._desiredPlayerName = document.getElementById('lan-player-name')?.value.trim() || this.settings.playerName;
+                await mode.joinRoom(roomId);
+                if (this.currentMode !== mode) return;
                 document.getElementById('lan-status').textContent = '已加入房间，等待房主开始';
             } catch (err) {
-                console.error('加入房间失败:', err);
-                alert('连接房主服务失败。请确认你打开的是房主电脑提供的局域网地址，而不是 GitHub Pages 地址。');
+                if (this.currentMode === mode) document.getElementById('lan-status').textContent = err.message || '加入房间失败，请检查连接';
+            } finally {
+                btnCreate.disabled = btnJoin.disabled = false;
             }
         });
 
@@ -1650,20 +1673,7 @@ class GameApp {
                 document.getElementById('lan-status').textContent = '需要 3 人到齐后才能开始游戏';
                 return;
             }
-            this.renderer?.destroy?.();
-            this.renderer = new Renderer('game-table');
-            this.renderer.setGameState(this.currentMode.gameState);
-            this.renderer.setMode(this.currentMode);
-            this._configureRendererAudio(this.renderer);
-            this.currentMode.setRenderer(this.renderer);
-            this._roundEndBound = false;
-            this._bindRoundEndListener();
-            this._stopMenuAudio();
-
-            document.getElementById('lan-screen')?.classList.add('hidden');
-            document.getElementById('game-screen')?.classList.remove('hidden');
             await this.currentMode.startGame();
-            this._lockGameRuleSettings(true);
         });
     }
 
@@ -1681,16 +1691,7 @@ class GameApp {
         this._roundEndBound = false;
         this._bindRoundEndListener();
         this._stopMenuAudio();
-        document.getElementById('menu-screen')?.classList.add('hidden');
-        document.getElementById('lan-screen')?.classList.add('hidden');
-        document.getElementById('custom-screen')?.classList.add('hidden');
-        const game = document.getElementById('game-screen');
-        game?.classList.remove('hidden');
-        if (game) {
-            game.style.opacity = '';
-            game.style.transform = '';
-            game.style.transition = '';
-        }
+        this.showGame();
         this._lockGameRuleSettings(true);
     }
 
@@ -1761,21 +1762,22 @@ class GameApp {
             this.renderer.setGameState(this.currentMode.gameState);
             this.renderer.setMode(this.currentMode);
             this._configureRendererAudio(this.renderer);
-            this.renderer.audio.enabled = soundOn;
+            this.renderer.audio.enabled = soundOn && this.settings.soundEnabled !== false;
             this.currentMode.setRenderer(this.renderer);
             this._stopMenuAudio();
 
             this._roundEndBound = false;
             this._bindRoundEndListener();
 
-            document.getElementById('custom-screen')?.classList.add('hidden');
-            document.getElementById('game-screen')?.classList.remove('hidden');
+            this.showGame();
             await this.currentMode.startGame();
             this._lockGameRuleSettings(true);
         });
     }
 
     showMenu() {
+        for (const timer of this._screenTimers.values()) clearTimeout(timer);
+        this._screenTimers.clear();
         const menu = document.getElementById('menu-screen');
         const game = document.getElementById('game-screen');
         const lan = document.getElementById('lan-screen');
@@ -1894,11 +1896,9 @@ class GameApp {
 
     // ---- 回放 ----
     showReplayList() {
-        document.getElementById('menu-screen')?.classList.add('hidden');
-        document.getElementById('game-screen')?.classList.add('hidden');
-        document.getElementById('lan-screen')?.classList.add('hidden');
-        document.getElementById('custom-screen')?.classList.add('hidden');
-        document.getElementById('replay-screen')?.classList.remove('hidden');
+        if (this.currentMode) this.currentMode.isRunning = false;
+        this.renderer?.audio?.stopBGM();
+        this._transitionToScreen('replay-screen');
 
         const container = document.getElementById('replay-container');
         if (!container) return;
@@ -1946,11 +1946,10 @@ class GameApp {
         }
 
         // 隐藏菜单/游戏界面，显示回放
-        document.getElementById('menu-screen')?.classList.add('hidden');
-        document.getElementById('game-screen')?.classList.add('hidden');
-        document.getElementById('custom-screen')?.classList.add('hidden');
-        document.getElementById('endgame-screen')?.classList.add('hidden');
-        document.getElementById('replay-screen')?.classList.remove('hidden');
+        if (this.currentMode) this.currentMode.isRunning = false;
+        this.renderer?.audio?.stopBGM();
+        this._transitionToScreen('replay-screen');
+
         this._replayManager.startReplay(targetGame);
         if (jumpRoundIndex != null) {
             this._replayManager.goToStep(jumpRoundIndex);
@@ -1976,7 +1975,7 @@ class GameApp {
         const statsEl = document.getElementById('workshop-stats');
         if (statsEl) {
             if (stats.total > 0) {
-                const modeLabels = { ai: '人机', lan: '联机', tournament: '锦标赛', challenge: '极限挑战', custom: '自定义', unknown: '其他' };
+                const modeLabels = { ai: '人机', lan: '联机', daily: '每日挑战', endgame: '残局', tournament: '锦标赛', challenge: '极限挑战', custom: '自定义', unknown: '其他' };
                 const modeParts = Object.entries(stats.byMode)
                     .map(([m, c]) => `${modeLabels[m] || m} ${c}条`)
                     .join(' · ');
@@ -2078,13 +2077,9 @@ class GameApp {
         const workshop = document.getElementById('workshop-screen');
         if (workshop) workshop.classList.add('hidden');
 
-        document.getElementById('menu-screen')?.classList.add('hidden');
-        document.getElementById('game-screen')?.classList.add('hidden');
-        document.getElementById('lan-screen')?.classList.add('hidden');
-        document.getElementById('custom-screen')?.classList.add('hidden');
-        document.getElementById('endgame-screen')?.classList.add('hidden');
-        document.getElementById('challenge-screen')?.classList.add('hidden');
-        document.getElementById('replay-screen')?.classList.remove('hidden');
+        if (this.currentMode) this.currentMode.isRunning = false;
+        this.renderer?.audio?.stopBGM();
+        this._transitionToScreen('replay-screen');
 
         if (this._replayManager) {
             this._replayManager.destroy();
@@ -2135,43 +2130,7 @@ class GameApp {
     }
 
     showGame() {
-        const menu = document.getElementById('menu-screen');
-        const game = document.getElementById('game-screen');
-        const lan = document.getElementById('lan-screen');
-        const custom = document.getElementById('custom-screen');
-
-        [lan, custom].forEach(s => s?.classList.add('hidden'));
-
-        if (menu) {
-            menu.style.transition = 'opacity 0.3s ease';
-            menu.style.opacity = '0';
-            if (menu._hideTimer) clearTimeout(menu._hideTimer);
-            menu._hideTimer = setTimeout(() => {
-                menu._hideTimer = null;
-                menu.classList.add('hidden');
-                menu.style.opacity = '';
-                menu.style.transition = '';
-            }, 300);
-        }
-
-        if (game) {
-            game.classList.remove('hidden');
-            game.style.opacity = '0';
-            game.style.transform = 'scale(0.98)';
-            game.style.transition = 'all 0.4s ease-out';
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    game.style.opacity = '1';
-                    game.style.transform = 'scale(1)';
-                    if (game._animTimer) clearTimeout(game._animTimer);
-                    game._animTimer = setTimeout(() => {
-                        game._animTimer = null;
-                        game.style.transition = '';
-                        game.style.transform = '';
-                    }, 400);
-                });
-            });
-        }
+        this._transitionToScreen('game-screen');
 
         // 停止菜单音频；游戏BGM由 onPhaseChange(PLAYING) 统一调度，避免双重触发
         this._stopMenuAudio();
@@ -2331,7 +2290,7 @@ class GameApp {
         const overlays = [
             'settings-overlay', 'changelog-overlay', 'play-style-overlay',
             'season-quest-overlay', 'tournament-setup-overlay', 'achievement-panel',
-            'challenge-result-overlay', 'challenge-history-overlay'
+            'challenge-result-overlay', 'challenge-history-overlay', 'modal-overlay'
         ];
         for (const oid of overlays) {
             const oel = document.getElementById(oid);

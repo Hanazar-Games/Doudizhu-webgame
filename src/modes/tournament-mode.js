@@ -9,6 +9,7 @@ import { TournamentStorage } from '../utils/tournament-storage.js';
 class TournamentMode extends AIMode {
     constructor(difficulty = 'normal', totalRounds = 5) {
         super(difficulty);
+        this.modeName = 'tournament';
         this.totalRounds = totalRounds;
         this.roundResults = []; // 每轮详细结果
         this.prevScores = [0, 0, 0]; // 上一局累计分数
@@ -18,6 +19,12 @@ class TournamentMode extends AIMode {
     async init() {
         await super.init();
         this.setMatchRounds(this.totalRounds);
+        this.prevScores = [0, 0, 0];
+        this.roundResults = [];
+    }
+
+    setMatchRounds(rounds) {
+        super.setMatchRounds(rounds);
         this.prevScores = [0, 0, 0];
         this.roundResults = [];
     }

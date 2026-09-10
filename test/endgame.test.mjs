@@ -26,9 +26,9 @@ global.localStorage = global.localStorage || {
 
 let passed = 0, failed = 0;
 
-function test(name, fn) {
+async function test(name, fn) {
     try {
-        fn();
+        await fn();
         passed++;
         console.log(`✓ ${name}`);
     } catch (e) {
@@ -43,18 +43,18 @@ function assert(cond, msg) {
 }
 
 // ===== 数据合法性测试 =====
-test('validateEndgameLevels returns no errors', () => {
+await test('validateEndgameLevels returns no errors', () => {
     const errors = validateEndgameLevels();
     assert(errors.length === 0, `Validation errors: ${errors.join(', ')}`);
 });
 
-test('All levels have exactly 3 hands', () => {
+await test('All levels have exactly 3 hands', () => {
     for (const level of ENDGAME_LEVELS) {
         assert(level.hands.length === 3, `Level ${level.id} should have 3 hands`);
     }
 });
 
-test('All hands have no duplicate cards within a level', () => {
+await test('All hands have no duplicate cards within a level', () => {
     for (const level of ENDGAME_LEVELS) {
         const allCards = [];
         for (let i = 0; i < 3; i++) {
@@ -69,7 +69,7 @@ test('All hands have no duplicate cards within a level', () => {
     }
 });
 
-test('All lastPlay cards form valid patterns', () => {
+await test('All lastPlay cards form valid patterns', () => {
     for (const level of ENDGAME_LEVELS) {
         if (level.lastPlay && level.lastPlay.cards.length > 0) {
             const pattern = Rules.analyze(level.lastPlay.cards);
@@ -78,7 +78,7 @@ test('All lastPlay cards form valid patterns', () => {
     }
 });
 
-test('Level 1 optimal solution is a valid straight', () => {
+await test('Level 1 optimal solution is a valid straight', () => {
     const level = ENDGAME_LEVELS[0];
     const hand = level.hands[0];
     // 顺子 3-A（不含大小王）
@@ -88,7 +88,7 @@ test('Level 1 optimal solution is a valid straight', () => {
     assert(pattern.length === 12, `Expected straight length 12, got ${pattern.length}`);
 });
 
-test('Level 2 triple-with-single is valid', () => {
+await test('Level 2 triple-with-single is valid', () => {
     const level = ENDGAME_LEVELS[1];
     const hand = level.hands[0];
     // 555带A
@@ -99,13 +99,13 @@ test('Level 2 triple-with-single is valid', () => {
     assert(pattern.type === HAND_TYPE.TRIPLE_WITH_SINGLE, `Expected TRIPLE_WITH_SINGLE, got ${pattern.type}`);
 });
 
-test('Level 4 lastPlay is a valid pair', () => {
+await test('Level 4 lastPlay is a valid pair', () => {
     const level = ENDGAME_LEVELS[3];
     const pattern = Rules.analyze(level.lastPlay.cards);
     assert(pattern.type === HAND_TYPE.PAIR, `Expected PAIR, got ${pattern.type}`);
 });
 
-test('Level 5 landlord hand AAA+2 is triple with single', () => {
+await test('Level 5 landlord hand AAA+2 is triple with single', () => {
     const level = ENDGAME_LEVELS[4];
     const landlordHand = level.hands[0];
     const triple = landlordHand.filter(c => c.value === 14).slice(0, 3);
@@ -116,7 +116,7 @@ test('Level 5 landlord hand AAA+2 is triple with single', () => {
 });
 
 // ===== 通关判定测试 =====
-test('calculateEndgameStars - passed with optimal steps gets 3 stars', () => {
+await test('calculateEndgameStars - passed with optimal steps gets 3 stars', () => {
     const level = ENDGAME_LEVELS[0];
     const gs = new GameState();
     gs.landlordIndex = 0;
@@ -127,7 +127,7 @@ test('calculateEndgameStars - passed with optimal steps gets 3 stars', () => {
     assert(result.passed === true);
 });
 
-test('calculateEndgameStars - passed with suboptimal steps gets 2 stars', () => {
+await test('calculateEndgameStars - passed with suboptimal steps gets 2 stars', () => {
     const level = ENDGAME_LEVELS[0];
     const gs = new GameState();
     gs.landlordIndex = 0;
@@ -137,7 +137,7 @@ test('calculateEndgameStars - passed with suboptimal steps gets 2 stars', () => 
     assert(result.stars === 2, `Expected 2 stars, got ${result.stars}`);
 });
 
-test('calculateEndgameStars - failure gets 0 stars', () => {
+await test('calculateEndgameStars - failure gets 0 stars', () => {
     const level = ENDGAME_LEVELS[0];
     const gs = new GameState();
     gs.landlordIndex = 0;
@@ -147,7 +147,7 @@ test('calculateEndgameStars - failure gets 0 stars', () => {
     assert(result.passed === false);
 });
 
-test('calculateEndgameStars - anti-spring level 3 stars when landlord plays once', () => {
+await test('calculateEndgameStars - anti-spring level 3 stars when landlord plays once', () => {
     const level = ENDGAME_LEVELS[4];
     const gs = new GameState();
     gs.landlordIndex = 0;
@@ -158,7 +158,7 @@ test('calculateEndgameStars - anti-spring level 3 stars when landlord plays once
     assert(result.passed === true);
 });
 
-test('calculateEndgameStars - anti-spring level 2 stars when landlord plays more than once', () => {
+await test('calculateEndgameStars - anti-spring level 2 stars when landlord plays more than once', () => {
     const level = ENDGAME_LEVELS[4];
     const gs = new GameState();
     gs.landlordIndex = 0;
@@ -170,7 +170,7 @@ test('calculateEndgameStars - anti-spring level 2 stars when landlord plays more
 });
 
 // ===== 存储测试 =====
-test('EndgameRecordManager save and get record', () => {
+await test('EndgameRecordManager save and get record', () => {
     EndgameRecordManager.clear();
     EndgameRecordManager.saveRecord(1, 3, 2);
     const record = EndgameRecordManager.getRecord(1);
@@ -180,7 +180,7 @@ test('EndgameRecordManager save and get record', () => {
     assert(record.passed === true);
 });
 
-test('EndgameRecordManager keeps best stars', () => {
+await test('EndgameRecordManager keeps best stars', () => {
     EndgameRecordManager.clear();
     EndgameRecordManager.saveRecord(1, 2, 4);
     EndgameRecordManager.saveRecord(1, 3, 3);
@@ -188,7 +188,7 @@ test('EndgameRecordManager keeps best stars', () => {
     assert(record.stars === 3, `Expected stars=3, got ${record.stars}`);
 });
 
-test('EndgameRecordManager keeps best steps for same stars', () => {
+await test('EndgameRecordManager keeps best steps for same stars', () => {
     EndgameRecordManager.clear();
     EndgameRecordManager.saveRecord(1, 3, 4);
     EndgameRecordManager.saveRecord(1, 3, 2);
@@ -196,7 +196,7 @@ test('EndgameRecordManager keeps best steps for same stars', () => {
     assert(record.bestSteps === 2, `Expected bestSteps=2, got ${record.bestSteps}`);
 });
 
-test('EndgameRecordManager progress calculation', () => {
+await test('EndgameRecordManager progress calculation', () => {
     EndgameRecordManager.clear();
     EndgameRecordManager.saveRecord(1, 3, 2);
     EndgameRecordManager.saveRecord(2, 2, 3);
@@ -207,7 +207,7 @@ test('EndgameRecordManager progress calculation', () => {
 });
 
 // ===== EndgameMode 集成测试 =====
-test('EndgameMode initializes correctly', async () => {
+await test('EndgameMode initializes correctly', async () => {
     const mode = new EndgameMode(0);
     await mode.init();
     assert(mode.gameState.players[0] instanceof Player);
@@ -216,7 +216,7 @@ test('EndgameMode initializes correctly', async () => {
     assert(mode.humanIndex === 0);
 });
 
-test('EndgameMode getLevelInfo returns correct data', async () => {
+await test('EndgameMode getLevelInfo returns correct data', async () => {
     EndgameRecordManager.clear();
     const mode = new EndgameMode(0);
     await mode.init();
@@ -226,13 +226,15 @@ test('EndgameMode getLevelInfo returns correct data', async () => {
     assert(info.bestStars === 0);
 });
 
-test('EndgameMode sets fixed hands on start', async () => {
+await test('EndgameMode sets fixed hands on start', async () => {
     EndgameRecordManager.clear();
     const mode = new EndgameMode(0);
     await mode.init();
     // 模拟 renderer 避免报错
-    mode.renderer = { audio: { playDeal() {}, playNewRound() {} }, renderHands() {}, highlightTurn() {}, showEndgameInfo() {} };
+    mode._processPlay = async () => {};
+    mode.renderer = null;
     await mode.startGame();
+    mode.destroy();
     const level = ENDGAME_LEVELS[0];
     assert(mode.gameState.phase === PHASE.PLAYING, `Expected PLAYING, got ${mode.gameState.phase}`);
     assert(mode.gameState.landlordIndex === level.landlordIndex);
@@ -245,12 +247,14 @@ test('EndgameMode sets fixed hands on start', async () => {
     }
 });
 
-test('EndgameMode level 4 sets lastPlay correctly', async () => {
+await test('EndgameMode level 4 sets lastPlay correctly', async () => {
     EndgameRecordManager.clear();
     const mode = new EndgameMode(3);
     await mode.init();
-    mode.renderer = { audio: { playDeal() {}, playNewRound() {} }, renderHands() {}, highlightTurn() {}, showEndgameInfo() {} };
+    mode._processPlay = async () => {};
+    mode.renderer = null;
     await mode.startGame();
+    mode.destroy();
     const level = ENDGAME_LEVELS[3];
     assert(mode.gameState.lastPlay.playerIndex === level.lastPlay.playerIndex);
     assert(mode.gameState.lastPlay.pattern !== null);
@@ -258,7 +262,7 @@ test('EndgameMode level 4 sets lastPlay correctly', async () => {
 });
 
 // ===== 最优解可被 Rules 识别测试 =====
-test('Level 1 optimal straight can be played and wins', () => {
+await test('Level 1 optimal straight can be played and wins', () => {
     const level = ENDGAME_LEVELS[0];
     const hand = level.hands[0];
     const straightCards = hand.filter(c => c.value >= 3 && c.value <= 14).sort((a, b) => a.value - b.value);
@@ -270,7 +274,7 @@ test('Level 1 optimal straight can be played and wins', () => {
     assert(remaining[0].value === 17); // 大王
 });
 
-test('Level 3 rocket beats any play', () => {
+await test('Level 3 rocket beats any play', () => {
     const rocket = Rules.analyze([new Card(null, 'JOKER_SMALL'), new Card(null, 'JOKER_BIG')]);
     const straight = Rules.analyze(ENDGAME_LEVELS[2].hands[1]); // AI1 的顺子
     assert(rocket.isValid());

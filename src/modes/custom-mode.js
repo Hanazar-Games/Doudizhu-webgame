@@ -4,11 +4,9 @@
  */
 
 import { Card } from '../core/card.js';
-import { GameState, PHASE } from '../core/game-state.js';
 import { Player } from '../players/player.js';
 import { AIPlayer } from '../players/ai-player.js';
 import { BaseMode } from './base-mode.js';
-import { Storage } from '../utils/storage.js';
 
 class CustomMode extends BaseMode {
     constructor() {
@@ -69,6 +67,11 @@ class CustomMode extends BaseMode {
     setConfig(key, value) {
         if (key in this.customConfig) {
             this.customConfig[key] = value;
+            if (key === 'aiDifficulty') {
+                for (const player of this.gameState.players) {
+                    if (player?.isAI) player.difficulty = value;
+                }
+            }
         }
     }
 
@@ -85,126 +88,35 @@ class CustomMode extends BaseMode {
 
     // 覆盖startGame以支持预设牌
     async startGame() {
+        super.destroy();
         this.isRunning = true;
         
         // 应用全局游戏规则（与 BaseMode 保持一致）
         this._applyGameRules();
         
-        // 从设置读取标准游戏规则并配置 GameState（CustomMode 也受全局设置约束）
-        const settings = Storage.getSettings();
-        this.speedFactor = Math.max(0.3, Math.min(5.0, parseFloat(settings.gameSpeed) || 1.0));
-        this.gameState.scoreMultiplier = Math.max(1, Math.min(10, settings.scoreMultiplier ?? 1));
-        this.gameState.baseScore = Math.max(1, Math.min(10, settings.baseScore ?? 1));
-        this.gameState.showCards = settings.showCards === true;
-        this.gameState.noShuffle = settings.noShuffle === true;
-        this.gameState.bottomVisible = settings.bottomVisible === true;
-        this.gameState.mustPlay = settings.mustPlay === true;
-        this.gameState.allowPassOnFirst = settings.allowPassOnFirst !== false;
-        this.gameState.allowTripleWithSingle = settings.allowTripleWithSingle !== false;
-        this.gameState.allowTripleWithPair = settings.allowTripleWithPair !== false;
-        this.gameState.allowAirplaneWithWings = settings.allowAirplaneWithWings !== false;
-        this.gameState.bombAsRocket = settings.bombAsRocket === true;
-        this.gameState.strictRules = settings.strictRules !== false;
-        this.gameState.allowSpring = settings.allowSpring !== false;
-        this.gameState.allowAntiSpring = settings.allowAntiSpring !== false;
-        this.gameState.bombDoubles = settings.bombDoubles !== false;
-        this.gameState.rocketDoubles = settings.rocketDoubles !== false;
-        this.gameState.jokerRule = settings.jokerRule || 'standard';
-        this.gameState.bombRule = settings.bombRule || 'standard';
-        // 先手规则
-        const firstPlayerSetting = settings.firstPlayer || 'random';
-        if (firstPlayerSetting === 'winner' && this._lastWinnerIndex >= 0) {
-            this.gameState.dealerIndex = this._lastWinnerIndex;
-        } else if (firstPlayerSetting === 'landlord' && this._lastLandlordIndex >= 0) {
-            this.gameState.dealerIndex = this._lastLandlordIndex;
+        this.gameState.callMode = this.customConfig.callMode;
+        this.gameState.laiziEnabled = this.customConfig.laiziMode;
+        this.gameState.showCards ||= this.customConfig.showAllCards;
+        const hands = this.customConfig.fixedHands.map(hand => [...(hand || [])]);
+        const bottom = [...(this.customConfig.bottomCards || [])];
+        const fixed = [...hands.flat(), ...bottom];
+        const key = card => `${card.rankKey}:${card.suit?.name || ''}`;
+        if (hands.some(hand => hand.length > 17) || bottom.length > 3 ||
+            fixed.some(card => !(card instanceof Card)) || new Set(fixed.map(key)).size !== fixed.length) {
+            this.isRunning = false;
+            this.renderer?.showToast('预设牌包含重复牌或超过允许张数', 'error');
+            return false;
         }
-        
-        let deck, bottom;
-        
-        // 检查是否有预设
-        let hasFixed = this.customConfig.fixedHands.some(h => h !== null) || 
-                         this.customConfig.bottomCards !== null;
-        
-        if (hasFixed) {
-            // 使用预设牌：构建三个玩家的手牌和底牌
-            const playerHands = [null, null, null];
-            
-            for (let i = 0; i < 3; i++) {
-                if (this.customConfig.fixedHands[i]) {
-                    playerHands[i] = [...this.customConfig.fixedHands[i]];
-                }
-            }
-            
-            if (this.customConfig.bottomCards) {
-                bottom = [...this.customConfig.bottomCards];
-            }
-            
-            // 收集所有已固定的牌用于去重
-            const allFixed = [];
-            for (let i = 0; i < 3; i++) {
-                if (playerHands[i]) allFixed.push(...playerHands[i]);
-            }
-            if (bottom) allFixed.push(...bottom);
-            
-            // 验证固定手牌无重复且总数不超过 51
-            const fixedKey = (c) => c.value + '-' + (c.suit?.name || c.rankKey || '');
-            const fixedKeys = allFixed.map(fixedKey);
-            const uniqueFixed = new Set(fixedKeys);
-            if (uniqueFixed.size !== fixedKeys.length) {
-                console.warn('自定义模式：固定手牌中存在重复牌，已自动去重');
-            }
-            if (allFixed.length > 51) {
-                console.error('自定义模式：固定手牌超过 51 张，无法发牌，将使用标准发牌');
-                // 放弃预设，回退到标准发牌
-                hasFixed = false;
-            }
+        const used = new Set(fixed.map(key));
+        const deck = this.gameState.noShuffle ? Card.createDeck() : Card.shuffle(Card.createDeck());
+        const remaining = deck.filter(card => !used.has(key(card)));
+        for (const hand of hands) hand.push(...remaining.splice(0, 17 - hand.length));
+        bottom.push(...remaining.splice(0, 3 - bottom.length));
+        if (!this.gameState.startRound(hands.flat(), bottom)) {
+            this.isRunning = false;
+            return false;
+        }
 
-            if (hasFixed) {
-                // 剩余牌补充
-                let fullDeck = Card.createDeck();
-                if (!this.gameState.noShuffle) {
-                    fullDeck = Card.shuffle(fullDeck);
-                }
-                const used = new Set(fixedKeys);
-                const remaining = fullDeck.filter(c => !used.has(fixedKey(c)));
-                
-                // 从 remaining 补充缺失的手牌
-                let remIdx = 0;
-                for (let i = 0; i < 3; i++) {
-                    if (!playerHands[i]) {
-                        playerHands[i] = remaining.slice(remIdx, remIdx + 17);
-                        remIdx += 17;
-                    }
-                }
-                // 补充底牌
-                if (!bottom) {
-                    bottom = remaining.slice(remIdx, remIdx + 3);
-                    remIdx += 3;
-                }
-                
-                // 合并为 deck（51张）
-                deck = [...playerHands[0], ...playerHands[1], ...playerHands[2]];
-                
-                // 设置叫牌模式和癞子
-                this.gameState.callMode = this.customConfig.callMode;
-                this.gameState.laiziEnabled = this.customConfig.laiziMode;
-                this.gameState.startRound(deck, bottom);
-                // 手动触发渲染
-                if (this.renderer) this.renderer.renderHands();
-            }
-        } else {
-            // 设置叫牌模式和癞子
-            this.gameState.callMode = this.customConfig.callMode;
-            this.gameState.laiziEnabled = this.customConfig.laiziMode;
-            let fullDeck = Card.createDeck();
-            if (!this.gameState.noShuffle) {
-                fullDeck = Card.shuffle(fullDeck);
-            }
-            bottom = fullDeck.slice(51, 54);
-            deck = fullDeck.slice(0, 51);
-            this.gameState.startRound(deck, bottom);
-        }
-        
         // 自动模式
         if (this.customConfig.autoPlay) {
             // 将所有人类替换为AI实例

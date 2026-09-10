@@ -162,6 +162,7 @@ class GameState {
             return false;
         }
         this.resetRound();
+        if (this.jokerRule === 'disabled') bottomCards = bottomCards.filter(c => !c.isJoker());
         // 清除所有牌的癞子标记（防止自定义模式重用 Card 对象时残留）
         for (const card of deck) {
             if (card) card.isLaizi = false;
@@ -176,21 +177,19 @@ class GameState {
         
         // 发牌给3个玩家（各17张）
         for (let i = 0; i < 3; i++) {
-            const hand = deck.slice(i * 17, (i + 1) * 17);
+            const hand = deck.slice(i * 17, (i + 1) * 17).filter(c => this.jokerRule !== 'disabled' || !c.isJoker());
             if (this.players[i]) {
                 this.players[i].setHand(hand);
             }
-            this.initialHands[i] = hand.map(c => ({ value: c.value, suit: c.suit?.name, rank: c.rankKey, displayName: c.displayName, isLaizi: c.isLaizi }));
         }
-        this.initialBottom = bottomCards.map(c => ({ value: c.value, suit: c.suit?.name, rank: c.rankKey, displayName: c.displayName, isLaizi: c.isLaizi }));
         
         // 确定癞子（如果启用）
         if (this.laiziEnabled && bottomCards.length > 0) {
             const laiziCard = bottomCards[0];
             // 安全：确保有 value 属性
             if (laiziCard && typeof laiziCard.value === 'number') {
-                // 如果翻出大王，无癞子
-                if (laiziCard.value !== 17) {
+                // 大小王不作为癞子
+                if (laiziCard.value <= 15) {
                     this.laiziValue = laiziCard.value;
                     // 标记所有该点数的牌为癞子
                     for (let i = 0; i < 3; i++) {
@@ -208,12 +207,13 @@ class GameState {
                         }
                     }
                 } else {
-                    // 大王翻开时不设癞子，明确重置
+                    // 大小王翻开时不设癞子
                     this.laiziValue = -1;
                 }
             }
         }
         
+        this.captureInitialHands();
         this.phase = PHASE.CALLING;
         this.currentTurn = this.dealerIndex;
         this.emit('phaseChange', { phase: this.phase, currentTurn: this.currentTurn });
@@ -224,7 +224,7 @@ class GameState {
 
     // 叫分 / 抢地主
     callLandlord(playerIndex, action) {
-        if (this.phase !== PHASE.CALLING) return false;
+        if (this.phase !== PHASE.CALLING || !Number.isInteger(action)) return false;
         if (playerIndex !== this.currentTurn) return false;
         
         if (this.callMode === 'grab') {
@@ -341,6 +341,7 @@ class GameState {
         }
         landlord.isLandlord = true;
         landlord.addCards(this.bottomCards);
+        this.captureInitialHands();
         this.currentTurn = this.landlordIndex;
         this.phase = PHASE.PLAYING;
         const eventData = {
@@ -356,6 +357,12 @@ class GameState {
         this.emit('phaseChange', { phase: this.phase, currentTurn: this.currentTurn });
     }
 
+    captureInitialHands() {
+        const serialize = c => ({ value: c.value, suit: c.suit?.name, rank: c.rankKey, displayName: c.displayName, isLaizi: c.isLaizi });
+        this.initialHands = this.players.map(p => p ? p.hand.map(serialize) : []);
+        this.initialBottom = this.bottomCards.map(serialize);
+    }
+
     // 出牌
     playCards(playerIndex, cards, pattern) {
         if (this.phase !== PHASE.PLAYING) return { success: false, error: '不在出牌阶段' };
@@ -369,8 +376,10 @@ class GameState {
             return { success: false, error: '手牌中没有这些牌' };
         }
 
-        // 验证牌型（pattern应已由外部计算好）
-        if (!pattern || pattern.type === 'INVALID') {
+        const actualPattern = Rules.analyze(cards);
+        if (!pattern || !actualPattern.isValid() || pattern.type !== actualPattern.type ||
+            pattern.mainValue !== actualPattern.mainValue || pattern.length !== actualPattern.length ||
+            pattern.hasLaizi !== actualPattern.hasLaizi) {
             return { success: false, error: '非法牌型' };
         }
 
@@ -406,7 +415,7 @@ class GameState {
             if (this.jokerRule === 'disabled' && (pattern.type === HAND_TYPE.ROCKET || cards.some(c => c.value === 16 || c.value === 17))) {
                 return { success: false, error: '规则：禁用大小王' };
             }
-            if (this.bombRule === 'disabled' && pattern.type === HAND_TYPE.BOMB) {
+            if (this.bombRule === 'disabled' && [HAND_TYPE.BOMB, HAND_TYPE.ROCKET].includes(pattern.type)) {
                 return { success: false, error: '规则：禁用炸弹' };
             }
             if (this.bombRule === 'strict' && pattern.type === HAND_TYPE.BOMB && cards.length !== 4) {
@@ -471,7 +480,7 @@ class GameState {
                            (this.passCount >= 2);
         const candidates = isNewRound
             ? Rules.findAllLegalPlays(player.hand).map(p => p.cards)
-            : Rules.findAllBeats(player.hand, lastPattern);
+            : Rules.findAllBeats(player.hand, lastPattern, this.bombAsRocket);
         for (const cards of candidates) {
             if (this._isPatternAllowed(Rules.analyze(cards), cards)) return true;
         }
@@ -524,7 +533,8 @@ class GameState {
             return;
         }
         const isLandlordWin = winnerIndex === this.landlordIndex;
-        const baseScore = this.baseScore || this.currentCall || 1;
+        const baseScore = (this.baseScore || 1) * (this.currentCall || 1);
+        const previousScores = [...this.scores];
         
         let multiplier = 1;
         
@@ -552,8 +562,7 @@ class GameState {
             }
         }
         
-        // 抢地主模式：基础分 = grabMultiplier
-        const effectiveBase = this.callMode === 'grab' ? this.grabMultiplier : baseScore;
+        const effectiveBase = this.callMode === 'grab' ? (this.baseScore || 1) * this.grabMultiplier : baseScore;
         const score = effectiveBase * multiplier * (this.scoreMultiplier || 1);
         
         if (isLandlordWin) {
@@ -575,6 +584,7 @@ class GameState {
             winnerIndex,
             isLandlordWin,
             scores: [...this.scores],
+            roundScores: this.scores.map((score, i) => score - previousScores[i]),
             landlordIndex: this.landlordIndex,
             springType,
             multiplier,

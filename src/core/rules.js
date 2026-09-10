@@ -204,168 +204,83 @@ class Rules {
         return new HandPattern(HAND_TYPE.INVALID, cards);
     }
     
-    // 癞子牌型分析
     static _analyzeWithLaizi(normalCards, laiziCards) {
-        const n = normalCards.length + laiziCards.length;
-        const laiziCount = laiziCards.length;
-        const allCards = [...normalCards, ...laiziCards];
-        
-        // 对 normalCards 分组
+        const cards = [...normalCards, ...laiziCards];
+        const n = cards.length;
+        if (n === 1) return new HandPattern(HAND_TYPE.SINGLE, cards, cards[0].value, 1, true);
+        if (n === 2 && cards.some(c => c.value === 16) && cards.some(c => c.value === 17)) {
+            return new HandPattern(HAND_TYPE.ROCKET, cards, 17, 2);
+        }
         const groups = Rules.groupByValue(normalCards);
-        const groupValues = [...groups.keys()];
-        const groupSizes = [...groups.values()].map(g => g.length);
-        
-        // 单张
-        if (n === 1) {
-            return new HandPattern(HAND_TYPE.SINGLE, allCards, allCards[0].value, 1, laiziCount > 0);
-        }
-        
-        // 对子: 0真+2癞 / 1真+1癞 / 2真
-        if (n === 2) {
-            if (normalCards.length === 2 && groupSizes.length === 1) {
-                return new HandPattern(HAND_TYPE.PAIR, allCards, groupValues[0], 2, false);
+        const match = (body, wingCount = 0, wingSize = 0) => {
+            const target = new Map(body);
+            let missing = 0;
+            for (const [value, count] of target) {
+                const actual = groups.get(value)?.length || 0;
+                if (actual > count) return false;
+                missing += count - actual;
             }
-            if (normalCards.length === 1 && laiziCount === 1) {
-                return new HandPattern(HAND_TYPE.PAIR, allCards, normalCards[0].value, 2, true);
+            const wings = [...groups].filter(([value]) => !target.has(value));
+            if (wings.length > wingCount) return false;
+            for (const [value, group] of wings) {
+                if (group.length > wingSize || (wingSize > 1 && value > 15)) return false;
+                missing += wingSize - group.length;
             }
-            if (normalCards.length === 0 && laiziCount === 2) {
-                return new HandPattern(HAND_TYPE.PAIR, allCards, 3, 2, true); // 最小对子
+            missing += (wingCount - wings.length) * wingSize;
+            return missing === laiziCards.length;
+        };
+        const singleBody = (type, size, wingCount = 0, wingSize = 0) => {
+            for (let value = 3; value <= 15; value++) {
+                if (match([[value, size]], wingCount, wingSize)) return new HandPattern(type, cards, value, n, true);
             }
-        }
-        
-        // 三张: 0真+3癞 / 1真+2癞 / 2真+1癞 / 3真
-        if (n === 3) {
-            if (normalCards.length >= 1 && groupSizes.length <= 1) {
-                const mainVal = groupValues[0] || normalCards[0].value;
-                return new HandPattern(HAND_TYPE.TRIPLE, allCards, mainVal, 3, laiziCount > 0);
-            }
-            if (normalCards.length === 0 && laiziCount === 3) {
-                return new HandPattern(HAND_TYPE.TRIPLE, allCards, 3, 3, true); // 最小三张
-            }
-        }
-        
-        // 炸弹: 0真+4癞 / 用癞子补齐到4张
-        if (n === 4) {
-            if (normalCards.length === 0 && laiziCount === 4) {
-                return new HandPattern(HAND_TYPE.BOMB, allCards, 3, 4, true); // 最小炸弹
-            }
-            // 所有真实牌同值
-            if (groupSizes.length === 1 && normalCards.length + laiziCount === 4) {
-                return new HandPattern(HAND_TYPE.BOMB, allCards, groupValues[0], 4, laiziCount > 0);
-            }
-            // 1-3张同值 + 癞子补齐
-            if (groupSizes.length === 1 && groupSizes[0] + laiziCount === 4) {
-                return new HandPattern(HAND_TYPE.BOMB, allCards, groupValues[0], 4, true);
-            }
-        }
-        
-        // 三带一
-        if (n === 4) {
-            // 找是否有某个值的真实牌数量+癞子 >= 3
-            for (const [val, grp] of groups) {
-                const needForTriple = 3 - grp.length;
-                const remainingLaizi = laiziCount - needForTriple;
-                if (needForTriple <= laiziCount && remainingLaizi >= 0) {
-                    // 剩下的牌作为单张
-                    const remaining = normalCards.filter(c => c.value !== val);
-                    if (remaining.length === 1 && remainingLaizi === 0) {
-                        return new HandPattern(HAND_TYPE.TRIPLE_WITH_SINGLE, allCards, val, 4, laiziCount > 0);
-                    }
-                    if (remaining.length === 0 && remainingLaizi === 1) {
-                        return new HandPattern(HAND_TYPE.TRIPLE_WITH_SINGLE, allCards, val, 4, true);
-                    }
+        };
+        let pattern;
+        if (n === 2) pattern = singleBody(HAND_TYPE.PAIR, 2);
+        if (n === 3) pattern = singleBody(HAND_TYPE.TRIPLE, 3);
+        if (n === 4) pattern = singleBody(HAND_TYPE.BOMB, 4) || singleBody(HAND_TYPE.TRIPLE_WITH_SINGLE, 3, 1, 1);
+        if (n === 5) pattern = singleBody(HAND_TYPE.TRIPLE_WITH_PAIR, 3, 1, 2);
+        if (pattern) return pattern;
+        const sequences = [
+            [HAND_TYPE.STRAIGHT, 1, 0, 5],
+            [HAND_TYPE.DOUBLE_STRAIGHT, 2, 0, 3],
+            [HAND_TYPE.TRIPLE_STRAIGHT, 3, 0, 2],
+            [HAND_TYPE.TRIPLE_STRAIGHT_WITH_SINGLES, 3, 1, 2],
+            [HAND_TYPE.TRIPLE_STRAIGHT_WITH_PAIRS, 3, 2, 2],
+        ];
+        for (const [type, count, wingSize, minimum] of sequences) {
+            const length = n / (count + wingSize);
+            if (!Number.isInteger(length) || length < minimum || length > 12) continue;
+            for (let start = 3; start + length - 1 <= 14; start++) {
+                const body = Array.from({ length }, (_, i) => [start + i, count]);
+                if (match(body, wingSize ? length : 0, wingSize)) {
+                    return new HandPattern(type, cards, start + length - 1, n, true);
                 }
             }
         }
-        
-        // 三带二
-        if (n === 5) {
-            for (const [val, grp] of groups) {
-                const needForTriple = 3 - grp.length;
-                const remainingLaizi = laiziCount - needForTriple;
-                if (needForTriple <= laiziCount && remainingLaizi >= 0) {
-                    const remaining = normalCards.filter(c => c.value !== val);
-                    const remainingGroups = Rules.groupByValue(remaining);
-                    // 剩下的要组成对子
-                    if (remaining.length === 2 && [...remainingGroups.values()][0]?.length === 2 && remainingLaizi === 0) {
-                        return new HandPattern(HAND_TYPE.TRIPLE_WITH_PAIR, allCards, val, 5, laiziCount > 0);
-                    }
-                    if (remaining.length === 1 && remainingLaizi === 1) {
-                        return new HandPattern(HAND_TYPE.TRIPLE_WITH_PAIR, allCards, val, 5, true);
-                    }
-                    if (remaining.length === 0 && remainingLaizi === 2) {
-                        return new HandPattern(HAND_TYPE.TRIPLE_WITH_PAIR, allCards, val, 5, true);
-                    }
-                }
-            }
-        }
-        
-        // 顺子（简化：只支持纯牌或1张癞子替代缺口）
-        if (n >= 5 && n <= 12) {
-            const result = Rules._tryStraightWithLaizi(normalCards, laiziCards);
-            if (result) return result;
-        }
-        
-        // 四带二（简化支持）
-        if (n === 6) {
-            for (const [val, grp] of groups) {
-                const needForFour = 4 - grp.length;
-                if (needForFour <= laiziCount) {
-                    const remaining = normalCards.filter(c => c.value !== val);
-                    const remainingLaizi = laiziCount - needForFour;
-                    const remGroups = Rules.groupByValue(remaining);
-                    const remSizes = [...remGroups.values()].map(g => g.length);
-                    if (remaining.length === 2 && remSizes.every(s => s === 1) && remainingLaizi === 0) {
-                        return new HandPattern(HAND_TYPE.FOUR_WITH_TWO, allCards, val, 6, laiziCount > 0);
-                    }
-                }
-            }
-        }
-        
-        return new HandPattern(HAND_TYPE.INVALID, allCards);
+        if (n === 6) pattern = singleBody(HAND_TYPE.FOUR_WITH_TWO, 4, 2, 1);
+        if (n === 8) pattern = singleBody(HAND_TYPE.FOUR_WITH_TWO_PAIRS, 4, 2, 2);
+        return pattern || new HandPattern(HAND_TYPE.INVALID, cards);
     }
-    
-    // 尝试用癞子组成顺子
-    static _tryStraightWithLaizi(normalCards, laiziCards) {
-        const n = normalCards.length + laiziCards.length;
-        const laiziCount = laiziCards.length;
-        const allCards = [...normalCards, ...laiziCards];
-        
-        // 所有真实牌必须是单张（不能有重复值，顺子中每个值只出现一次）
-        if (normalCards.some(c => c.value >= 15)) return null;
-        const uniqueNormalValues = [...new Set(normalCards.map(c => c.value))];
-        if (uniqueNormalValues.length !== normalCards.length) return null;
-        const values = uniqueNormalValues.filter(v => v <= 14).sort((a, b) => a - b);
-        if (values.length === 0 && laiziCount >= 5) {
-            // 全是癞子，最小顺子 3-7
-            return new HandPattern(HAND_TYPE.STRAIGHT, allCards, 7, n, true);
-        }
-        
-        // 尝试找到以某个值为起点/终点的顺子
-        // 枚举所有可能的顺子长度和起点
-        for (let len = 5; len <= n; len++) {
-            for (let start = 3; start <= 14 - len + 1; start++) { // 14=A，顺子最大到A
-                const target = [];
-                for (let v = start; v < start + len; v++) target.push(v);
-                
-                let needLaizi = 0;
-                const usedValues = new Set();
-                for (const v of target) {
-                    const hasCard = normalCards.some(c => c.value === v && !usedValues.has(v));
-                    if (!hasCard) {
-                        needLaizi++;
-                    } else {
-                        usedValues.add(v);
-                    }
-                }
-                
-                if (needLaizi === laiziCount && len === n && usedValues.size === values.length) {
-                    return new HandPattern(HAND_TYPE.STRAIGHT, allCards, start + len - 1, n, laiziCount > 0);
-                }
+
+    static *_wildcardCandidates(handCards, lengths) {
+        const wildcards = handCards.filter(card => card.isLaizi);
+        const groups = [...Rules.groupByValue(handCards.filter(card => !card.isLaizi)).values()];
+        const remaining = new Array(groups.length + 1).fill(0);
+        for (let i = groups.length - 1; i >= 0; i--) remaining[i] = remaining[i + 1] + groups[i].length;
+        function* pick(index, count, selected) {
+            if (count === 0) { yield selected; return; }
+            if (remaining[index] < count || index === groups.length) return;
+            const group = groups[index];
+            for (let take = Math.min(group.length, count); take >= 0; take--) {
+                yield* pick(index + 1, count - take, [...selected, ...group.slice(0, take)]);
             }
         }
-        
-        return null;
+        for (const length of new Set(lengths)) {
+            if (length > handCards.length || length < 1) continue;
+            for (let count = 1; count <= Math.min(wildcards.length, length); count++) {
+                for (const natural of pick(0, length - count, [])) yield [...natural, ...wildcards.slice(0, count)];
+            }
+        }
     }
 
     // 判断数值数组是否连续
@@ -441,6 +356,23 @@ class Rules {
             }
         };
         
+        const wildcards = handCards.filter(card => card.isLaizi);
+        if (wildcards.length) {
+            for (const cards of Rules._wildcardCandidates(handCards, [2, 3, 4, handCards.length])) addResult(cards);
+            const natural = Rules.groupByValue(handCards.filter(card => !card.isLaizi));
+            for (const count of [1, 2, 3]) {
+                const minimum = count === 1 ? 5 : count === 2 ? 3 : 2;
+                for (let length = minimum; length * count <= handCards.length; length++) {
+                    for (let start = 3; start + length - 1 <= 14; start++) {
+                        const selected = [];
+                        for (let value = start; value < start + length; value++) selected.push(...(natural.get(value) || []).slice(0, count));
+                        const missing = length * count - selected.length;
+                        if (missing > 0 && missing <= wildcards.length) addResult([...selected, ...wildcards.slice(0, missing)]);
+                    }
+                }
+            }
+        }
+
         // 1. 单张
         for (const card of handCards) {
             addResult([card]);
@@ -515,9 +447,9 @@ class Rules {
             }
         }
         
-        // 10. 飞机带单 / 带对 (简化：只生成2-3连的飞机)
+        // 10. 飞机带单 / 带对
         for (let start = 0; start < tripleValues.length; start++) {
-            for (let end = start + 1; end < Math.min(start + 3, tripleValues.length); end++) {
+            for (let end = start + 1; end < tripleValues.length; end++) {
                 const seq = tripleValues.slice(start, end + 1);
                 if (!Rules.isConsecutive(seq)) continue;
                 const k = seq.length;
@@ -599,12 +531,22 @@ class Rules {
 
     // 从手牌中找出所有能打过当前牌型的出牌方案
     // 返回 Card[][]，每个元素是一种出牌方案
-    static findAllBeats(handCards, lastPattern) {
+    static findAllBeats(handCards, lastPattern, bombAsRocket = false) {
         const results = [];
         if (!lastPattern || !lastPattern.isValid()) {
             // 首家出牌：返回所有合法牌型（通常游戏会限制，这里先返回单张）
             // 实际使用时由调用方控制
             return results;
+        }
+
+        if (handCards.some(card => card.isLaizi)) {
+            const beats = Rules.findAllBeats(handCards.filter(card => !card.isLaizi), lastPattern, bombAsRocket);
+            for (const cards of Rules._wildcardCandidates(handCards, [lastPattern.length, 4, 2])) {
+                const pattern = Rules.analyze(cards);
+                if (pattern.isValid() && (Rules.canBeat(lastPattern, pattern) ||
+                    (bombAsRocket && lastPattern.type === HAND_TYPE.ROCKET && pattern.type === HAND_TYPE.BOMB))) beats.push(cards);
+            }
+            return beats;
         }
 
         const n = handCards.length;
@@ -622,6 +564,16 @@ class Rules {
             }
             return res;
         };
+
+        if ([HAND_TYPE.TRIPLE_STRAIGHT_WITH_SINGLES, HAND_TYPE.TRIPLE_STRAIGHT_WITH_PAIRS,
+            HAND_TYPE.FOUR_WITH_TWO, HAND_TYPE.FOUR_WITH_TWO_PAIRS].includes(lastPattern.type)) {
+            return Rules.findAllLegalPlays(handCards)
+                .filter(play => Rules.canBeat(lastPattern, play.pattern)).map(play => play.cards);
+        }
+
+        if (bombAsRocket && lastPattern.type === HAND_TYPE.ROCKET) {
+            return Rules.findAllLegalPlays(handCards).filter(play => play.pattern.type === HAND_TYPE.BOMB).map(play => play.cards);
+        }
 
         // 根据lastPattern类型搜索
         const type = lastPattern.type;

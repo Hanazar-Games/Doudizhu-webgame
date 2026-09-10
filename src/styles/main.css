@@ -9495,9 +9495,9 @@ body[data-opponent-cards] .opponent-card-stack {
     filter: drop-shadow(0 0 6px rgba(240,192,64,0.35));
 }
 
-#btn-close-settings {
-    width: 34px;
-    height: 34px;
+.btn-close {
+    width: 44px;
+    height: 44px;
     border-radius: 10px;
     border: 1px solid rgba(255,255,255,0.1);
     background: rgba(255,255,255,0.06);
@@ -9510,13 +9510,13 @@ body[data-opponent-cards] .opponent-card-stack {
     transition: all 0.2s ease;
     flex-shrink: 0;
 }
-#btn-close-settings:hover {
+.btn-close:hover {
     background: rgba(244,67,54,0.15);
     color: #f44336;
     border-color: rgba(244,67,54,0.3);
     transform: rotate(90deg);
 }
-#btn-close-settings:active {
+.btn-close:active {
     transform: rotate(90deg) scale(0.92);
 }
 
@@ -11160,9 +11160,9 @@ body[data-commentary="false"] .commentary-bubble {
 }
 
 .challenge-result-modal {
-    background: var(--glass-bg);
+    background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 20px;
     width: 90%;
     max-width: 420px;
@@ -11179,12 +11179,12 @@ body[data-commentary="false"] .commentary-bubble {
 .challenge-result-header {
     padding: 20px 24px 12px;
     text-align: center;
-    border-bottom: 1px solid var(--glass-border);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 .challenge-result-header h2 {
     font-size: 1.35rem;
     font-weight: 700;
-    color: var(--accent-gold);
+    color: #ffd700;
     margin: 0;
 }
 
@@ -11205,14 +11205,14 @@ body[data-commentary="false"] .commentary-bubble {
 
 .challenge-result-date {
     font-size: 0.9rem;
-    color: var(--text-muted);
+    color: rgba(255, 255, 255, 0.6);
     margin-bottom: 12px;
 }
 
 .challenge-result-score {
     font-size: 2rem;
     font-weight: 800;
-    color: var(--accent-gold);
+    color: #ffd700;
     margin: 8px 0;
 }
 .challenge-result-score.negative {
@@ -11221,7 +11221,7 @@ body[data-commentary="false"] .commentary-bubble {
 
 .challenge-result-label {
     font-size: 0.85rem;
-    color: var(--text-muted);
+    color: rgba(255, 255, 255, 0.6);
     margin-bottom: 16px;
 }
 
@@ -11239,11 +11239,11 @@ body[data-commentary="false"] .commentary-bubble {
 .challenge-detail-cell .detail-value {
     font-size: 1.1rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: #fff;
 }
 .challenge-detail-cell .detail-label {
     font-size: 0.7rem;
-    color: var(--text-muted);
+    color: rgba(255, 255, 255, 0.6);
     margin-top: 2px;
 }
 
@@ -11273,9 +11273,9 @@ body[data-commentary="false"] .commentary-bubble {
 }
 
 .challenge-history-modal {
-    background: var(--glass-bg);
+    background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 20px;
     width: 90%;
     max-width: 480px;
@@ -11291,12 +11291,12 @@ body[data-commentary="false"] .commentary-bubble {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid var(--glass-border);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 .challenge-history-header h2 {
     font-size: 1.2rem;
     font-weight: 700;
-    color: var(--accent-gold);
+    color: #ffd700;
     margin: 0;
 }
 
@@ -11308,7 +11308,7 @@ body[data-commentary="false"] .commentary-bubble {
 
 .challenge-history-empty {
     text-align: center;
-    color: var(--text-muted);
+    color: rgba(255, 255, 255, 0.6);
     padding: 40px 20px;
     font-size: 0.95rem;
 }
@@ -11335,7 +11335,7 @@ body[data-commentary="false"] .commentary-bubble {
 
 .challenge-history-item .hist-date {
     font-size: 0.75rem;
-    color: var(--text-muted);
+    color: rgba(255, 255, 255, 0.6);
     font-weight: 500;
 }
 .challenge-history-item .hist-stars {
@@ -11345,7 +11345,7 @@ body[data-commentary="false"] .commentary-bubble {
 .challenge-history-item .hist-score {
     font-size: 0.9rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: #fff;
     text-align: right;
 }
 .challenge-history-item .hist-score.negative {

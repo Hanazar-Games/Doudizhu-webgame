@@ -24,20 +24,16 @@ class EndgameMode extends BaseMode {
     }
 
     async init() {
-        this.humanIndex = 0;
-        this.gameState.setPlayer(0, new Player('玩家', false));
-        this.gameState.setPlayer(1, new AIPlayer('AI-东', 'normal'));
-        this.gameState.setPlayer(2, new AIPlayer('AI-西', 'normal'));
+        this.humanIndex = ENDGAME_LEVELS[this.currentLevelIndex]?.humanIndex ?? 0;
+        for (let i = 0; i < 3; i++) {
+            this.gameState.setPlayer(i, i === this.humanIndex ? new Player('玩家', false) : new AIPlayer(`AI-${i + 1}`, 'normal'));
+        }
         this.humanStepCount = 0;
         console.log('[EndgameMode] 初始化完成，关卡:', this.currentLevelIndex + 1);
     }
 
     async startGame() {
-        // 清理上一局定时器
-        for (const t of this._pendingTimers) {
-            clearTimeout(t.id);
-        }
-        this._pendingTimers = [];
+        super.destroy();
         this.isRunning = true;
         this._applyGameRules();
         this.humanStepCount = 0;
@@ -59,13 +55,10 @@ class EndgameMode extends BaseMode {
             if (this.gameState.players[i] && level.hands[i]) {
                 this.gameState.players[i].setHand(level.hands[i]);
             }
-            this.gameState.initialHands[i] = level.hands[i].map(c => ({
-                value: c.value,
-                suit: c.suit?.name,
-                rank: c.rankKey,
-                displayName: c.displayName,
-            }));
         }
+
+        this.gameState.bottomCards = [];
+        this.gameState.captureInitialHands();
 
         // 设置地主
         this.gameState.landlordIndex = level.landlordIndex;
@@ -95,7 +88,7 @@ class EndgameMode extends BaseMode {
         // 手动调度游戏BGM（直接赋值phase绕过了phaseChange事件）
         this.renderer?.audio?.stopBGM();
         this._setTimer(() => {
-            if (this.isRunning) this.renderer?.audio?.playGameBGM();
+            if (this.isRunning && this.gameState.phase === PHASE.PLAYING) this.renderer?.audio?.playGameBGM();
         }, 500);
 
         // 残局模式强制使用标准规则，确保所有预设牌型合法
@@ -108,6 +101,8 @@ class EndgameMode extends BaseMode {
         this.gameState.bombAsRocket = false;
         this.gameState.mustPlay = false;
         this.gameState.allowPassOnFirst = true;
+
+        this.renderer?._resetCardTracker();
 
         // 音效 + 渲染
         this.renderer?.audio?.playDeal();
@@ -136,9 +131,6 @@ class EndgameMode extends BaseMode {
     }
 
     onRoundEnd(data) {
-        // 父类处理 BGM、渲染等
-        super.onRoundEnd(data);
-
         const level = ENDGAME_LEVELS[this.currentLevelIndex];
         if (!level) return;
 
@@ -149,6 +141,7 @@ class EndgameMode extends BaseMode {
             this.humanStepCount,
             this.humanIndex
         );
+        super.onRoundEnd(data, { showResult: false, isHumanWin: result.passed });
 
         if (result.passed) {
             EndgameRecordManager.saveRecord(level.id, result.stars, this.humanStepCount);

@@ -51,7 +51,7 @@ class ReplayManager {
             for (let i = 0; i < validGames.length; i++) {
                 const g = validGames[i];
                 const date = g.date ? new Date(g.date).toLocaleString('zh-CN') : '未知时间';
-                const modeText = g.mode === 'ai' ? '人机对战' : g.mode === 'lan' ? '联机' : g.mode === 'tournament' ? '锦标赛' : '自定义';
+                const modeText = ({ ai: '人机对战', lan: '联机', tournament: '锦标赛', custom: '自定义', daily: '每日挑战', endgame: '残局训练', challenge: '极限挑战' })[g.mode] || '对局';
                 const resultText = g.result?.isLandlordWin ? '地主胜' : '农民胜';
                 const spring = g.result?.springType === 'spring' ? ' 🌸春天' :
                               g.result?.springType === 'anti_spring' ? ' 🌸反春' : '';
@@ -82,7 +82,7 @@ class ReplayManager {
         // 绑定回放按钮
         this.container.querySelectorAll('.btn-replay-watch').forEach((btn) => {
             btn.addEventListener('click', () => {
-                window.gameApp?.renderer?.audio?.playButtonClick();
+                window.gameApp?._getActiveAudio?.()?.playButtonClick();
                 const idx = Number(btn.closest('.replay-item')?.dataset.index);
                 if (Number.isFinite(idx) && validGames[idx]) {
                     this.startReplay(validGames[idx]);
@@ -91,7 +91,7 @@ class ReplayManager {
         });
 
         this.container.querySelector('#btn-replay-back')?.addEventListener('click', () => {
-            window.gameApp?.renderer?.audio?.playButtonClick();
+            window.gameApp?._getActiveAudio?.()?.playButtonClick();
             this.container.innerHTML = '';
             if (window.gameApp?.showMenu) window.gameApp.showMenu();
         });
@@ -143,7 +143,7 @@ class ReplayManager {
     }
 
     _playStepSound(action) {
-        const audio = window.gameApp?.renderer?.audio;
+        const audio = window.gameApp?._getActiveAudio?.();
         if (!audio) return;
         if (action.pattern?.type === 'PASS') {
             audio.playPass();
@@ -198,7 +198,7 @@ class ReplayManager {
         if (!g) return '';
         const esc = (s) => String(s ?? '');
         const dateStr = g.date ? new Date(g.date).toLocaleString('zh-CN') : '未知时间';
-        const modeText = g.mode === 'ai' ? '人机对战' : g.mode === 'lan' ? '联机' : g.mode === 'tournament' ? '锦标赛' : '自定义';
+        const modeText = ({ ai: '人机对战', lan: '联机', tournament: '锦标赛', custom: '自定义', daily: '每日挑战', endgame: '残局训练', challenge: '极限挑战' })[g.mode] || '对局';
         const resultText = g.result?.isLandlordWin ? '地主胜' : '农民胜';
         const spring = g.result?.springType === 'spring' ? ' 🌸春天' : g.result?.springType === 'anti_spring' ? ' 🌸反春' : '';
         const lines = [
@@ -265,19 +265,19 @@ class ReplayManager {
 
         // 绑定控制按钮
         this.container.querySelector('#replay-prev')?.addEventListener('click', () => {
-            window.gameApp?.renderer?.audio?.playButtonClick();
+            window.gameApp?._getActiveAudio?.()?.playButtonClick();
             this.prevStep();
         });
         this.container.querySelector('#replay-play')?.addEventListener('click', () => {
-            window.gameApp?.renderer?.audio?.playButtonClick();
+            window.gameApp?._getActiveAudio?.()?.playButtonClick();
             this.togglePlay();
         });
         this.container.querySelector('#replay-next')?.addEventListener('click', () => {
-            window.gameApp?.renderer?.audio?.playButtonClick();
+            window.gameApp?._getActiveAudio?.()?.playButtonClick();
             this.nextStep();
         });
         this.container.querySelector('#replay-close')?.addEventListener('click', () => {
-            window.gameApp?.renderer?.audio?.playButtonClick();
+            window.gameApp?._getActiveAudio?.()?.playButtonClick();
             this.showGameList();
         });
 
@@ -291,7 +291,7 @@ class ReplayManager {
         const speedBtn = this.container.querySelector('#replay-speed');
         if (speedBtn) {
             speedBtn.addEventListener('click', () => {
-                window.gameApp?.renderer?.audio?.playButtonClick();
+                window.gameApp?._getActiveAudio?.()?.playButtonClick();
                 const speeds = [1, 1.5, 2, 3];
                 const currentIdx = speeds.findIndex(s => Math.abs(this.playInterval - 1500 / s) < 100);
                 const nextIdx = (currentIdx + 1) % speeds.length;
@@ -305,7 +305,7 @@ class ReplayManager {
         const copyBtn = this.container.querySelector('#replay-copy-report');
         if (copyBtn) {
             copyBtn.addEventListener('click', () => {
-                window.gameApp?.renderer?.audio?.playButtonClick();
+                window.gameApp?._getActiveAudio?.()?.playButtonClick();
                 const text = this._generateReport();
                 if (navigator.clipboard?.writeText) {
                     navigator.clipboard.writeText(text)
@@ -320,7 +320,7 @@ class ReplayManager {
         // 关键回合跳转
         this.container.querySelectorAll('.replay-moment-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
-                window.gameApp?.renderer?.audio?.playButtonClick();
+                window.gameApp?._getActiveAudio?.()?.playButtonClick();
                 const idx = parseInt(btn.dataset.idx, 10);
                 this.goToStep(idx);
             });

@@ -6,9 +6,10 @@
 import { Storage } from './storage.js';
 
 const WORKSHOP_KEY = 'ddz_workshop_records';
+const MAX_SHARE_CODE_LENGTH = 200000;
 
 /**
- * 生成分享码（Base64 编码的压缩对局数据）
+ * 生成分享码（Base64 编码的对局数据）
  */
 function encodeShareCode(gameData) {
     try {
@@ -20,8 +21,7 @@ function encodeShareCode(gameData) {
         } else {
             code = Buffer.from(encodeURIComponent(json)).toString('base64');
         }
-        // 分享码长度限制（输入框 maxlength=20000，留足余量）
-        if (code.length > 15000) {
+        if (code.length > MAX_SHARE_CODE_LENGTH) {
             console.warn('[ReplayWorkshop] 牌谱数据过大，分享码生成失败');
             return null;
         }
@@ -36,6 +36,7 @@ function encodeShareCode(gameData) {
  * 解析分享码
  */
 function decodeShareCode(code) {
+    if (typeof code !== 'string' || code.length > MAX_SHARE_CODE_LENGTH) return null;
     try {
         let decoded;
         if (typeof atob === 'function') {
@@ -117,7 +118,10 @@ const ReplayWorkshop = {
 
     importShareCode(code) {
         const gameData = decodeShareCode(code);
-        if (!gameData || !Array.isArray(gameData.history)) {
+        const validHistory = Array.isArray(gameData?.history) && gameData.history.every(action =>
+            action && Number.isInteger(action.playerIndex) && action.playerIndex >= 0 && action.playerIndex < 3 &&
+            Array.isArray(action.cards) && action.cards.length <= 20 && action.cards.every(card => card && Number.isInteger(card.value) && card.value >= 3 && card.value <= 17));
+        if (!validHistory || !Array.isArray(gameData.players) || gameData.players.length !== 3) {
             return { success: false, error: '无效的分享码' };
         }
         const record = this.saveGame(gameData, '导入的牌谱');

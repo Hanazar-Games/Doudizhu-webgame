@@ -86,7 +86,7 @@ const BADGES = {
 function getWeekStartString() {
     const now = new Date();
     // 转换为 UTC+8 的日历日期（使用 UTC 方法避免本地时区影响）
-    const utc8Time = now.getTime() + (now.getTimezoneOffset() + 480) * 60000;
+    const utc8Time = now.getTime() + 480 * 60000;
     const utc8Date = new Date(utc8Time);
     const day = utc8Date.getUTCDay(); // 0=周日, 1=周一
     const diff = day === 0 ? 6 : day - 1;
@@ -419,9 +419,7 @@ class SeasonQuestManager {
             }
         }
 
-        if (newlyCompleted.length > 0) {
-            this._save();
-        }
+        this._save();
         return newlyCompleted;
     }
 
@@ -476,9 +474,7 @@ class SeasonQuestManager {
             }
         }
 
-        if (newlyCompleted.length > 0) {
-            this._save();
-        }
+        this._save();
         return newlyCompleted;
     }
 

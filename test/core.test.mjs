@@ -22,9 +22,9 @@ global.localStorage = global.localStorage || {
 
 let passed = 0, failed = 0;
 
-function test(name, fn) {
+async function test(name, fn) {
     try {
-        fn();
+        await fn();
         passed++;
         console.log(`✓ ${name}`);
     } catch (e) {
@@ -50,24 +50,24 @@ function makeCards(rankKeys) {
 }
 
 // ===== Card Tests =====
-test('Card.createDeck creates 54 cards', () => {
+await test('Card.createDeck creates 54 cards', () => {
     assert(Card.createDeck().length === 54);
 });
 
-test('Card.shuffle preserves count', () => {
+await test('Card.shuffle preserves count', () => {
     const deck = Card.createDeck();
     const shuffled = Card.shuffle(deck);
     assert(shuffled.length === 54);
 });
 
-test('Card sorting by value', () => {
+await test('Card sorting by value', () => {
     const sorted = Card.sortByValue([new Card(SUITS.HEART, 'A'), new Card(SUITS.SPADE, '3'), new Card(SUITS.CLUB, '2')]);
     assert(sorted[0].value === 3);
     assert(sorted[1].value === 14);
     assert(sorted[2].value === 15);
 });
 
-test('Card sorting by standard Dou Dizhu order with stable suits', () => {
+await test('Card sorting by standard Dou Dizhu order with stable suits', () => {
     const sorted = Card.sortByValue([
         new Card(null, 'JOKER_BIG'),
         new Card(SUITS.DIAMOND, '3'),
@@ -82,96 +82,96 @@ test('Card sorting by standard Dou Dizhu order with stable suits', () => {
 });
 
 // ===== Rules Tests =====
-test('Rules.analyze SINGLE', () => {
+await test('Rules.analyze SINGLE', () => {
     const p = Rules.analyze(makeCards(['3']));
     assert(p.type === HAND_TYPE.SINGLE);
 });
 
-test('Rules.analyze PAIR', () => {
+await test('Rules.analyze PAIR', () => {
     assert(Rules.analyze(makeCards(['5', '5'])).type === HAND_TYPE.PAIR);
 });
 
-test('Rules.analyze TRIPLE', () => {
+await test('Rules.analyze TRIPLE', () => {
     assert(Rules.analyze(makeCards(['7', '7', '7'])).type === HAND_TYPE.TRIPLE);
 });
 
-test('Rules.analyze TRIPLE_WITH_SINGLE', () => {
+await test('Rules.analyze TRIPLE_WITH_SINGLE', () => {
     assert(Rules.analyze(makeCards(['9', '9', '9', '3'])).type === HAND_TYPE.TRIPLE_WITH_SINGLE);
 });
 
-test('Rules.analyze STRAIGHT', () => {
+await test('Rules.analyze STRAIGHT', () => {
     const p = Rules.analyze(makeCards(['3', '4', '5', '6', '7']));
     assert(p.type === HAND_TYPE.STRAIGHT);
     assert(p.mainValue === 7);
 });
 
-test('Rules.analyze STRAIGHT with 10', () => {
+await test('Rules.analyze STRAIGHT with 10', () => {
     const p = Rules.analyze(makeCards(['8', '9', '10', 'J', 'Q', 'K', 'A']));
     assert(p.type === HAND_TYPE.STRAIGHT);
     assert(p.length === 7);
 });
 
-test('Rules.analyze STRAIGHT rejects 2', () => {
+await test('Rules.analyze STRAIGHT rejects 2', () => {
     assert(Rules.analyze(makeCards(['10', 'J', 'Q', 'K', 'A', '2'])).type === HAND_TYPE.INVALID);
 });
 
-test('Rules.analyze DOUBLE_STRAIGHT', () => {
+await test('Rules.analyze DOUBLE_STRAIGHT', () => {
     assert(Rules.analyze(makeCards(['3', '3', '4', '4', '5', '5'])).type === HAND_TYPE.DOUBLE_STRAIGHT);
 });
 
-test('Rules.analyze DOUBLE_STRAIGHT rejects 2', () => {
+await test('Rules.analyze DOUBLE_STRAIGHT rejects 2', () => {
     assert(Rules.analyze(makeCards(['Q', 'Q', 'K', 'K', 'A', 'A', '2', '2'])).type === HAND_TYPE.INVALID);
 });
 
-test('Rules.analyze TRIPLE_STRAIGHT', () => {
+await test('Rules.analyze TRIPLE_STRAIGHT', () => {
     assert(Rules.analyze(makeCards(['3', '3', '3', '4', '4', '4'])).type === HAND_TYPE.TRIPLE_STRAIGHT);
 });
 
-test('Rules.analyze TRIPLE_STRAIGHT rejects 2', () => {
+await test('Rules.analyze TRIPLE_STRAIGHT rejects 2', () => {
     assert(Rules.analyze(makeCards(['K', 'K', 'K', 'A', 'A', 'A', '2', '2', '2'])).type === HAND_TYPE.INVALID);
 });
 
-test('Rules.analyze BOMB', () => {
+await test('Rules.analyze BOMB', () => {
     const p = Rules.analyze(makeCards(['K', 'K', 'K', 'K']));
     assert(p.type === HAND_TYPE.BOMB);
     assert(p.mainValue === 13);
 });
 
-test('Rules.analyze ROCKET', () => {
+await test('Rules.analyze ROCKET', () => {
     assert(Rules.analyze(makeCards(['JOKER_SMALL', 'JOKER_BIG'])).type === HAND_TYPE.ROCKET);
 });
 
-test('Rules.analyze INVALID for non-straight', () => {
+await test('Rules.analyze INVALID for non-straight', () => {
     assert(Rules.analyze(makeCards(['3', '4', '5', '7', '8'])).type === HAND_TYPE.INVALID);
 });
 
-test('Rules.canBeat - same type', () => {
+await test('Rules.canBeat - same type', () => {
     const p1 = Rules.analyze(makeCards(['3']));
     const p2 = Rules.analyze(makeCards(['5']));
     assert(Rules.canBeat(p1, p2));
     assert(!Rules.canBeat(p2, p1));
 });
 
-test('Rules.canBeat - bomb beats normal', () => {
+await test('Rules.canBeat - bomb beats normal', () => {
     const normal = Rules.analyze(makeCards(['A', 'A', 'A', 'K', 'K']));
     const bomb = Rules.analyze(makeCards(['4', '4', '4', '4']));
     assert(Rules.canBeat(normal, bomb));
 });
 
-test('Rules.canBeat - rocket beats bomb', () => {
+await test('Rules.canBeat - rocket beats bomb', () => {
     const bomb = Rules.analyze(makeCards(['4', '4', '4', '4']));
     const rocket = Rules.analyze(makeCards(['JOKER_SMALL', 'JOKER_BIG']));
     assert(Rules.canBeat(bomb, rocket));
 });
 
-test('Rules.findAllBeats - single', () => {
+await test('Rules.findAllBeats - single', () => {
     const hand = makeCards(['3', '5', '7', '9', 'J', 'Q']);
     const last = Rules.analyze(makeCards(['6']));
     const beats = Rules.findAllBeats(hand, last);
     assert(beats.length === 4, `Expected 4, got ${beats.length}`);
 });
 
-test('Rules.findAllLegalPlays returns valid plays', () => {
+await test('Rules.findAllLegalPlays returns valid plays', () => {
     const hand = makeCards(['3', '4', '5', '6', '7', '8', '9']);
     const plays = Rules.findAllLegalPlays(hand);
     assert(plays.length > 0);
@@ -180,7 +180,7 @@ test('Rules.findAllLegalPlays returns valid plays', () => {
 });
 
 // ===== GameState Tests =====
-test('GameState deal and start', () => {
+await test('GameState deal and start', () => {
     const gs = new GameState();
     gs.setPlayer(0, new Player('P0'));
     gs.setPlayer(1, new Player('P1'));
@@ -191,7 +191,7 @@ test('GameState deal and start', () => {
     assert(gs.players[0].hand.length === 17);
 });
 
-test('GameState calling flow', () => {
+await test('GameState calling flow', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -209,7 +209,7 @@ test('GameState calling flow', () => {
     assert(p0.hand.length === 20);
 });
 
-test('GameState play cards', () => {
+await test('GameState play cards', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -241,7 +241,7 @@ test('GameState play cards', () => {
 });
 
 // ===== AI Tests =====
-test('AIPlayer decides call based on hand strength', async () => {
+await test('AIPlayer decides call based on hand strength', async () => {
     const ai = new AIPlayer('AI', 'hard');
     ai.setHand(makeCards(['2', '2', 'A', 'A', 'K', 'K', 'Q', 'Q', 'J', 'J', '10', '10', '9', '9', '8', '8', '7']));
     const gs = new GameState();
@@ -250,7 +250,7 @@ test('AIPlayer decides call based on hand strength', async () => {
     assert(call > 0, `Expected positive call, got ${call}`);
 });
 
-test('AIPlayer can find response play', async () => {
+await test('AIPlayer can find response play', async () => {
     const ai = new AIPlayer('AI');
     ai.setHand(makeCards(['5', '6', '7', '8', '9', 'J', 'Q', 'K', 'A', '2', '3', '3', '4', '4', '5', '5', '6']));
     const gs = new GameState();
@@ -265,7 +265,7 @@ test('AIPlayer can find response play', async () => {
     assert(Rules.canBeat(lastPattern, playedPattern));
 });
 
-test('AIPlayer getHint provides suggestions', () => {
+await test('AIPlayer getHint provides suggestions', () => {
     const ai = new AIPlayer('AI');
     const hand = makeCards(['3', '4', '5', '6', '7', '8', '9', 'J', 'Q', 'K', 'A', '2', 'JOKER_SMALL', 'JOKER_BIG', '3', '4', '5']);
     ai.setHand(hand);
@@ -274,7 +274,7 @@ test('AIPlayer getHint provides suggestions', () => {
 });
 
 // ===== AIMode Integration Test =====
-test('AIMode initializes correctly', async () => {
+await test('AIMode initializes correctly', async () => {
     const mode = new AIMode('easy');
     await mode.init();
     assert(mode.gameState.players[0] instanceof Player);
@@ -284,7 +284,7 @@ test('AIMode initializes correctly', async () => {
 });
 
 // ===== Laizi Tests =====
-test('GameState startRound marks laizi cards correctly', () => {
+await test('GameState startRound marks laizi cards correctly', () => {
     const gs = new GameState();
     gs.setPlayer(0, new Player('P0'));
     gs.setPlayer(1, new Player('P1'));
@@ -305,7 +305,7 @@ test('GameState startRound marks laizi cards correctly', () => {
     assert(laiziCount === 4, `Expected 4 laizi cards, got ${laiziCount}`);
 });
 
-test('GameState startRound clears laizi when big joker is bottom card', () => {
+await test('GameState startRound clears laizi when big joker is bottom card', () => {
     const gs = new GameState();
     gs.setPlayer(0, new Player('P0'));
     gs.setPlayer(1, new Player('P1'));
@@ -318,7 +318,7 @@ test('GameState startRound clears laizi when big joker is bottom card', () => {
 });
 
 // ===== mustPlay Tests =====
-test('GameState pass blocked under mustPlay when beatable cards exist', () => {
+await test('GameState pass blocked under mustPlay when beatable cards exist', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -335,7 +335,7 @@ test('GameState pass blocked under mustPlay when beatable cards exist', () => {
     assert(result === false, 'Expected pass to be blocked when mustPlay and beatable cards exist');
 });
 
-test('GameState pass allowed under mustPlay when no beatable cards', () => {
+await test('GameState pass allowed under mustPlay when no beatable cards', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -353,7 +353,7 @@ test('GameState pass allowed under mustPlay when no beatable cards', () => {
 });
 
 // ===== Disabled Rule Tests =====
-test('GameState playCards blocks triple-with-single when disabled', () => {
+await test('GameState playCards blocks triple-with-single when disabled', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -372,7 +372,7 @@ test('GameState playCards blocks triple-with-single when disabled', () => {
     assert(result.error.includes('禁止三带一'), `Expected "禁止三带一" error, got: ${result.error}`);
 });
 
-test('GameState playCards blocks triple-with-pair when disabled', () => {
+await test('GameState playCards blocks triple-with-pair when disabled', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -391,7 +391,7 @@ test('GameState playCards blocks triple-with-pair when disabled', () => {
     assert(result.error.includes('禁止三带二'), `Expected "禁止三带二" error, got: ${result.error}`);
 });
 
-test('GameState playCards blocks airplane-with-wings when disabled', () => {
+await test('GameState playCards blocks airplane-with-wings when disabled', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -417,7 +417,7 @@ test('GameState playCards blocks airplane-with-wings when disabled', () => {
     assert(result.error.includes('禁止飞机带翼'), `Expected "禁止飞机带翼" error, got: ${result.error}`);
 });
 
-test('GameState playCards blocks four-with-two under strict rules', () => {
+await test('GameState playCards blocks four-with-two under strict rules', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -437,7 +437,7 @@ test('GameState playCards blocks four-with-two under strict rules', () => {
 });
 
 // ===== Storage Tests =====
-test('Storage resetSettings clears localStorage and returns defaults', () => {
+await test('Storage resetSettings clears localStorage and returns defaults', () => {
     Storage.saveSettings({ theme: 'blue', difficulty: 'hard', mustPlay: true });
     const settingsBefore = Storage.getSettings();
     assert(settingsBefore.theme === 'blue', 'Expected theme=blue before reset');
@@ -450,7 +450,7 @@ test('Storage resetSettings clears localStorage and returns defaults', () => {
 });
 
 // ===== Rule Flag Tests (Additional) =====
-test('GameState allowPassOnFirst allows pass on new round when enabled', () => {
+await test('GameState allowPassOnFirst allows pass on new round when enabled', () => {
     const gs = new GameState();
     gs.setPlayer(0, new Player('P0'));
     gs.setPlayer(1, new Player('P1'));
@@ -462,7 +462,7 @@ test('GameState allowPassOnFirst allows pass on new round when enabled', () => {
     assert(gs.pass(0) === true, 'Expected pass to be allowed when allowPassOnFirst=true');
 });
 
-test('GameState allowPassOnFirst blocks pass on new round when disabled', () => {
+await test('GameState allowPassOnFirst blocks pass on new round when disabled', () => {
     const gs = new GameState();
     gs.setPlayer(0, new Player('P0'));
     gs.setPlayer(1, new Player('P1'));
@@ -474,7 +474,7 @@ test('GameState allowPassOnFirst blocks pass on new round when disabled', () => 
     assert(gs.pass(0) === false, 'Expected pass to be blocked when allowPassOnFirst=false');
 });
 
-test('GameState jokerRule disabled blocks rocket', () => {
+await test('GameState jokerRule disabled blocks rocket', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -492,7 +492,7 @@ test('GameState jokerRule disabled blocks rocket', () => {
     assert(result.success === false, 'Expected rocket to be blocked when jokerRule=disabled');
 });
 
-test('GameState hasValidPlays filters disabled patterns', () => {
+await test('GameState hasValidPlays filters disabled patterns', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -509,7 +509,7 @@ test('GameState hasValidPlays filters disabled patterns', () => {
     assert(gs.hasValidPlays(0) === false, 'Expected hasValidPlays to be false when allowTripleWithSingle=false and no other valid plays');
 });
 
-test('GameState baseScore setting affects settlement', () => {
+await test('GameState baseScore setting affects settlement', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -532,7 +532,7 @@ test('GameState baseScore setting affects settlement', () => {
 });
 
 // ===== Settlement multiplier tests =====
-test('GameState scoreMultiplier affects settlement', () => {
+await test('GameState scoreMultiplier affects settlement', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -554,7 +554,7 @@ test('GameState scoreMultiplier affects settlement', () => {
     assert(gs.scores[0] === 6, `Expected landlord score 6 with scoreMultiplier=3, got ${gs.scores[0]}`);
 });
 
-test('GameState bombDoubles=false disables bomb doubling', () => {
+await test('GameState bombDoubles=false disables bomb doubling', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -579,7 +579,7 @@ test('GameState bombDoubles=false disables bomb doubling', () => {
     assert(gs.scores[0] === 2, `Expected landlord score 2 with bombDoubles=false, got ${gs.scores[0]}`);
 });
 
-test('GameState bombDoubles=true enables bomb doubling', () => {
+await test('GameState bombDoubles=true enables bomb doubling', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -604,7 +604,7 @@ test('GameState bombDoubles=true enables bomb doubling', () => {
     assert(gs.scores[0] === 8, `Expected landlord score 8 with 2 bombs, got ${gs.scores[0]}`);
 });
 
-test('GameState rocketDoubles=false disables rocket doubling', () => {
+await test('GameState rocketDoubles=false disables rocket doubling', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -628,7 +628,7 @@ test('GameState rocketDoubles=false disables rocket doubling', () => {
     assert(gs.scores[0] === 2, `Expected landlord score 2 with rocketDoubles=false, got ${gs.scores[0]}`);
 });
 
-test('GameState rocketDoubles=true enables rocket doubling', () => {
+await test('GameState rocketDoubles=true enables rocket doubling', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -652,7 +652,7 @@ test('GameState rocketDoubles=true enables rocket doubling', () => {
     assert(gs.scores[0] === 4, `Expected landlord score 4 with 1 rocket, got ${gs.scores[0]}`);
 });
 
-test('GameState allowSpring=false disables spring bonus', () => {
+await test('GameState allowSpring=false disables spring bonus', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -675,7 +675,7 @@ test('GameState allowSpring=false disables spring bonus', () => {
     assert(gs.scores[0] === 2, `Expected landlord score 2 with allowSpring=false, got ${gs.scores[0]}`);
 });
 
-test('GameState allowSpring=true enables spring bonus', () => {
+await test('GameState allowSpring=true enables spring bonus', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -698,7 +698,7 @@ test('GameState allowSpring=true enables spring bonus', () => {
     assert(gs.scores[0] === 4, `Expected landlord score 4 with spring, got ${gs.scores[0]}`);
 });
 
-test('GameState allowAntiSpring=false disables anti-spring bonus', () => {
+await test('GameState allowAntiSpring=false disables anti-spring bonus', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -722,7 +722,7 @@ test('GameState allowAntiSpring=false disables anti-spring bonus', () => {
     assert(gs.scores[1] === 1, `Expected peasant score 1, got ${gs.scores[1]}`);
 });
 
-test('GameState allowAntiSpring=true enables anti-spring bonus', () => {
+await test('GameState allowAntiSpring=true enables anti-spring bonus', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -747,7 +747,7 @@ test('GameState allowAntiSpring=true enables anti-spring bonus', () => {
 });
 
 // ===== Bomb as Rocket test =====
-test('GameState bombAsRocket allows bomb to beat rocket', () => {
+await test('GameState bombAsRocket allows bomb to beat rocket', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -779,7 +779,7 @@ test('GameState bombAsRocket allows bomb to beat rocket', () => {
 });
 
 // ===== Grab mode test =====
-test('GameState callMode=grab basic flow', () => {
+await test('GameState callMode=grab basic flow', () => {
     const gs = new GameState();
     gs.setPlayer(0, new Player('P0'));
     gs.setPlayer(1, new Player('P1'));
@@ -807,7 +807,7 @@ test('GameState callMode=grab basic flow', () => {
 });
 
 // ===== No shuffle test =====
-test('GameState noShuffle preserves deck order', () => {
+await test('GameState noShuffle preserves deck order', () => {
     const gs = new GameState();
     gs.setPlayer(0, new Player('P0'));
     gs.setPlayer(1, new Player('P1'));
@@ -831,7 +831,7 @@ test('GameState noShuffle preserves deck order', () => {
 });
 
 // ===== hasValidPlays new-round fix =====
-test('GameState hasValidPlays works on new round (findAllLegalPlays fallback)', () => {
+await test('GameState hasValidPlays works on new round (findAllLegalPlays fallback)', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -845,7 +845,7 @@ test('GameState hasValidPlays works on new round (findAllLegalPlays fallback)', 
 });
 
 // ===== AI respects jokerRule=disabled =====
-test('AIPlayer decidePlay respects jokerRule=disabled on new round', async () => {
+await test('AIPlayer decidePlay respects jokerRule=disabled on new round', async () => {
     const ai = new AIPlayer('AI', 'hard');
     ai.setHand(makeCards(['JOKER_SMALL', 'JOKER_BIG', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', '3', '4']));
     ai.index = 0;
@@ -859,7 +859,7 @@ test('AIPlayer decidePlay respects jokerRule=disabled on new round', async () =>
     assert(!cards.some(c => c.value === 16 || c.value === 17), 'AI should not play jokers when jokerRule=disabled');
 });
 
-test('AIPlayer getHint respects jokerRule=disabled on new round', () => {
+await test('AIPlayer getHint respects jokerRule=disabled on new round', () => {
     const ai = new AIPlayer('AI');
     const hand = makeCards(['JOKER_SMALL', 'JOKER_BIG', '3', '4', '5', '6', '7']);
     ai.setHand(hand);
@@ -870,7 +870,7 @@ test('AIPlayer getHint respects jokerRule=disabled on new round', () => {
     assert(!hint.some(c => c.value === 16 || c.value === 17), 'Hint should not suggest jokers when jokerRule=disabled');
 });
 
-test('AIPlayer getHint respects jokerRule=disabled when responding', () => {
+await test('AIPlayer getHint respects jokerRule=disabled when responding', () => {
     const ai = new AIPlayer('AI');
     const hand = makeCards(['JOKER_SMALL', 'JOKER_BIG', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', '3', '4']);
     ai.setHand(hand);
@@ -882,7 +882,7 @@ test('AIPlayer getHint respects jokerRule=disabled when responding', () => {
 });
 
 // ===== AI respects strictRules (no four-with-two) =====
-test('AIPlayer decidePlay respects strictRules on new round', async () => {
+await test('AIPlayer decidePlay respects strictRules on new round', async () => {
     const ai = new AIPlayer('AI', 'hard');
     // 手牌包含四带二的诱惑（3333+4+5）
     ai.setHand(makeCards(['3', '3', '3', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', '2']));
@@ -899,7 +899,7 @@ test('AIPlayer decidePlay respects strictRules on new round', async () => {
         `AI should not play four-with-two under strictRules, got ${p.type}`);
 });
 
-test('AIPlayer getHint respects strictRules', () => {
+await test('AIPlayer getHint respects strictRules', () => {
     const ai = new AIPlayer('AI');
     const hand = makeCards(['3', '3', '3', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', '2']);
     ai.setHand(hand);
@@ -912,7 +912,7 @@ test('AIPlayer getHint respects strictRules', () => {
 });
 
 // ===== AI respects allowTripleWithSingle / allowAirplaneWithWings =====
-test('AIPlayer getHint respects allowTripleWithSingle=false', () => {
+await test('AIPlayer getHint respects allowTripleWithSingle=false', () => {
     const ai = new AIPlayer('AI');
     const hand = makeCards(['3', '3', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', '2', '2']);
     ai.setHand(hand);
@@ -925,7 +925,7 @@ test('AIPlayer getHint respects allowTripleWithSingle=false', () => {
         `Hint should not suggest triple-with-single when disabled, got ${p.type}`);
 });
 
-test('AIPlayer getHint respects allowAirplaneWithWings=false', () => {
+await test('AIPlayer getHint respects allowAirplaneWithWings=false', () => {
     const ai = new AIPlayer('AI');
     const hand = makeCards(['3', '3', '3', '4', '4', '4', '5', '5', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']);
     ai.setHand(hand);
@@ -938,7 +938,7 @@ test('AIPlayer getHint respects allowAirplaneWithWings=false', () => {
 });
 
 // ===== mustPlay + hasValidPlays edge cases =====
-test('GameState mustPlay blocks pass on new round when hasValidPlays=true', () => {
+await test('GameState mustPlay blocks pass on new round when hasValidPlays=true', () => {
     const gs = new GameState();
     const p0 = new Player('P0');
     gs.setPlayer(0, p0);
@@ -957,7 +957,7 @@ test('GameState mustPlay blocks pass on new round when hasValidPlays=true', () =
 });
 
 // ===== Settings & Storage =====
-test('Storage.getDefaultSettings contains all gameplay rule defaults', () => {
+await test('Storage.getDefaultSettings contains all gameplay rule defaults', () => {
     const defs = Storage.getDefaultSettings();
     assert(typeof defs.difficulty === 'string', 'difficulty');
     assert(typeof defs.callMode === 'string', 'callMode');
@@ -986,7 +986,7 @@ test('Storage.getDefaultSettings contains all gameplay rule defaults', () => {
     assert(typeof defs.bombAsRocket === 'boolean', 'bombAsRocket');
 });
 
-test('Storage.getSettings merges missing keys with defaults', () => {
+await test('Storage.getSettings merges missing keys with defaults', () => {
     global.localStorage.setItem('ddz_settings', JSON.stringify({ playerName: 'Test' }));
     const s = Storage.getSettings();
     assert(s.playerName === 'Test', 'preserves existing');
@@ -996,7 +996,7 @@ test('Storage.getSettings merges missing keys with defaults', () => {
     global.localStorage.removeItem('ddz_settings');
 });
 
-test('Storage.getSettings clamps legacy hand scale to the on-screen safe range', () => {
+await test('Storage.getSettings clamps legacy hand scale to the on-screen safe range', () => {
     global.localStorage.setItem('ddz_settings', JSON.stringify({ cardScale: 1.2 }));
     assert(Storage.getSettings().cardScale === 1, 'legacy scale above 1 should be clamped');
     global.localStorage.setItem('ddz_settings', JSON.stringify({ cardScale: 0.4 }));
@@ -1004,7 +1004,7 @@ test('Storage.getSettings clamps legacy hand scale to the on-screen safe range',
     global.localStorage.removeItem('ddz_settings');
 });
 
-test('Storage.resetSettings clears only settings key', () => {
+await test('Storage.resetSettings clears only settings key', () => {
     global.localStorage.setItem('ddz_settings', JSON.stringify({ playerName: 'Test' }));
     global.localStorage.setItem('ddz_stats', JSON.stringify({ gamesPlayed: 5 }));
     global.localStorage.setItem('ddz_achievements', JSON.stringify({ first_game: true }));
@@ -1020,7 +1020,7 @@ test('Storage.resetSettings clears only settings key', () => {
     global.localStorage.clear();
 });
 
-test('Storage.clearStats does not remove playStyle or coach_reviews', () => {
+await test('Storage.clearStats does not remove playStyle or coach_reviews', () => {
     global.localStorage.setItem('ddz_stats', JSON.stringify({ gamesPlayed: 5 }));
     global.localStorage.setItem('ddz_records', JSON.stringify([]));
     global.localStorage.setItem('ddz_full_games', JSON.stringify([]));

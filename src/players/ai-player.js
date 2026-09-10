@@ -120,7 +120,7 @@ class AIPlayer extends Player {
         if (isNewRound) {
             cards = this._chooseLeadPlay(ruleFilter);
         } else {
-            cards = this._chooseResponsePlay(lastPattern, ruleFilter);
+            cards = this._chooseResponsePlay(lastPattern, ruleFilter, gameState.bombAsRocket);
         }
         // 兜底规则门：如果首出/跟牌逻辑返回了禁用牌型，回退到 getHint
         if (cards.length > 0 && ruleFilter && !ruleFilter(cards)) {
@@ -161,7 +161,7 @@ class AIPlayer extends Player {
             return candidates.length > 0 ? candidates[0].cards : [];
         } else {
             // 跟牌：找最小能压过的
-            const beats = Rules.findAllBeats(handCards, lastPattern);
+            const beats = Rules.findAllBeats(handCards, lastPattern, gameState?.bombAsRocket);
             if (beats.length === 0) return [];
             
             // 优先不用炸弹（预计算模式避免重复 analyze）
@@ -357,8 +357,8 @@ class AIPlayer extends Player {
     }
 
     // 跟牌：选择最小能压过的牌
-    _chooseResponsePlay(lastPattern, ruleFilter = null) {
-        let candidates = Rules.findAllBeats(this.hand, lastPattern);
+    _chooseResponsePlay(lastPattern, ruleFilter = null, bombAsRocket = false) {
+        let candidates = Rules.findAllBeats(this.hand, lastPattern, bombAsRocket);
 
         if (!candidates || candidates.length === 0) {
             return []; // pass

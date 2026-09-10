@@ -4,6 +4,7 @@
  */
 
 import { WebSocket } from 'ws';
+import { randomUUID } from 'node:crypto';
 
 class RoomManager {
     constructor() {
@@ -14,10 +15,11 @@ class RoomManager {
         this.cleanupInterval = setInterval(() => this._cleanupStaleRooms(), 5 * 60 * 1000);
     }
 
-    createRoom(hostWs, hostPeerId) {
+    createRoom(hostWs, hostPeerId, reconnectToken, name) {
         // 如果该 hostPeerId 已有房间，视为重连
         const existingRoom = this.rooms.get(hostPeerId);
         if (existingRoom) {
+            if (existingRoom.players.get(hostPeerId)?.reconnectToken !== reconnectToken) return null;
             existingRoom.hostWs = hostWs;
             const hostPlayer = existingRoom.players.get(hostPeerId);
             if (hostPlayer) {
@@ -45,18 +47,21 @@ class RoomManager {
             lastActivity: Date.now(),
             _hostLeaveTimer: null,
         };
-        room.players.set(hostPeerId, { ws: hostWs, peerId: hostPeerId, seatIndex: 0, name: '房主', connected: true });
+        room.players.set(hostPeerId, { ws: hostWs, peerId: hostPeerId, seatIndex: 0, name: String(name || '房主').slice(0, 12), connected: true, reconnectToken: randomUUID() });
         this.rooms.set(roomId, room);
         this.playerToRoom.set(hostWs, roomId);
         return room;
     }
 
-    joinRoom(ws, roomId, peerId) {
+    joinRoom(ws, roomId, peerId, reconnectToken, name) {
         if (!ws || typeof ws.send !== 'function') return { success: false, error: 'Invalid connection' };
         const room = this.rooms.get(roomId);
         if (!room) return { success: false, error: '房间不存在' };
 
         const existingPlayer = room.players.get(peerId);
+        if (existingPlayer && existingPlayer.reconnectToken !== reconnectToken) {
+            return { success: false, error: '重连凭证无效' };
+        }
 
         // === 已开始房间 ===
         if (room.gameStarted) {
@@ -75,6 +80,7 @@ class RoomManager {
                     roomId,
                     playerCount: room.players.size,
                     reconnected: true,
+                    reconnectToken: existingPlayer.reconnectToken,
                 });
 
                 const playerList = [...room.players.values()].map(p => ({
@@ -117,6 +123,7 @@ class RoomManager {
                 roomId,
                 playerCount: room.players.size,
                 reconnected: true,
+                reconnectToken: existingPlayer.reconnectToken,
             });
 
             const playerList = [...room.players.values()].map(p => ({
@@ -139,7 +146,7 @@ class RoomManager {
         let seatIndex = 1;
         while (usedSeats.has(seatIndex)) seatIndex++;
 
-        const player = { ws, peerId, seatIndex, name: `玩家${seatIndex + 1}`, connected: true };
+        const player = { ws, peerId, seatIndex, name: String(name || `玩家${seatIndex + 1}`).slice(0, 12), connected: true, reconnectToken: randomUUID() };
         room.players.set(peerId, player);
         this.playerToRoom.set(ws, roomId);
         room.lastActivity = Date.now();
@@ -156,6 +163,7 @@ class RoomManager {
         // 通知新玩家
         this.sendToPeer(ws, {
             type: 'seat_assigned',
+            reconnectToken: player.reconnectToken,
             seatIndex,
             roomId,
             playerCount: room.players.size,

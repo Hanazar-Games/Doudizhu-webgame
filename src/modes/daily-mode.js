@@ -36,11 +36,7 @@ class DailyMode extends BaseMode {
 
     // 覆盖 startGame 以使用固定牌局
     async startGame() {
-        // 清理上一局遗留的定时器，防止旧挑战结果面板覆盖新游戏
-        for (const t of this._pendingTimers) {
-            clearTimeout(t.id);
-        }
-        this._pendingTimers = [];
+        super.destroy();
         this.isRunning = true;
         this._applyGameRules();
         this.humanBombCount = 0;
@@ -81,7 +77,7 @@ class DailyMode extends BaseMode {
         const stars = calculateStars(data, this.humanIndex, this.humanBombCount);
 
         // 保存结果
-        const humanScore = data.scores[this.humanIndex] || 0;
+        const humanScore = data.roundScores[this.humanIndex] || 0;
         const result = new ChallengeResult(
             this.dateStr,
             stars,

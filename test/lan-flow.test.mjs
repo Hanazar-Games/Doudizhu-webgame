@@ -27,6 +27,8 @@ function logFail(step, msg) {
     console.error(`  ✗ [${step}] ${msg}`);
 }
 
+const reconnectTokens = new Map();
+
 function connect(peerId) {
     return new Promise((resolve, reject) => {
         const ws = new WebSocket(WS_URL);
@@ -37,6 +39,7 @@ function connect(peerId) {
         ws.on('message', (data) => {
             try {
                 const msg = JSON.parse(data);
+                if (msg.reconnectToken) reconnectTokens.set(peerId, msg.reconnectToken);
                 messages.push(msg);
                 handlers.forEach((h) => h(msg));
             } catch {
@@ -50,7 +53,7 @@ function connect(peerId) {
 
 function send(client, msg) {
     if (client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(JSON.stringify(msg));
+        client.ws.send(JSON.stringify({ reconnectToken: reconnectTokens.get(client.peerId), ...msg }));
     }
 }
 
@@ -175,7 +178,7 @@ async function run() {
 
         // ===== Step 5: 非 host 无法 start =====
         await runStep('非host无法开始', async () => {
-            send(p2, { type: 'start_game' });
+            send(p2, { type: 'game_start' });
             const err = await waitForMessage(p2, 'error');
             if (!err.message.includes('Only host')) throw new Error(`预期权限错误，收到: ${err.message}`);
             logPass('非host无法开始', `P2 被拒绝: ${err.message}`);
@@ -187,7 +190,7 @@ async function run() {
             const soloHost = await connect('solo_host_001');
             send(soloHost, { type: 'create_room', peerId: soloHost.peerId });
             await waitForMessage(soloHost, 'room_created');
-            send(soloHost, { type: 'start_game' });
+            send(soloHost, { type: 'game_start' });
             const err = await waitForMessage(soloHost, 'error');
             if (!err.message.includes('3 players')) throw new Error(`预期人数错误，收到: ${err.message}`);
             logPass('不满3人无法开始', `单人房间被拒绝: ${err.message}`);
@@ -196,7 +199,7 @@ async function run() {
 
         // ===== Step 7: Host 开始游戏（Phase 1: start_game） =====
         await runStep('Host开始游戏', async () => {
-            send(host, { type: 'start_game' });
+            send(host, { type: 'game_start' });
             const gameStarting = await waitForMessage(host, 'game_starting');
             if (gameStarting.playerCount !== 3) throw new Error('开始广播人数应为 3');
             logPass('Host开始游戏', `game_starting 广播: ${gameStarting.playerCount} 人`);
@@ -280,11 +283,10 @@ async function run() {
             send(h4, { type: 'game_start', data: gameData, broadcast: true });
 
             // 其他玩家应收到 game_start（relay）
-            const p4aMsg = await waitForMessage(p4a, 'game_start');
-            const p4bMsg = await waitForMessage(p4b, 'game_start');
-            if (!p4aMsg.data || !p4aMsg.data.deck) throw new Error('P4a 未收到牌局数据');
-            if (!p4bMsg.data || !p4bMsg.data.deck) throw new Error('P4b 未收到牌局数据');
-            logPass('game_start数据同步', '非 host 均收到带 deck 的 game_start');
+            const p4aMsg = await waitForMessage(p4a, 'game_starting');
+            const p4bMsg = await waitForMessage(p4b, 'game_starting');
+            if (p4aMsg.data?.deck || p4bMsg.data?.deck) throw new Error('开局通知泄露牌组');
+            logPass('game_start数据同步', '开局通知不携带完整牌组');
 
             h4.ws.close();
             p4a.ws.close();
@@ -375,7 +377,7 @@ async function run() {
             await waitForMessage(p8b, 'seat_assigned');
 
             // 开始游戏
-            send(h8, { type: 'start_game' });
+            send(h8, { type: 'game_start' });
             await waitForMessage(h8, 'game_starting');
 
             // P8a 断线
@@ -417,7 +419,7 @@ async function run() {
             await waitForMessage(p9b, 'seat_assigned');
 
             // 开始游戏
-            send(h9, { type: 'start_game' });
+            send(h9, { type: 'game_start' });
             await waitForMessage(h9, 'game_starting');
 
             // Host 发送 game_state_sync（broadcast）
@@ -434,6 +436,16 @@ async function run() {
             if (!s2.data || s2.data.phase !== 'PLAYING') throw new Error('P9b 未收到状态同步');
 
             logPass('game_state_sync转发', 'host 广播后其他玩家均收到');
+            send(p9a, { type: 'player_action', playerIndex: 0, action: 'call', value: 3 });
+            const seatError = await waitForMessage(p9a, 'error');
+            if (!seatError.message.includes('Invalid player action')) throw new Error('应拒绝伪造其他座位');
+            if ((await drainMessages(h9, 'player_action')).length) throw new Error('伪造动作不应转发给房主');
+            logPass('动作来源校验', '游客不能冒充其他座位');
+            send(p9a, { type: 'game_state_sync', data: { phase: 'ENDED' }, broadcast: true });
+            const stateError = await waitForMessage(p9a, 'error');
+            if (!stateError.message.includes('Only host')) throw new Error('应拒绝游客伪造快照');
+            if ((await drainMessages(p9b, 'game_state_sync')).length) throw new Error('伪造状态不应广播');
+            logPass('快照来源校验', '游客不能冒充房主结算');
             h9.ws.close();
             p9a.ws.close();
             p9b.ws.close();
@@ -453,7 +465,7 @@ async function run() {
             await waitForMessage(p10b, 'seat_assigned');
 
             // 开始游戏
-            send(h10, { type: 'start_game' });
+            send(h10, { type: 'game_start' });
             await waitForMessage(h10, 'game_starting');
 
             // Host 断线
@@ -489,7 +501,7 @@ async function run() {
             await waitForMessage(p11b, 'seat_assigned');
 
             // 开始游戏
-            send(h11, { type: 'start_game' });
+            send(h11, { type: 'game_start' });
             await waitForMessage(h11, 'game_starting');
 
             // P11a 断线
@@ -584,7 +596,7 @@ async function run() {
             send(p12b, { type: 'join_room', peerId: p12b.peerId, targetPeerId: h12.peerId });
             await waitForMessage(p12b, 'seat_assigned');
 
-            send(h12, { type: 'start_game' });
+            send(h12, { type: 'game_start' });
             await waitForMessage(h12, 'game_starting');
 
             // Host 广播 game_state_sync（不含 ownHand）
@@ -633,20 +645,18 @@ async function run() {
             send(p13b, { type: 'join_room', peerId: p13b.peerId, targetPeerId: h13.peerId });
             await waitForMessage(p13b, 'seat_assigned');
 
-            send(h13, { type: 'start_game' });
+            send(h13, { type: 'game_start' });
             await waitForMessage(h13, 'game_starting');
 
             // P13a 断线（已开始房间，不会删除）
             p13a.ws.close();
             await waitForMessage(h13, 'player_left');
 
-            // 新玩家用 p13a 的 peerId 尝试加入（但 p13a 还在 players 中，只是 disconnected）
-            // server 会识别为原玩家重连，不是新玩家
+            // 猜中已断开玩家的 peerId 仍需提供其重连凭证
             const impostor = await connect('p13a_001');
-            send(impostor, { type: 'join_room', peerId: impostor.peerId, targetPeerId: h13.peerId });
-            const seat = await waitForMessage(impostor, 'seat_assigned');
-            if (!seat.reconnected) throw new Error('应视为重连');
-            if (seat.seatIndex !== 1) throw new Error('座位应为 1');
+            send(impostor, { type: 'join_room', peerId: impostor.peerId, targetPeerId: h13.peerId, reconnectToken: null });
+            const denied = await waitForMessage(impostor, 'error');
+            if (!denied.message.includes('凭证')) throw new Error('应拒绝无凭证重连');
 
             // 真正的新玩家仍被拒绝
             const p13c = await connect('p13c_001');
@@ -654,7 +664,7 @@ async function run() {
             const err = await waitForMessage(p13c, 'error');
             if (!err.message.includes('已开始')) throw new Error(`预期"已开始"，实际: ${err.message}`);
 
-            logPass('冒充已断开玩家失败', '原 peerId 重连成功，新 peerId 被拒绝');
+            logPass('冒充已断开玩家失败', '相同 peerId 没有重连凭证时被拒绝');
             h13.ws.close();
             p13b.ws.close();
             impostor.ws.close();

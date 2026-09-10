@@ -17,9 +17,9 @@ import { TournamentStorage } from '../src/utils/tournament-storage.js';
 
 let passed = 0, failed = 0;
 
-function test(name, fn) {
+async function test(name, fn) {
     try {
-        fn();
+        await fn();
         passed++;
         console.log(`✓ ${name}`);
     } catch (e) {
@@ -44,7 +44,7 @@ function createMode(rounds = 3) {
 
 // ===== 测试开始 =====
 
-test('TournamentMode 初始化设置正确的总轮数', async () => {
+await test('TournamentMode 初始化设置正确的总轮数', async () => {
     const mode = createMode(5);
     await mode.init();
     assertEq(mode.totalRounds, 5, 'totalRounds should be 5');
@@ -52,7 +52,7 @@ test('TournamentMode 初始化设置正确的总轮数', async () => {
     assertEq(mode.matchConfig.isMatchMode, true, 'should be match mode');
 });
 
-test('TournamentMode getMatchStatus 包含 isTournament 标志', async () => {
+await test('TournamentMode getMatchStatus 包含 isTournament 标志', async () => {
     const mode = createMode(3);
     await mode.init();
     const status = mode.getMatchStatus();
@@ -60,7 +60,7 @@ test('TournamentMode getMatchStatus 包含 isTournament 标志', async () => {
     assertEq(status.tournamentTotalRounds, 3, 'tournamentTotalRounds should be 3');
 });
 
-test('多局得分累计正确', async () => {
+await test('多局得分累计正确', async () => {
     const mode = createMode(3);
     await mode.init();
     // 模拟3局结束
@@ -79,7 +79,7 @@ test('多局得分累计正确', async () => {
     assertEq(mode.roundResults[2].scores[0], 30, 'round 3 score for player 0 (180-150)');
 });
 
-test('排名计算正确', async () => {
+await test('排名计算正确', async () => {
     const mode = createMode(3);
     await mode.init();
     mode.onRoundEnd({ scores: [100, -50, -50], winnerIndex: 0, isLandlordWin: true, springType: null, multiplier: 1 });
@@ -97,7 +97,7 @@ test('排名计算正确', async () => {
     assertEq(changes2[1].change, 1, 'player 1 moved up 1 rank');
 });
 
-test('MVP 计算正确', async () => {
+await test('MVP 计算正确', async () => {
     const mode = createMode(3);
     await mode.init();
     assertEq(mode.getCurrentMVP(), null, 'no MVP before any round');
@@ -113,7 +113,7 @@ test('MVP 计算正确', async () => {
     assertEq(mvp2.score, 120, 'MVP score should be 120');
 });
 
-test('最后一局结束后 matchStatus.isFinished 为真', async () => {
+await test('最后一局结束后 matchStatus.isFinished 为真', async () => {
     const mode = createMode(2);
     await mode.init();
     mode.onRoundEnd({ scores: [100, -50, -50], winnerIndex: 0, isLandlordWin: true, springType: null, multiplier: 1 });
@@ -125,7 +125,7 @@ test('最后一局结束后 matchStatus.isFinished 为真', async () => {
     assertEq(status.isFinished, true, 'should be finished after round 2 of 2');
 });
 
-test('锦标赛记录保存到 storage', async () => {
+await test('锦标赛记录保存到 storage', async () => {
     localStorage.clear();
     const mode = createMode(2);
     await mode.init();
@@ -141,7 +141,7 @@ test('锦标赛记录保存到 storage', async () => {
     assertEq(latest.roundDetails.length, 2, 'record should have 2 round details');
 });
 
-test('TournamentStorage 统计正确', async () => {
+await test('TournamentStorage 统计正确', async () => {
     localStorage.clear();
     // 保存3条记录
     TournamentStorage.saveRecord({
@@ -170,7 +170,7 @@ test('TournamentStorage 统计正确', async () => {
     assertEq(stats.bestRank, 1, 'bestRank should be 1');
 });
 
-test('TournamentStorage 最多保存20条', () => {
+await test('TournamentStorage 最多保存20条', () => {
     localStorage.clear();
     for (let i = 0; i < 25; i++) {
         TournamentStorage.saveRecord({
@@ -185,7 +185,7 @@ test('TournamentStorage 最多保存20条', () => {
     assertEq(records[0].playerScore, 24, 'most recent should be first');
 });
 
-test('中途返回后状态清理', async () => {
+await test('中途返回后状态清理', async () => {
     const mode = createMode(5);
     await mode.init();
     mode.onRoundEnd({ scores: [100, -50, -50], winnerIndex: 0, isLandlordWin: true, springType: null, multiplier: 1 });
@@ -196,7 +196,7 @@ test('中途返回后状态清理', async () => {
     assertEq(mode.isRunning, false, 'mode should not be running after destroy');
 });
 
-test('自定义轮数范围校验', async () => {
+await test('自定义轮数范围校验', async () => {
     const mode1 = createMode(2);
     await mode1.init();
     assertEq(mode1.totalRounds, 2, 'min rounds should work');

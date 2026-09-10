@@ -105,6 +105,7 @@ const ENDGAME_LEVELS = [
     {
         id: 5,
         name: '春天/反春天残局',
+        humanIndex: 1,
         description: '作为农民，在队友配合下完成反春天。',
         objective: '农民获胜且地主只出过1手牌（反春天）',
         hint: '地主出AAA带2后，用4444炸，然后555带7、666带8清完。',

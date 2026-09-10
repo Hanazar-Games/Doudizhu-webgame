@@ -175,7 +175,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.50</span>
+                <span class="version-info">v1.2.51</span>
             </footer>
         </div>
     </div>
@@ -1220,30 +1220,31 @@
                 <span class="lan-status-dot offline"></span>
                 <p class="lan-status-text">GitHub Pages 仅托管单机游戏。联机时请在房主电脑运行 npm run lan:host，并让所有玩家打开终端显示的局域网地址。</p>
             </div>
-            <div class="lan-tabs">
-                <button class="lan-tab active" data-tab="join">
+            <div class="lan-tabs" role="tablist" aria-label="联机方式">
+                <button class="lan-tab active" data-tab="join" role="tab" aria-selected="true" aria-controls="lan-join-panel">
                     <span class="lan-tab__icon">🚪</span>
                     <span class="lan-tab__text">加入房间</span>
                 </button>
-                <button class="lan-tab" data-tab="host">
+                <button class="lan-tab" data-tab="host" role="tab" aria-selected="false" aria-controls="lan-host-panel">
                     <span class="lan-tab__icon">🏠</span>
                     <span class="lan-tab__text">创建房间</span>
                 </button>
             </div>
+            <p id="lan-message" role="status" aria-live="polite"></p>
             <div class="lan-body">
+                <div class="form-group">
+                    <label class="form-label" for="lan-player-name">玩家名称</label>
+                    <div class="form-input-wrap">
+                        <span class="form-input-icon">👤</span>
+                        <input type="text" id="lan-player-name" class="form-input" placeholder="输入昵称" maxlength="12">
+                    </div>
+                </div>
                 <div id="lan-join-panel" class="lan-panel">
                     <div class="form-group">
                         <label class="form-label" for="lan-room-id">房间号</label>
                         <div class="form-input-wrap">
                             <span class="form-input-icon">🔑</span>
-                            <input type="text" id="lan-room-id" class="form-input" placeholder="输入 8 位房间号" maxlength="8">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="lan-player-name">玩家名称</label>
-                        <div class="form-input-wrap">
-                            <span class="form-input-icon">👤</span>
-                            <input type="text" id="lan-player-name" class="form-input" placeholder="输入昵称" maxlength="12">
+                            <input type="text" id="lan-room-id" class="form-input" placeholder="输入房主提供的完整房间号" maxlength="64" autocomplete="off" spellcheck="false">
                         </div>
                     </div>
                     <button id="btn-lan-join" class="screen-btn screen-btn--primary">
@@ -1451,7 +1452,7 @@
             <div class="workshop-subtitle">保存、回放与分享精彩对局</div>
 
             <div class="workshop-import-bar">
-                <input type="text" id="workshop-import-input" placeholder="粘贴分享码导入牌谱..." maxlength="20000" aria-label="牌谱分享码">
+                <input type="text" id="workshop-import-input" placeholder="粘贴分享码导入牌谱..." maxlength="200000" aria-label="牌谱分享码">
                 <button id="btn-workshop-import" class="btn-primary">📥 导入</button>
             </div>
 
@@ -1613,20 +1614,33 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.50</div>
-                    <h3>🛠️ 全面交互与音频稳定性修复</h3>
+                    <div class="changelog-version-badge">v1.2.51</div>
+                    <h3>🛠️ 全模式流程、联机与音画一致性修复</h3>
                     <ul>
-                        <li>🃏 <strong>桌面牌桌重排</strong>：手牌按可用高度自适应，控制栏、双方出牌和玩家手牌不再互相遮挡或越界</li>
-                        <li>📱 <strong>移动安全区修复</strong>：对手牌背完整收拢到视口内，返回与头部图标统一达到 44px 触控尺寸</li>
-                        <li>♿ <strong>结算弹窗修复</strong>：五类结果弹窗补齐语义、标题关联、初始焦点和 Tab 环回，并修复连续切换后被旧定时器隐藏的问题</li>
-                        <li>🔊 <strong>音频反馈修复</strong>：关闭发牌音效后新一局提示保持静音，SFX 音量使用独立试听音，不再依赖倒计时开关</li>
-                        <li>🌐 <strong>GitHub Pages 修复</strong>：统一由 Actions 发布带仓库子路径的构建产物，补齐 PWA 与 404 校验，并阻止静态站点发起无效联机请求</li>
-                        <li>🧹 <strong>交互稳定性修复</strong>：移除重复弹窗 ID，Toast 不再额外触发系统提示，并补强多视口、弹窗与音频回归</li>
+                        <li>🃏 <strong>规则与提示修复</strong>：补全癞子、飞机带翼等复杂牌型搜索，特殊炸弹规则在玩家、AI、提示与出牌按钮中保持一致</li>
+                        <li>🎮 <strong>全模式流程修复</strong>：修复快速重开时旧 AI 操作串入新局、残局身份、挑战时限、自定义预设和锦标赛重置问题</li>
+                        <li>📊 <strong>计分与任务修复</strong>：区分单局得分与累计比分，正确应用叫分／抢地主底分，个人成就只统计本人表现，任务进度及时保存</li>
+                        <li>🌐 <strong>联机同步修复</strong>：房主统一校验操作，普通对局分别同步各玩家手牌，重连校验凭证；大厅等待确认，结算不再重复保存</li>
+                        <li>✨ <strong>界面与交互修复</strong>：统一页面切换与弹窗关闭按钮的 44px 触控区，修复选牌事件丢失，重开时清理旧出牌区与记牌器状态</li>
+                        <li>🔊 <strong>音效与 BGM 修复</strong>：挑战音乐与通关结果一致，成就和任务使用短通知音，避免重复胜利提示；重开清理残留音效，自定义遵循全局静音</li>
+                        <li>🎞️ <strong>回放与分享修复</strong>：完整保存地主底牌和癞子标记，修复完整牌局分享码超限、导入校验和菜单回放音效</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.50</div>
+                            <h4>🛠️ 全面交互与音频稳定性修复</h4>
+                            <ul>
+                                <li>🃏 <strong>桌面牌桌重排</strong>：手牌按可用高度自适应，控制栏、双方出牌和玩家手牌不再互相遮挡或越界</li>
+                                <li>📱 <strong>移动安全区修复</strong>：对手牌背完整收拢到视口内，返回与头部图标统一达到 44px 触控尺寸</li>
+                                <li>♿ <strong>结算弹窗修复</strong>：五类结果弹窗补齐语义、标题关联、初始焦点和 Tab 环回，并修复连续切换后被旧定时器隐藏的问题</li>
+                                <li>🔊 <strong>音频反馈修复</strong>：关闭发牌音效后新一局提示保持静音，SFX 音量使用独立试听音，不再依赖倒计时开关</li>
+                                <li>🌐 <strong>GitHub Pages 修复</strong>：统一由 Actions 发布带仓库子路径的构建产物，补齐 PWA 与 404 校验，并阻止静态站点发起无效联机请求</li>
+                                <li>🧹 <strong>交互稳定性修复</strong>：移除重复弹窗 ID，Toast 不再额外触发系统提示，并补强多视口、弹窗与音频回归</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.49</div>
                             <h4>📱 移动横屏交互收尾</h4>

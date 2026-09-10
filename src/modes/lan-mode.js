@@ -5,7 +5,7 @@
 
 import { Card, SUITS, RANKS } from '../core/card.js';
 import { Rules, HandPattern } from '../core/rules.js';
-import { GameState, PHASE } from '../core/game-state.js';
+import { PHASE } from '../core/game-state.js';
 import { Player } from '../players/player.js';
 import { AIPlayer } from '../players/ai-player.js';
 import { BaseMode } from './base-mode.js';
@@ -25,6 +25,8 @@ class LANMode extends BaseMode {
         this.ws = null;
         this.reconnectTimer = null;
         this._reconnectAttempts = 0;
+        this._syncRevision = 0;
+        this._lastResult = null;
     }
 
     _showToast(msg, type = 'info') {
@@ -32,12 +34,15 @@ class LANMode extends BaseMode {
         if (this.renderer?.showToast) {
             this.renderer.showToast(msg, type);
         } else {
-            console.log('[LAN Toast]', msg);
+            const status = document.getElementById('lan-message');
+            if (status) status.textContent = msg;
         }
     }
 
     destroy() {
         super.destroy();
+        this._settleRoomRequest(new Error('已离开联机大厅'));
+        this._roomReady = false;
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
@@ -55,6 +60,8 @@ class LANMode extends BaseMode {
         }
         this.networkReady = false;
         this._reconnectAttempts = 0;
+        this._syncRevision = 0;
+        this._lastResult = null;
     }
 
     async init() {
@@ -65,14 +72,15 @@ class LANMode extends BaseMode {
     // ---- 房间管理 ----
 
     async createRoom() {
+        if (this._roomReady && this.isHost) return this.myPeerId;
         this.isHost = true;
         this.humanIndex = 0;
         this.myPeerId = this._generatePeerId();
         
-        this.gameState.setPlayer(0, new Player('房主', false));
+        this.gameState.setPlayer(0, new Player(this._desiredPlayerName || '房主', false));
         
         await this._connectWebSocket();
-        this._send({ type: 'create_room', peerId: this.myPeerId });
+        await this._requestRoom({ type: 'create_room', peerId: this.myPeerId, name: this._desiredPlayerName });
         
         console.log('[LANMode] 创建房间，PeerID:', this.myPeerId);
         return this.myPeerId;
@@ -84,13 +92,32 @@ class LANMode extends BaseMode {
         this.myPeerId = this._generatePeerId();
         
         await this._connectWebSocket();
-        this._send({ type: 'join_room', peerId: this.myPeerId, targetPeerId: hostPeerId });
+        await this._requestRoom({ type: 'join_room', peerId: this.myPeerId, targetPeerId: hostPeerId, name: this._desiredPlayerName });
         
         console.log('[LANMode] 加入房间:', hostPeerId);
     }
 
     _generatePeerId() {
         return 'ddz_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    _requestRoom(message) {
+        this._settleRoomRequest(new Error('房间请求已替换'));
+        this._roomReady = false;
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => this._settleRoomRequest(new Error('房间请求超时，请重试')), 10000);
+            this._roomRequest = { resolve, reject, timer };
+            this._send(message);
+        });
+    }
+
+    _settleRoomRequest(error) {
+        const request = this._roomRequest;
+        if (!request) return;
+        this._roomRequest = null;
+        clearTimeout(request.timer);
+        if (error) request.reject(error);
+        else request.resolve();
     }
 
     // ---- WebSocket 连接 ----
@@ -138,6 +165,7 @@ class LANMode extends BaseMode {
                 ws.onclose = () => {
                     console.warn('[LANMode] WebSocket断开');
                     this.networkReady = false;
+                    this._settleRoomRequest(new Error('连接已断开，请重试'));
                     // 如果连接从未成功打开过，reject Promise 防止永久阻塞
                     if (!opened && !settled) {
                         settled = true;
@@ -172,9 +200,9 @@ class LANMode extends BaseMode {
                 this._connectWebSocket().then(() => {
                     this._reconnectAttempts = 0;
                     if (this.isHost) {
-                        this._send({ type: 'create_room', peerId: this.myPeerId });
+                        this._send({ type: 'create_room', peerId: this.myPeerId, reconnectToken: this.reconnectToken, name: this._desiredPlayerName });
                     } else if (this.hostPeerId) {
-                        this._send({ type: 'join_room', peerId: this.myPeerId, targetPeerId: this.hostPeerId });
+                        this._send({ type: 'join_room', peerId: this.myPeerId, targetPeerId: this.hostPeerId, reconnectToken: this.reconnectToken, name: this._desiredPlayerName });
                     }
                 }).catch(() => {
                     this._scheduleReconnect();
@@ -194,6 +222,11 @@ class LANMode extends BaseMode {
     _onWsMessage(msg) {
         switch (msg.type) {
             case 'room_created':
+                this.reconnectToken = msg.reconnectToken;
+                this._roomReady = true;
+                this._settleRoomRequest();
+                this._showToast('房间已创建，等待玩家加入');
+                if (msg.reconnected && this._gameId) this._sendStateSync();
                 break;
             case 'player_joined':
                 if (this.isHost) {
@@ -204,9 +237,13 @@ class LANMode extends BaseMode {
                 this._updatePlayerList(msg.players);
                 break;
             case 'seat_assigned':
+                this.reconnectToken = msg.reconnectToken;
+                this._roomReady = true;
+                this._settleRoomRequest();
+                this._showToast('已加入房间，等待房主开始');
                 if (!this.isHost) {
                     this.humanIndex = msg.seatIndex;
-                    const p = new Player(this._desiredPlayerName || '玩家', false);
+                    const p = this.gameState.players[this.humanIndex] || new Player(this._desiredPlayerName || '玩家', false);
                     this.gameState.setPlayer(this.humanIndex, p);
                 }
                 if (msg.reconnected && this.isHost && this.gameState.phase !== 'IDLE') {
@@ -222,16 +259,8 @@ class LANMode extends BaseMode {
                     }
                 }
                 break;
-            case 'game_start':
-                // 房主已经在本地启动了游戏，忽略网络回传的广播
-                if (!this.isHost) {
-                    this._syncGameStart(msg.data);
-                }
-                break;
             case 'game_starting':
-                if (!this.isHost) {
-                    this._showToast('游戏即将开始...');
-                }
+                if (this.isHost) this._startHostRound();
                 break;
             case 'request_state_sync':
                 if (this.isHost) {
@@ -249,13 +278,16 @@ class LANMode extends BaseMode {
                 this._showToast(`玩家 ${msg.peerId} 已离开`);
                 break;
             case 'room_closed':
+                this.destroy();
+                this.renderer?.audio?.stopBGM();
                 this._showToast('房间已关闭: ' + (msg.reason || ''));
-                break;
-            case 'chat':
-                // 聊天/快捷短语已移除，兼容旧客户端消息但不展示。
+                window.gameApp?.showMenu();
                 break;
             case 'error':
-                console.error('[LANMode]', msg.message);
+                this._settleRoomRequest(new Error(msg.message));
+                console.warn('[LANMode]', msg.message);
+                const status = document.getElementById('lan-status');
+                if (status) status.textContent = msg.message;
                 this._showToast('错误: ' + msg.message);
                 break;
         }
@@ -271,11 +303,20 @@ class LANMode extends BaseMode {
     }
 
     _updatePlayerList(players) {
-        // 非 Host 构建 playerMapping
-        if (!this.isHost) {
+        if (Array.isArray(players)) {
+            this.playerMapping = {};
+            if (!this.isRunning) {
+                this.gameState.players.forEach((player, i) => {
+                    if (!players.some(p => p.seatIndex === i)) this.gameState.players[i] = null;
+                });
+            }
             for (const p of players) {
                 if (p.peerId != null && p.seatIndex != null) {
                     this.playerMapping[p.peerId] = p.seatIndex;
+                    const player = this.gameState.players[p.seatIndex] || new Player(p.name || '玩家');
+                    player.name = p.name || player.name;
+                    player.connected = p.connected !== false;
+                    this.gameState.setPlayer(p.seatIndex, player);
                 }
             }
         }
@@ -295,184 +336,120 @@ class LANMode extends BaseMode {
     // ---- 游戏同步 ----
 
     async startGame() {
-        if (!this.isHost) {
-            this._showToast('只有房主可以开始游戏');
-            return;
+        if (!this.isHost) return this._showToast('等待房主开始下一局');
+        if (this.gameState.players.filter(p => p && p.connected !== false).length !== 3) {
+            return this._showToast('需要 3 位玩家在线才能开始');
         }
-
-        const playerCount = this.gameState.players.filter(p => p !== null).length;
-        if (playerCount < 3) {
-            alert('需要3人才能开始游戏');
-            return;
-        }
-
-        // 应用游戏规则（与 BaseMode 保持一致）
-        this._applyGameRules();
-
-        let deck = Card.createDeck();
-        if (!this.gameState.noShuffle) {
-            deck = Card.shuffle(deck);
-        }
-        const bottom = deck.slice(51, 54);
-        
-        const gameData = {
-            deck: this._serializeDeck(deck.slice(0, 51)),
-            bottomCards: this._serializeDeck(bottom),
-            dealerIndex: this.gameState.dealerIndex,
-        };
-        
-        this._send({ type: 'game_start', data: gameData, broadcast: true });
-        this._syncGameStart(gameData);
+        this._send({ type: 'game_start' });
     }
 
-    _syncGameStart(data) {
-        if (!this.renderer) {
-            window.gameApp?._enterLANGameFromNetwork?.(this);
-        }
-        // 确保所有位置都有 Player 对象（非 host 客户端可能只设置了自己）
-        for (let i = 0; i < 3; i++) {
-            if (!this.gameState.players[i]) {
-                this.gameState.setPlayer(i, new Player(`玩家${i + 1}`, false));
-            }
-        }
-        // 非 host 客户端也需要应用本地规则设置
-        this._applyGameRules();
-        const deck = this._deserializeDeck(data.deck);
-        const bottom = this._deserializeDeck(data.bottomCards);
-        this.gameState.dealerIndex = data.dealerIndex;
-        const ok = this.gameState.startRound(deck, bottom);
-        if (!ok) {
-            this._showToast('牌局数据错误，请重新开局', 'error');
-            this.isRunning = false;
-            return;
-        }
+    _startHostRound() {
+        super.destroy();
+        if (!this.renderer) window.gameApp?._enterLANGameFromNetwork?.(this);
+        this._isAutoPlaying = false;
+        document.getElementById('modal-overlay')?.classList.add('hidden');
+        this._gameId = this._generatePeerId();
+        this._lastResult = null;
         this.isRunning = true;
-        
-        // 音效（BGM 由 BaseMode.onPhaseChange 统一调度）
+        this._applyGameRules();
+        const deck = this.gameState.noShuffle ? Card.createDeck() : Card.shuffle(Card.createDeck());
+        this.gameState.startRound(deck.slice(0, 51), deck.slice(51));
         this.renderer?.audio?.playDeal();
-        this._setTimer(() => this.renderer?.audio?.playNewRound(), 300);
-
-        this._processCalling();
+        this._updateTurn();
+        this._sendStateSync();
     }
 
-    // 覆盖：人类操作后广播
-    humanCall(action) {
-        const result = super.humanCall(action);
-        if (result) {
-            this._send({
-                type: 'player_action',
-                action: 'call',
-                playerIndex: this.humanIndex,
-                value: action,
-                broadcast: true,
-            });
-            // Host 在 action 后广播完整状态同步，确保所有客户端状态一致
-            if (this.isHost) {
-                this._sendStateSync();
-            }
-        }
-        return result;
+    _processCalling() { this._updateTurn(); }
+    _processPlay() { this._updateTurn(); }
+
+    onTurnChange(data) {
+        super.onTurnChange(data);
+        this._updateTurn();
     }
 
-    humanPlay(selectedCards) {
-        const result = super.humanPlay(selectedCards);
-        if (result.success) {
-            this._send({
-                type: 'player_action',
-                action: 'play',
-                playerIndex: this.humanIndex,
-                cards: this._serializeDeck(selectedCards),
-                broadcast: true,
-            });
-            // Host 在 action 后广播完整状态同步
-            if (this.isHost) {
-                this._sendStateSync();
-            }
-        }
-        return result;
+    onRoundEnd(data) {
+        this._lastResult = data;
+        super.onRoundEnd(data);
     }
 
-    humanPass() {
-        const result = super.humanPass();
-        if (result) {
-            this._send({
-                type: 'player_action',
-                action: 'pass',
-                playerIndex: this.humanIndex,
-                broadcast: true,
-            });
-            // Host 在 action 后广播完整状态同步
-            if (this.isHost) {
-                this._sendStateSync();
-            }
+    _updateTurn() {
+        this._stopCountdown();
+        this.renderer?.hideCallControls();
+        this.renderer?.hidePlayControls();
+        if (!this.isRunning || this.gameState.currentTurn !== this.humanIndex) return;
+        const phase = this.gameState.phase;
+        if (phase !== PHASE.CALLING && phase !== PHASE.PLAYING) return;
+        if (this.gameState.players[this.humanIndex]?.isAuto) {
+            this.triggerAutoIfNeeded();
+        } else if (phase === PHASE.CALLING) {
+            this.renderer?.showCallControls(this.humanIndex);
+            this._startCountdown(this.humanIndex, 'call');
+        } else {
+            this.renderer?.showPlayControls(this.humanIndex, this.gameState.lastPlay.pattern);
+            this._startCountdown(this.humanIndex, 'play');
         }
-        return result;
+    }
+
+    async triggerAutoIfNeeded() {
+        if (this._isAutoPlaying || this.gameState.currentTurn !== this.humanIndex) return;
+        const player = this.gameState.players[this.humanIndex];
+        if (!player?.isAuto) return;
+        this._isAutoPlaying = true;
+        const generation = this._generation;
+        try {
+            await this._delay(800);
+            if (!this.isRunning || generation !== this._generation || this.gameState.currentTurn !== this.humanIndex || !player.isAuto) return;
+            const ai = new AIPlayer('auto');
+            ai.hand = player.hand;
+            ai.index = this.humanIndex;
+            if (this.gameState.phase === PHASE.CALLING) this.humanCall(await ai.decideCall(this.gameState));
+            else if (this.gameState.phase === PHASE.PLAYING) {
+                const cards = await ai.decidePlay(this.gameState, this.gameState.lastPlay.pattern);
+                if (cards.length) this.humanPlay(cards);
+                else this.humanPass();
+            }
+        } finally { if (generation === this._generation) this._isAutoPlaying = false; }
+    }
+
+    humanCall(value) { return this._submitAction({ action: 'call', value }).success; }
+    humanPlay(cards) { return this._submitAction({ action: 'play', cards: this._serializeDeck(cards) }); }
+    humanPass() { return this._submitAction({ action: 'pass' }).success; }
+
+    _submitAction(action) {
+        if (this.gameState.currentTurn !== this.humanIndex) return { success: false, error: '不是您的回合' };
+        const message = { type: 'player_action', playerIndex: this.humanIndex, ...action };
+        if (this.isHost) return this._handleRemoteAction(message);
+        if (!this.networkReady) return { success: false, error: '连接已断开，正在重连' };
+        this._send({ ...message, targetPeerId: this.hostPeerId });
+        this._stopCountdown();
+        this.renderer?.hideCallControls();
+        this.renderer?.hidePlayControls();
+        return { success: true };
     }
 
     _handleRemoteAction(msg) {
+        if (!this.isHost) return { success: false, error: '等待房主同步' };
+        const gs = this.gameState;
         const idx = msg.playerIndex;
-        if (idx === this.humanIndex) return;
-        
-        if (msg.action === 'call') {
-            const success = this.gameState.callLandlord(idx, msg.value);
-            if (success && this.gameState.phase === PHASE.CALLING) {
-                this._processCalling();
-            } else if (!success && !this.isHost) {
-                // 状态不同步，请求 host 发送完整状态
-                console.warn('[LANMode] callLandlord 远程失败，请求状态同步');
-                this._requestStateSync();
-            }
-        } else if (msg.action === 'play') {
-            const cards = this._deserializeDeck(msg.cards);
-            const pattern = Rules.analyze(cards);
-            const result = this.gameState.playCards(idx, cards, pattern);
-            if (result.success && !result.win && this.gameState.phase === PHASE.PLAYING) {
-                this._processPlay();
-            } else if (!result.success) {
-                // playCards 失败（通常为手牌不同步），请求完整状态同步
-                console.warn('[LANMode] playCards 远程失败，请求状态同步:', result.error);
-                this._requestStateSync();
-            }
-        } else if (msg.action === 'pass') {
-            const success = this.gameState.pass(idx);
-            if (success && this.gameState.phase === PHASE.PLAYING) {
-                this._processPlay();
-            } else if (!success && !this.isHost) {
-                console.warn('[LANMode] pass 远程失败，请求状态同步');
-                this._requestStateSync();
+        let result = { success: false, error: '无效操作' };
+        if (msg.action === 'call') result = { success: gs.callLandlord(idx, msg.value) };
+        else if (msg.action === 'pass') result = { success: gs.pass(idx) };
+        else if (msg.action === 'play' && Array.isArray(msg.cards)) {
+            const decoded = this._deserializeDeck(msg.cards);
+            const hand = gs.players[idx]?.hand || [];
+            const selected = decoded.map(c => hand.find(h => h.rankKey === c.rankKey && h.suit?.name === c.suit?.name));
+            if (decoded.length === msg.cards.length && selected.every(Boolean)) {
+                result = gs.playCards(idx, selected, Rules.analyze(selected));
             }
         }
+        this._sendStateSync();
+        this._updateTurn();
+        return result;
     }
 
     _requestStateSync() {
-        if (this.isHost) return;
-        if (this.hostPeerId) {
+        if (!this.isHost && this.hostPeerId) {
             this._send({ type: 'request_state_sync', targetPeerId: this.hostPeerId });
-        }
-    }
-
-    _fallbackRemotePlay(idx, cards, pattern) {
-        const gs = this.gameState;
-        const player = gs.players[idx];
-        if (!player) return;
-        // 确保手牌足够（填充临时牌）
-        while (player.hand.length < cards.length) {
-            player.hand.push(new Card(null, '3'));
-        }
-        player.removeCards(cards);
-        gs.lastPlay = { playerIndex: idx, cards, pattern };
-        gs.passCount = 0;
-        gs.playCounts[idx]++;
-        gs.history.push({ playerIndex: idx, cards, pattern, timestamp: Date.now() });
-        gs.emit('playerPlay', { playerIndex: idx, cards, pattern, remaining: player.hand.length });
-        if (player.hand.length === 0) {
-            gs._settleRound(idx);
-        } else {
-            gs.currentTurn = (idx + 1) % 3;
-            gs.emit('turnChange', { currentTurn: gs.currentTurn });
-            if (gs.phase === PHASE.PLAYING) {
-                this._processPlay();
-            }
         }
     }
 
@@ -481,7 +458,8 @@ class LANMode extends BaseMode {
     _serializeDeck(cards) {
         return cards.map(c => ({
             s: c.suit?.name || null,
-            r: c.rankKey
+            r: c.rankKey,
+            l: c.isLaizi === true
         }));
     }
 
@@ -498,14 +476,32 @@ class LANMode extends BaseMode {
                 suit = SUITS[d.s.toUpperCase()];
                 if (!suit) return null;
             }
-            return new Card(suit, d.r);
+            if ((d.r.startsWith('JOKER')) !== (suit === null)) return null;
+            const card = new Card(suit, d.r);
+            card.isLaizi = d.l === true;
+            return card;
         }).filter(Boolean);
     }
 
     _applySync(data) {
         if (!data || typeof data !== 'object') return;
         const gs = this.gameState;
+        if (data.revision != null && data.gameId === this._receivedGameId && data.revision <= (this._receivedRevision || 0)) return;
+        const newRound = data.gameId && data.gameId !== this._receivedGameId;
+        this._receivedGameId = data.gameId;
+        this._receivedRevision = data.revision;
+        if (newRound) {
+            document.getElementById('modal-overlay')?.classList.add('hidden');
+            super.destroy();
+            gs.resetRound();
+            this._isAutoPlaying = false;
+            this._lastResult = null;
+        }
+        if (!this.renderer) window.gameApp?._enterLANGameFromNetwork?.(this);
+        this.isRunning = true;
         const oldPhase = gs.phase;
+        const oldLandlord = gs.landlordIndex;
+        const oldHistoryLength = gs.history.length;
 
         // --- 核心状态 ---
         if (data.phase != null) gs.phase = data.phase;
@@ -591,14 +587,16 @@ class LANMode extends BaseMode {
                     gs.setPlayer(i, player);
                 }
                 if (pd.name != null) player.name = pd.name;
-                if (pd.isAuto != null) player.isAuto = pd.isAuto;
+                if (pd.isAuto != null && i !== this.humanIndex) player.isAuto = pd.isAuto;
                 if (pd.isReady != null) player.isReady = pd.isReady;
                 if (pd.isLandlord != null) player.isLandlord = pd.isLandlord;
                 // 非本人：只同步手牌数量（用占位牌填充）
-                if (pd.handCount != null && i !== this.humanIndex) {
+                if (gs.showCards && Array.isArray(pd.hand) && i !== this.humanIndex) {
+                    player.setHand(this._deserializeDeck(pd.hand));
+                } else if (pd.handCount != null && i !== this.humanIndex) {
                     const diff = pd.handCount - player.hand.length;
                     if (diff > 0) {
-                        for (let j = 0; j < diff; j++) player.hand.push(new Card(null, '3'));
+                        for (let j = 0; j < diff; j++) player.hand.push(new Card(SUITS.SPADE, '3'));
                         player.hand = Card.sortByValue(player.hand);
                     } else if (diff < 0) {
                         player.hand = player.hand.slice(0, pd.handCount);
@@ -622,19 +620,25 @@ class LANMode extends BaseMode {
             }
         }
 
-        // phase 变化时补发事件，确保非 host 客户端 BGM/逻辑同步
-        if (gs.phase !== oldPhase) {
-            gs.emit('phaseChange', { phase: gs.phase, currentTurn: gs.currentTurn });
-        }
-
-        // 触发渲染更新
         if (this.renderer) {
-            this.renderer.renderHands();
-            this.renderer.highlightTurn(gs.currentTurn);
-            if (gs.lastPlay?.cards?.length > 0) {
-                this.renderer.animatePlay(gs.lastPlay);
+            if (newRound) {
+                this.renderer.resetRoundView();
+                this.renderer._resetCardTracker();
+                this.renderer.audio?.playDeal();
             }
+            this.renderer.renderHands();
+            if (gs.landlordIndex >= 0 && gs.landlordIndex !== oldLandlord) {
+                this.renderer.showLandlord({ landlordIndex: gs.landlordIndex, bottomCards: gs.bottomCards });
+            }
+            for (const action of gs.history.slice(oldHistoryLength)) {
+                if (action.pattern?.type === 'PASS') this.renderer.showPass(action.playerIndex);
+                else this.renderer.animatePlay({ ...action, remaining: gs.players[action.playerIndex]?.hand.length });
+            }
+            this.renderer.highlightTurn(gs.currentTurn);
         }
+        if (gs.phase !== oldPhase) gs.emit('phaseChange', { phase: gs.phase, currentTurn: gs.currentTurn });
+        if (data.result && !this._lastResult) gs.emit('roundEnd', data.result);
+        this._updateTurn();
     }
 
     _serializePattern(pattern) {
@@ -661,6 +665,9 @@ class LANMode extends BaseMode {
     _sendStateSync(targetPeerId = null) {
         const gs = this.gameState;
         const syncData = {
+            gameId: this._gameId,
+            revision: ++this._syncRevision,
+            result: this._lastResult,
             // 核心状态
             phase: gs.phase,
             currentTurn: gs.currentTurn,
@@ -700,9 +707,8 @@ class LANMode extends BaseMode {
             bombDoubles: gs.bombDoubles,
             rocketDoubles: gs.rocketDoubles,
             // 牌局数据
-            bottomCards: this._serializeDeck(gs.bottomCards),
-            initialBottom: gs.initialBottom,
-            initialHands: gs.initialHands,
+            bottomCards: gs.landlordIndex >= 0 || gs.bottomVisible ? this._serializeDeck(gs.bottomCards) : [],
+            ...(gs.phase === PHASE.ENDED ? { initialBottom: gs.initialBottom, initialHands: gs.initialHands } : {}),
             lastPlay: gs.lastPlay ? {
                 playerIndex: gs.lastPlay.playerIndex,
                 cards: this._serializeDeck(gs.lastPlay.cards),
@@ -714,11 +720,12 @@ class LANMode extends BaseMode {
                 pattern: this._serializePattern(h.pattern),
                 timestamp: h.timestamp,
             })),
-            // 玩家信息（不含手牌内容，只含数量和属性）
+            // 仅明牌规则公开其他玩家的手牌
             players: gs.players.map((p, i) => p ? {
                 name: p.name,
                 seatIndex: i,
                 handCount: p.hand.length,
+                ...(gs.showCards ? { hand: this._serializeDeck(p.hand) } : {}),
                 isLandlord: p.isLandlord,
                 isAuto: p.isAuto,
                 isReady: p.isReady,
@@ -732,7 +739,10 @@ class LANMode extends BaseMode {
             }
             this._send({ type: 'game_state_sync', data: syncData, targetPeerId });
         } else {
-            this._send({ type: 'game_state_sync', data: syncData, broadcast: true });
+            for (const [peerId, idx] of Object.entries(this.playerMapping)) {
+                if (peerId === this.myPeerId || !gs.players[idx]) continue;
+                this._send({ type: 'game_state_sync', data: { ...syncData, ownHand: this._serializeDeck(gs.players[idx].hand) }, targetPeerId: peerId });
+            }
         }
     }
 
