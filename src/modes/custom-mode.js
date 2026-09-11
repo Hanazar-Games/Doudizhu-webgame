@@ -35,6 +35,7 @@ class CustomMode extends BaseMode {
             // 特殊规则
             showAllCards: false, // 是否显示所有人手牌（测试用）
             autoPlay: false,     // 是否自动运行（观战）
+            soundEnabled: true,
             laiziMode: false,    // 是否启用癞子模式
         };
     }

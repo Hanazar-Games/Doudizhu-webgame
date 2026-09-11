@@ -437,7 +437,8 @@ class GameApp {
 
     _syncAudioSettings(audio) {
         if (!audio) return;
-        audio.enabled = this.settings.soundEnabled !== false;
+        const customMuted = audio === this.renderer?.audio && this.currentMode?.modeName === 'custom' &&
+            this.currentMode.customConfig.soundEnabled === false;
         const newBgmEnabled = this.settings.bgmEnabled !== false;
         if (audio.bgmEnabled && !newBgmEnabled) {
             audio.stopBGM();
@@ -447,6 +448,8 @@ class GameApp {
         audio.setBGMVolume(this.settings.bgmVolume ?? 0.5);
         audio.setSFXVolume(this.settings.sfxVolume ?? 0.5);
         audio.setVoiceVolume(this.settings.voiceVolume ?? 0.7);
+        audio.setEnabled(this.settings.soundEnabled !== false && !customMuted,
+            audio === this._getActiveAudio() && !this.renderer?._isPaused);
     }
 
     _syncVolumeControl(slider, output, value) {
@@ -469,14 +472,14 @@ class GameApp {
 
     toggleSound() {
         const audio = this._getActiveAudio();
-        const wasEnabled = audio?.enabled ?? (this.settings.soundEnabled !== false);
+        const wasEnabled = this.settings.soundEnabled !== false;
         if (wasEnabled) audio?.playButtonClick();
-        const enabled = audio?.toggle() ?? !(this.settings.soundEnabled !== false);
-        if (!wasEnabled && enabled) audio?.playButtonClick();
+        const enabled = !wasEnabled;
         this.settings.soundEnabled = enabled;
         Storage.saveSettings(this.settings);
-        if (this.menuAudio && this.menuAudio !== audio) this._syncAudioSettings(this.menuAudio);
-        if (this.renderer?.audio && this.renderer.audio !== audio) this._syncAudioSettings(this.renderer.audio);
+        this._syncAudioSettings(this.menuAudio);
+        this._syncAudioSettings(this.renderer?.audio);
+        if (!wasEnabled && enabled) audio?.playButtonClick();
         this._syncSoundToggleButton(enabled);
         return enabled;
     }
@@ -647,7 +650,7 @@ class GameApp {
                         audio.bgmEnabled = control.checked;
                         if (!control.checked) {
                             audio.stopBGM();
-                        } else {
+                        } else if (!this.renderer?._isPaused) {
                             // 根据当前场景播放正确的 BGM
                             if (!this.renderer) {
                                 audio.playMenuBGM?.();
@@ -1636,9 +1639,9 @@ class GameApp {
                 document.getElementById('lan-status').textContent = '等待玩家加入...';
                 btnStart?.classList.remove('hidden');
             } catch (err) {
-                if (this.currentMode === mode) document.getElementById('lan-status').textContent = err.message || '创建房间失败，请检查连接';
+                if (this.currentMode === mode) mode._showToast(err.message || '创建房间失败，请检查连接', 'error');
             } finally {
-                btnCreate.disabled = btnJoin.disabled = false;
+                if (this.currentMode === mode) btnCreate.disabled = btnJoin.disabled = this._isGitHubPages();
             }
         });
 
@@ -1655,9 +1658,9 @@ class GameApp {
                 if (this.currentMode !== mode) return;
                 document.getElementById('lan-status').textContent = '已加入房间，等待房主开始';
             } catch (err) {
-                if (this.currentMode === mode) document.getElementById('lan-status').textContent = err.message || '加入房间失败，请检查连接';
+                if (this.currentMode === mode) mode._showToast(err.message || '加入房间失败，请检查连接', 'error');
             } finally {
-                btnCreate.disabled = btnJoin.disabled = false;
+                if (this.currentMode === mode) btnCreate.disabled = btnJoin.disabled = this._isGitHubPages();
             }
         });
 
@@ -1696,6 +1699,7 @@ class GameApp {
     }
 
     async _refreshLANHostInfo() {
+        const mode = this.currentMode;
         const status = document.getElementById('lan-status');
         const dot = document.getElementById('lan-status-dot');
         const notice = document.getElementById('lan-static-notice');
@@ -1723,20 +1727,22 @@ class GameApp {
             const res = await fetch('./api/lan-info', { cache: 'no-store' });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const info = await res.json();
+            if (this.currentMode !== mode) return;
             const urls = Array.isArray(info.urls) ? info.urls : [];
             const lanUrl = urls.find(url => !url.includes('localhost')) || urls[0] || window.location.origin;
             input.value = lanUrl;
             row.classList.remove('hidden');
             dot?.classList.add('online');
-            status.textContent = '本机托管服务已就绪。创建房间后，把地址和房间号发给其他玩家。';
+            if (!mode?._roomReady) status.textContent = '本机托管服务已就绪。创建房间后，把地址和房间号发给其他玩家。';
         } catch (err) {
+            if (this.currentMode !== mode || mode?._roomReady) return;
             dot?.classList.add('offline');
             status.textContent = '当前页面没有连接到房主服务。房主电脑运行 npm run lan:host 后，再打开终端里显示的局域网地址。';
         }
     }
 
     _isGitHubPages() {
-        return /\.github\.io$/i.test(window.location.hostname);
+        return (typeof __PAGES_BUILD__ !== 'undefined' && __PAGES_BUILD__) || /\.github\.io$/i.test(window.location.hostname);
     }
 
     _initCustomListeners() {
@@ -1753,6 +1759,7 @@ class GameApp {
 
             this.currentMode.setConfig('showAllCards', showAll);
             this.currentMode.setConfig('autoPlay', autoPlay);
+            this.currentMode.setConfig('soundEnabled', soundOn);
             this.currentMode.setConfig('aiDifficulty', aiDiff);
             this.currentMode.setConfig('callMode', callMode);
             this.currentMode.setConfig('laiziMode', laizi);
@@ -1762,7 +1769,6 @@ class GameApp {
             this.renderer.setGameState(this.currentMode.gameState);
             this.renderer.setMode(this.currentMode);
             this._configureRendererAudio(this.renderer);
-            this.renderer.audio.enabled = soundOn && this.settings.soundEnabled !== false;
             this.currentMode.setRenderer(this.renderer);
             this._stopMenuAudio();
 
@@ -2359,15 +2365,12 @@ class GameApp {
             this._playMenuBGM(0);
             this._transitionToScreen('lan-screen');
 
-            // 重置LAN UI状态
-            setTimeout(() => {
-                document.getElementById('room-info')?.classList.add('hidden');
-                document.getElementById('btn-lan-start')?.classList.add('hidden');
-                document.getElementById('lan-status').textContent = '请选择创建或加入房间';
-                this._refreshLANHostInfo();
-            }, 400);
-
+            document.getElementById('room-info')?.classList.add('hidden');
+            document.getElementById('btn-lan-start')?.classList.add('hidden');
+            document.getElementById('player-list')?.replaceChildren();
+            document.getElementById('lan-message').textContent = '';
             this.currentMode = new LANMode();
+            this._refreshLANHostInfo();
             await this.currentMode.init();
             this.currentMode.speedFactor = Math.max(0.3, Math.min(5.0, this.settings.gameSpeed || 1.0));
             document.getElementById('mode-display').textContent = '局域网联机';

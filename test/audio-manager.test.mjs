@@ -62,6 +62,7 @@ test('AudioManager restores menu BGM after page visibility resumes', () => {
     };
     audio._currentBGM = 'menu';
 
+    audio._bgmActive = true;
     document.hidden = true;
     visibilityHandler();
     assert(audio._wasPlayingBGM === true, 'expected menu BGM to be marked for resume');
@@ -83,6 +84,7 @@ test('AudioManager restores game BGM after page visibility resumes', () => {
     };
     audio._currentBGM = 'game';
 
+    audio._bgmActive = true;
     document.hidden = true;
     visibilityHandler();
     document.hidden = false;

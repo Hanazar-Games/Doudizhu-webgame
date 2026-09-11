@@ -1,8 +1,20 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 
 const pkg = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf-8'));
+
+function pagesFallback() {
+    let basePath = '/';
+    return {
+        name: 'pages-fallback',
+        configResolved(config) { basePath = config.base.startsWith('/') ? config.base : '/'; },
+        writeBundle(options) {
+            const template = readFileSync(resolve(__dirname, 'public/404.html'), 'utf8');
+            writeFileSync(resolve(options.dir, '404.html'), template.replaceAll('%BASE_URL%', basePath));
+        },
+    };
+}
 
 export default defineConfig({
   base: './',
@@ -10,7 +22,9 @@ export default defineConfig({
   publicDir: 'public',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __PAGES_BUILD__: JSON.stringify(process.env.GITHUB_PAGES === 'true'),
   },
+  plugins: [pagesFallback()],
   build: {
     outDir: 'dist',
     emptyOutDir: true,

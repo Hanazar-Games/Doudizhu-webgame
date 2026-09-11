@@ -18,10 +18,12 @@ class AudioManager {
         this._bgmGain = null;
         this._bgmNodes = [];
         this._bgmTimer = null;
+        this._bgmActive = false;
         this._bgmGainCleanups = new Map();
         this._winSfxTimeout = null;
         this._sfxTimeouts = new Set();
         this._sfxNodes = new Set();
+        this._sfxGeneration = 0;
         this._callTimeout = null;
         this._bgmLoopStart = 0;
         this._currentBGM = null;
@@ -35,8 +37,9 @@ class AudioManager {
         this._visHandler = () => {
             if (document.hidden) {
                 const bgmBeforeHide = this._currentBGM;
+                const wasActive = this._bgmActive;
                 this.stopBGM();
-                this._wasPlayingBGM = bgmBeforeHide === 'menu' || bgmBeforeHide === 'game';
+                this._wasPlayingBGM = wasActive && (bgmBeforeHide === 'menu' || bgmBeforeHide === 'game');
             } else if (this._wasPlayingBGM && this.bgmEnabled) {
                 this._wasPlayingBGM = false;
                 if (this._currentBGM === 'menu') this.playMenuBGM();
@@ -102,6 +105,7 @@ class AudioManager {
     }
 
     _clearPendingSfx() {
+        this._sfxGeneration++;
         this._clearSfxTimeouts();
         this._clearActiveSfx();
         if (this._callTimeout) clearTimeout(this._callTimeout);
@@ -129,7 +133,6 @@ class AudioManager {
     async _ensureContext() {
         if (!this.enabled) return false;
         if (!this.ctx || this.ctx.state === 'closed' || this.ctx.state === 'closing') {
-            this.stopBGM();
             this._bgmNodes.forEach(n => {
                 try {
                     if (n.gain) n.gain.disconnect();
@@ -147,14 +150,15 @@ class AudioManager {
                 return false;
             }
         }
-        if (this.ctx.state === 'suspended') {
+        const ctx = this.ctx;
+        if (ctx.state === 'suspended') {
             try {
-                await this.ctx.resume();
+                await ctx.resume();
             } catch (e) {
                 return false;
             }
             // resume() 可能 resolve 但 state 仍是 suspended（如用户未交互）
-            if (this.ctx.state !== 'running') return false;
+            if (this.ctx !== ctx || ctx.state !== 'running' || !this.enabled) return false;
         }
         return true;
     }
@@ -178,8 +182,9 @@ class AudioManager {
     async _tone(freq, duration, type = 'sine', volume = 0.10, when = null) {
         if (duration <= 0) return;
         if (!this.sfxEnabled) return;
+        const generation = this._sfxGeneration;
         if (!(await this._ensureContext())) return;
-        if (!this.enabled || !this.sfxEnabled || !this.ctx) return;
+        if (generation !== this._sfxGeneration || !this.enabled || !this.sfxEnabled || this.sfxVolume <= 0 || !this.ctx) return;
         const t = when ?? this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -208,8 +213,9 @@ class AudioManager {
 
     async _playTick() {
         if (!this.sfxEnabled) return;
+        const generation = this._sfxGeneration;
         if (!(await this._ensureContext())) return;
-        if (!this.enabled || !this.sfxEnabled || !this.ctx) return;
+        if (generation !== this._sfxGeneration || !this.enabled || !this.sfxEnabled || this.sfxVolume <= 0 || !this.ctx) return;
         const t = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -232,8 +238,9 @@ class AudioManager {
 
     async _sequence(notes, interval = 0.08, offset = 0) {
         if (!this.sfxEnabled) return;
+        const generation = this._sfxGeneration;
         if (!(await this._ensureContext())) return;
-        if (!this.ctx) return;
+        if (generation !== this._sfxGeneration || !this.enabled || !this.sfxEnabled || !this.ctx) return;
         const baseTime = this.ctx.currentTime + offset;
         for (let i = 0; i < notes.length; i++) {
             const n = notes[i];
@@ -245,6 +252,7 @@ class AudioManager {
     // ==================== BGM 系统 ====================
 
     stopBGM() {
+        this._bgmActive = false;
         this._wasPlayingBGM = false;
         if (this._bgmTimer) {
             clearTimeout(this._bgmTimer);
@@ -319,6 +327,7 @@ class AudioManager {
 
     setSFXVolume(v) {
         this.sfxVolume = Math.max(0, Math.min(1, v));
+        if (this.sfxVolume === 0) this._clearPendingSfx();
     }
 
     setVoiceVolume(v) {
@@ -365,6 +374,7 @@ class AudioManager {
     async _playBGMSequence(notes, tempoBPM = 100, waveform = 'sine', loop = true) {
         this.stopBGM();
         if (!this.bgmEnabled) return;
+        this._bgmActive = true;
         const gen = this._bgmGeneration;
         if (!(await this._ensureContext())) return;
         if (!this.ctx) return;
@@ -524,8 +534,9 @@ class AudioManager {
     async playStraight() {
         if (!this.sfxEnabled) return;
         if (!this._isSfxEnabled('play')) return;
+        const generation = this._sfxGeneration;
         if (!(await this._ensureContext())) return;
-        if (!this.enabled || !this.sfxEnabled || !this.ctx) return;
+        if (generation !== this._sfxGeneration || !this.enabled || !this.sfxEnabled || this.sfxVolume <= 0 || !this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
@@ -566,8 +577,9 @@ class AudioManager {
         if (!this.sfxEnabled) return;
         if (!this._isSfxEnabled('bomb')) return;
         if (!this._shouldPlaySfx('bomb', 600)) return;
+        const generation = this._sfxGeneration;
         if (!(await this._ensureContext())) return;
-        if (!this.enabled || !this.sfxEnabled || !this.ctx) return;
+        if (generation !== this._sfxGeneration || !this.enabled || !this.sfxEnabled || this.sfxVolume <= 0 || !this.ctx) return;
         const duration = 0.7;
         const bufferSize = this.ctx.sampleRate * duration;
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
@@ -613,8 +625,9 @@ class AudioManager {
         if (!this.sfxEnabled) return;
         if (!this._isSfxEnabled('bomb')) return;
         if (!this._shouldPlaySfx('rocket', 600)) return;
+        const generation = this._sfxGeneration;
         if (!(await this._ensureContext())) return;
-        if (!this.enabled || !this.sfxEnabled || !this.ctx) return;
+        if (generation !== this._sfxGeneration || !this.enabled || !this.sfxEnabled || this.sfxVolume <= 0 || !this.ctx) return;
         const osc = this.ctx.createOscillator();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(350, this.ctx.currentTime);
@@ -885,11 +898,16 @@ class AudioManager {
     // ==================== 控制接口 ====================
 
     toggle() {
-        this.enabled = !this.enabled;
+        return this.setEnabled(!this.enabled);
+    }
+
+    setEnabled(enabled, resumeBGM = true) {
+        if (this.enabled === Boolean(enabled)) return this.enabled;
+        this.enabled = Boolean(enabled);
         if (!this.enabled) {
             this.stopBGM();
             this._clearPendingSfx();
-        } else {
+        } else if (resumeBGM) {
             this.resumeCurrentBGM();
         }
         return this.enabled;

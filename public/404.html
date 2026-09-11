@@ -7,15 +7,13 @@
     <title>正在返回斗地主</title>
     <script>
         (function () {
-            var repoName = 'Doudizhu-webgame';
-            var parts = window.location.pathname.split('/').filter(Boolean);
-            var basePath = parts[0] === repoName ? '/' + repoName + '/' : '/';
+            var basePath = '%BASE_URL%';
             window.location.replace(window.location.origin + basePath + window.location.search + window.location.hash);
         }());
     </script>
 </head>
 <body>
     <p>正在返回游戏首页...</p>
-    <p><a href="/Doudizhu-webgame/">返回游戏首页</a></p>
+    <p><a href="%BASE_URL%">返回游戏首页</a></p>
 </body>
 </html>

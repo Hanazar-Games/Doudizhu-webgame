@@ -11,6 +11,7 @@ import { dirname, resolve } from 'path';
 import fs from 'fs';
 import net from 'net';
 import { testModeFlows, testLANBrowserFlow } from './mode-flows-browser.mjs';
+import { testInterfaceEdges, testLANLobbyEdges, testEndgameLayout } from './interface-edges.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
@@ -956,26 +957,22 @@ async function run() {
             if (!app || !audio) return null;
             const events = [];
             const originalPlayButtonClick = audio.playButtonClick;
-            const originalToggle = audio.toggle;
             audio.enabled = true;
+            app.settings.soundEnabled = true;
             audio.playButtonClick = () => events.push(`click:${audio.enabled}`);
-            audio.toggle = () => {
-                audio.enabled = !audio.enabled;
-                events.push(`toggle:${audio.enabled}`);
-                return audio.enabled;
-            };
             app.toggleSound();
+            events.push(`enabled:${audio.enabled}`);
             app.toggleSound();
+            events.push(`enabled:${audio.enabled}`);
             audio.playButtonClick = originalPlayButtonClick;
-            audio.toggle = originalToggle;
             app.settings.soundEnabled = true;
             app._syncSoundToggleButton(true);
             return events;
         });
-        if (soundFeedbackOrder?.join(',') !== 'click:true,toggle:false,toggle:true,click:true') {
+        if (soundFeedbackOrder?.join(',') !== 'click:true,enabled:false,click:true,enabled:true') {
             throw new Error(`主音效开关反馈时序异常: ${JSON.stringify(soundFeedbackOrder)}`);
         }
-        console.log('  ✅ 静音关闭前与恢复后均提供可听反馈');
+        console.log('  ✅ 静音开关同步真实音频状态并在开启时请求反馈');
         const oneShotBgmToggle = await page.evaluate(() => {
             const audio = window.gameApp?.renderer?.audio;
             const control = document.querySelector('[data-setting="bgmEnabled"]');
@@ -1347,6 +1344,9 @@ async function run() {
         }
         console.log('  ✅ 公告面板关闭并恢复焦点');
 
+        await testInterfaceEdges(page);
+        await testLANLobbyEdges(page);
+        await testEndgameLayout(page);
         await page.close();
 
         // ===== 8. 移动端 viewport =====

@@ -20,6 +20,8 @@ check(configureAt >= 0 && configureAt < buildAt,
     'configure-pages 必须在 Vite 构建前提供 GitHub Pages base_path');
 check(buildStep.includes('steps.pages.outputs.base_path'),
     'Vite 构建必须使用 configure-pages 输出的 base_path');
+check(buildStep.includes("GITHUB_PAGES: 'true'"), 'Pages 构建必须启用静态部署标记');
+check(workflow.includes('npm run test:pages:browser'), '部署前必须验证真实生产包');
 check(workflow.includes('uses: actions/upload-pages-artifact@') && workflow.includes('path: dist'),
     'Pages 必须只上传 dist 构建产物');
 
@@ -45,6 +47,13 @@ if (existsSync(indexPath)) {
 }
 
 const manifestPath = resolve(dist, 'manifest.json');
+const fallbackPath = resolve(dist, '404.html');
+if (existsSync(fallbackPath)) {
+    const fallback = readFileSync(fallbackPath, 'utf8');
+    check(!fallback.includes('%BASE_URL%'), '404 页面不应保留未替换的 base 占位符');
+    check(fallback.includes(`var basePath = '${basePath}'`), '404 页面必须返回实际部署路径');
+    check(fallback.includes(`href="${basePath}"`), '404 页面手动返回链接必须匹配部署路径');
+}
 if (existsSync(manifestPath)) {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
     for (const icon of manifest.icons || []) {

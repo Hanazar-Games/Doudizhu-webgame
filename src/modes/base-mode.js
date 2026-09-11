@@ -229,7 +229,8 @@ class BaseMode {
                     if (!this.isRunning || generation !== this._generation) return;
                     this.renderer?.hideThinking(idx);
                     // delay 后重新检查回合，防止人类在此期间已行动
-                    if (this.gameState.currentTurn !== idx) continue;
+                    if (this.gameState.phase !== PHASE.CALLING) return;
+                    if (this.gameState.currentTurn !== idx || (!player.isAI && !player.isAuto)) continue;
                     let success = this.gameState.callLandlord(idx, call);
                     if (!success) {
                         console.warn('叫分失败，强制pass:', player.name);
@@ -337,7 +338,8 @@ class BaseMode {
                     this.renderer?.hideAIHint?.(idx);
                     
                     // delay 后重新检查回合，防止人类在此期间已行动
-                    if (this.gameState.currentTurn !== idx) continue;
+                    if (this.gameState.phase !== PHASE.PLAYING) return;
+                    if (this.gameState.currentTurn !== idx || (!player.isAI && !player.isAuto)) continue;
                     
                     if (cards.length === 0) {
                         const passSuccess = this.gameState.pass(idx);
@@ -386,7 +388,7 @@ class BaseMode {
     triggerAutoIfNeeded() {
         const idx = this.gameState.currentTurn;
         const player = this.gameState.players[idx];
-        if (!player?.isAuto) return;
+        if (!this.isRunning || idx !== this.humanIndex || !player?.isAuto) return;
         this._stopCountdown(); // 停止倒计时避免与托管竞态
         if (this.gameState.phase === PHASE.PLAYING) {
             this._autoPlayForHuman(idx);
@@ -416,7 +418,7 @@ class BaseMode {
             
             // 再次检查游戏状态，防止 delay 期间游戏结束或轮次已切换
             if (!this.isRunning || generation !== this._generation || this.gameState.phase !== PHASE.PLAYING) return;
-            if (this.gameState.currentTurn !== playerIndex) return;
+            if (this.gameState.currentTurn !== playerIndex || !player.isAuto) return;
             
             if (cards.length === 0) {
                 const success = this.gameState.pass(playerIndex);

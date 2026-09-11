@@ -240,6 +240,7 @@ class Renderer {
                 </div>
             </div>
             <div id="controls-area">
+                <button id="btn-cancel-auto" class="btn-auto btn-panel-toggle hidden">取消托管</button>
                 <div id="call-controls" class="hidden">
                     <button data-call="0">不叫</button>
                     <button data-call="1">1分</button>
@@ -345,6 +346,7 @@ class Renderer {
         this._addControlListener(btnAutoCall, 'click', autoCallHandler);
         this._addControlListener(btnAutoPlay, 'click', autoPlayHandler);
         [btnAutoCall, btnAutoPlay].forEach(b => this._bindRipple(b));
+        this._addControlListener(this.container.querySelector('#btn-cancel-auto'), 'click', () => this._toggleAuto());
 
         // 双击出牌
         const handContainer = this.container.querySelector('#player-right .hand-front');
@@ -476,6 +478,13 @@ class Renderer {
 
             // 忽略输入框中的按键
             const target = e.target;
+            if (document.querySelector('#settings-overlay:not(.hidden)')) {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    window.gameApp?.closeSettings?.();
+                }
+                return;
+            }
             if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
                 return;
             }
@@ -511,10 +520,6 @@ class Renderer {
             // Escape 暂停/恢复（优先关闭模态框）
             if (e.key === 'Escape') {
                 e.preventDefault();
-                if (document.querySelector('#settings-overlay:not(.hidden)')) {
-                    window.gameApp?.closeSettings?.();
-                    return;
-                }
                 const helpPanel = document.getElementById('help-panel');
                 if (helpPanel && !helpPanel.classList.contains('hidden')) {
                     this._toggleHelpPanel();
@@ -532,7 +537,9 @@ class Renderer {
             }
 
             // 暂停状态下屏蔽游戏操作
-            if (this._isPaused) return;
+            if (this._isPaused || document.getElementById('help-panel') ||
+                this.container?.querySelector('#modal-overlay:not(.hidden)')) return;
+            if (target?.closest?.('button, select') && (e.code === 'Space' || e.key === 'Enter')) return;
 
             // 全局快捷键（不限制游戏阶段）
             if (e.key === 'm' || e.key === 'M') {
@@ -1001,10 +1008,16 @@ class Renderer {
             this.hidePlayControls();
             // 通知模式触发自动处理
             this.mode?.triggerAutoIfNeeded?.();
+        } else if (!player.isAuto && this.mode?.isRunning && this.gameState.currentTurn === this.mode.humanIndex) {
+            this.hideThinking(this.mode.humanIndex);
+            if (this.gameState.phase === PHASE.CALLING) this.mode._waitForHumanCall(this.mode.humanIndex);
+            else if (this.gameState.phase === PHASE.PLAYING) this.mode._waitForHumanPlay(this.mode.humanIndex);
         }
     }
 
     _updateAutoButton(isAuto) {
+        this.container.querySelector('#btn-cancel-auto')?.classList.toggle('hidden', !isAuto ||
+            ![PHASE.CALLING, PHASE.PLAYING].includes(this.gameState?.phase));
         const btns = this.container.querySelectorAll('.btn-auto');
         for (const btn of btns) {
             btn.textContent = isAuto ? '取消托管' : '托管';
@@ -1547,6 +1560,7 @@ class Renderer {
     renderHands() {
         if (this._destroyed) return;
         if (!this.gameState) return;
+        this._updateAutoButton(this.gameState.players[this.mode?.humanIndex]?.isAuto === true);
         // 重新渲染前清除选择状态，避免 DOM 与 selectedCards 不一致
         this.clearSelection();
         if (this.gameState.players?.every(player => player?.hand?.length > 5)) {
@@ -2075,6 +2089,8 @@ class Renderer {
     showCallControls(playerIndex) {
         const panel = this.container.querySelector('#call-controls');
         if (!panel) return;
+        if (panel._hideTimeout) clearTimeout(panel._hideTimeout);
+        panel._hideTimeout = null;
         this.hidePlayControls();
         this.clearSelection();
         panel.classList.remove('hidden');
@@ -2162,6 +2178,8 @@ class Renderer {
     showPlayControls(playerIndex, lastPattern) {
         const panel = this.container.querySelector('#play-controls');
         if (!panel) return;
+        if (panel._hideTimeout) clearTimeout(panel._hideTimeout);
+        panel._hideTimeout = null;
         this.hideCallControls();
         panel.classList.remove('hidden');
         this.anim.slideInFrom(panel, 'bottom', 300);
@@ -3164,16 +3182,20 @@ class Renderer {
 
     showEndgameInfo(level) {
         if (!this.container || this._destroyed) return;
+        const countdown = this.container.querySelector('#center-countdown');
         const infoBar = this.container.querySelector('#endgame-info-bar');
         if (infoBar) infoBar.remove();
         const bar = document.createElement('div');
         bar.id = 'endgame-info-bar';
         bar.className = 'endgame-info-bar';
         bar.innerHTML = `
-            <div class="endgame-info-title">🧩 第${level.id}关 · ${level.name}</div>
-            <div class="endgame-info-obj">目标: ${level.objective}</div>
+            <div class="endgame-info-copy">
+                <div class="endgame-info-title">🧩 第${level.id}关 · ${level.name}</div>
+                <div class="endgame-info-obj">目标: ${level.objective}</div>
+            </div>
             <button class="endgame-info-hint-btn" title="查看提示">💡 提示</button>
         `;
+        if (countdown) bar.prepend(countdown);
         const controls = this.container.querySelector('#controls-area');
         if (controls) controls.insertBefore(bar, controls.firstChild);
         else this.container.appendChild(bar);
@@ -3193,7 +3215,7 @@ class Renderer {
         const content = this.container.querySelector('#modal-content');
         if (!overlay || !content) return;
 
-        const level = window.gameApp?.currentMode?.constructor?.name === 'EndgameMode'
+        const level = window.gameApp?.currentMode?.modeName === 'endgame'
             ? window.gameApp.currentMode.getLevelInfo()
             : null;
 

@@ -393,7 +393,8 @@ class LANMode extends BaseMode {
     async triggerAutoIfNeeded() {
         if (this._isAutoPlaying || this.gameState.currentTurn !== this.humanIndex) return;
         const player = this.gameState.players[this.humanIndex];
-        if (!player?.isAuto) return;
+        if (!this.isRunning || !player?.isAuto) return;
+        this._stopCountdown();
         this._isAutoPlaying = true;
         const generation = this._generation;
         try {
@@ -402,9 +403,15 @@ class LANMode extends BaseMode {
             const ai = new AIPlayer('auto');
             ai.hand = player.hand;
             ai.index = this.humanIndex;
-            if (this.gameState.phase === PHASE.CALLING) this.humanCall(await ai.decideCall(this.gameState));
-            else if (this.gameState.phase === PHASE.PLAYING) {
+            const phase = this.gameState.phase;
+            const stillCurrent = () => this.isRunning && generation === this._generation &&
+                this.gameState.phase === phase && this.gameState.currentTurn === this.humanIndex && player.isAuto;
+            if (phase === PHASE.CALLING) {
+                const call = await ai.decideCall(this.gameState);
+                if (stillCurrent()) this.humanCall(call);
+            } else if (phase === PHASE.PLAYING) {
                 const cards = await ai.decidePlay(this.gameState, this.gameState.lastPlay.pattern);
+                if (!stillCurrent()) return;
                 if (cards.length) this.humanPlay(cards);
                 else this.humanPass();
             }

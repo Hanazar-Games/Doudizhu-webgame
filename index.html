@@ -175,7 +175,7 @@
                         <span>更新</span>
                     </button>
                 </div>
-                <span class="version-info">v1.2.51</span>
+                <span class="version-info">v1.2.52</span>
             </footer>
         </div>
     </div>
@@ -1180,6 +1180,7 @@
             </div>
             
             <div id="controls-area">
+                <button id="btn-cancel-auto" class="btn-auto btn-panel-toggle hidden">取消托管</button>
                 <div id="call-controls" class="hidden">
                     <button data-call="0">不叫</button>
                     <button data-call="1">1分</button>
@@ -1614,21 +1615,33 @@
             </div>
             <div class="changelog-body">
                 <div class="changelog-current">
-                    <div class="changelog-version-badge">v1.2.51</div>
-                    <h3>🛠️ 全模式流程、联机与音画一致性修复</h3>
+                    <div class="changelog-version-badge">v1.2.52</div>
+                    <h3>🛠️ Pages 生产验证与操作、音频竞态修复</h3>
                     <ul>
-                        <li>🃏 <strong>规则与提示修复</strong>：补全癞子、飞机带翼等复杂牌型搜索，特殊炸弹规则在玩家、AI、提示与出牌按钮中保持一致</li>
-                        <li>🎮 <strong>全模式流程修复</strong>：修复快速重开时旧 AI 操作串入新局、残局身份、挑战时限、自定义预设和锦标赛重置问题</li>
-                        <li>📊 <strong>计分与任务修复</strong>：区分单局得分与累计比分，正确应用叫分／抢地主底分，个人成就只统计本人表现，任务进度及时保存</li>
-                        <li>🌐 <strong>联机同步修复</strong>：房主统一校验操作，普通对局分别同步各玩家手牌，重连校验凭证；大厅等待确认，结算不再重复保存</li>
-                        <li>✨ <strong>界面与交互修复</strong>：统一页面切换与弹窗关闭按钮的 44px 触控区，修复选牌事件丢失，重开时清理旧出牌区与记牌器状态</li>
-                        <li>🔊 <strong>音效与 BGM 修复</strong>：挑战音乐与通关结果一致，成就和任务使用短通知音，避免重复胜利提示；重开清理残留音效，自定义遵循全局静音</li>
-                        <li>🎞️ <strong>回放与分享修复</strong>：完整保存地主底牌和癞子标记，修复完整牌局分享码超限、导入校验和菜单回放音效</li>
+                        <li>🌐 <strong>Pages 部署修复</strong>：404 返回地址随部署路径生成，自定义域名正确识别静态站点，联机入口立即显示服务限制</li>
+                        <li>🎮 <strong>托管与控制栏修复</strong>：托管期间保留取消入口，接回后立即恢复按钮，丢弃已取消的 AI 操作，防止旧动画定时器误藏控制栏</li>
+                        <li>🔊 <strong>音效与 BGM 修复</strong>：修复首次音乐不播放、静音后旧音效恢复和音频销毁竞态；暂停后切回页面不再意外重启音乐</li>
+                        <li>🎛️ <strong>设置与静音修复</strong>：自定义局静音持续生效，设置和帮助弹窗隔离牌局快捷键，键盘操作按钮遵循焦点</li>
+                        <li>🏁 <strong>残局与大厅修复</strong>：修复正式版本丢失残局关卡信息、快速建房信息被覆盖和加入失败提示不可见的问题</li>
+                        <li>📱 <strong>残局布局修复</strong>：倒计时与目标分开排列，提示按钮恢复点击并增大触控区，操作栏与手牌保持清晰</li>
                     </ul>
                 </div>
                 <details class="changelog-history">
                     <summary>📚 历史版本</summary>
                     <div class="changelog-history-content">
+                        <div class="changelog-version">
+                            <div class="changelog-version-badge">v1.2.51</div>
+                            <h4>🛠️ 全模式流程、联机与音画一致性修复</h4>
+                            <ul>
+                                <li>🃏 <strong>规则与提示修复</strong>：补全癞子、飞机带翼等复杂牌型搜索，特殊炸弹规则在玩家、AI、提示与出牌按钮中保持一致</li>
+                                <li>🎮 <strong>全模式流程修复</strong>：修复快速重开时旧 AI 操作串入新局、残局身份、挑战时限、自定义预设和锦标赛重置问题</li>
+                                <li>📊 <strong>计分与任务修复</strong>：区分单局得分与累计比分，正确应用叫分／抢地主底分，个人成就只统计本人表现，任务进度及时保存</li>
+                                <li>🌐 <strong>联机同步修复</strong>：房主统一校验操作，普通对局分别同步各玩家手牌，重连校验凭证；大厅等待确认，结算不再重复保存</li>
+                                <li>✨ <strong>界面与交互修复</strong>：统一页面切换与弹窗关闭按钮的 44px 触控区，修复选牌事件丢失，重开时清理旧出牌区与记牌器状态</li>
+                                <li>🔊 <strong>音效与 BGM 修复</strong>：挑战音乐与通关结果一致，成就和任务使用短通知音，避免重复胜利提示；重开清理残留音效，自定义遵循全局静音</li>
+                                <li>🎞️ <strong>回放与分享修复</strong>：完整保存地主底牌和癞子标记，修复完整牌局分享码超限、导入校验和菜单回放音效</li>
+                            </ul>
+                        </div>
                         <div class="changelog-version">
                             <div class="changelog-version-badge">v1.2.50</div>
                             <h4>🛠️ 全面交互与音频稳定性修复</h4>

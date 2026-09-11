@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { encodeShareCode } from '../src/utils/replay-workshop.js';
 
 async function openGame(browser, url, collector) {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -89,14 +90,14 @@ export async function testModeFlows(browser, url, collector) {
             assert.equal(result.modalCount, 1, `${name} ${level}: missing or duplicate settlement`);
             assert.equal(result.resultSounds.length, 1, `${name} ${level}: duplicated settlement sound`);
             assert.equal(result.bgm, result.resultSounds[0] === 'playWin' ? 'win' : 'lose', `${name} ${level}: BGM disagrees with result sound`);
-            if (name === 'endgame') assert(await page.locator('#btn-endgame-retry').isVisible());
+            if (name === 'endgame') {
+                assert(await page.locator('#btn-endgame-retry').isVisible());
+                assert((await page.locator('.endgame-result-level').textContent()).includes(`第${level + 1}关`));
+            }
             assert.notEqual(result.bgm, 'game', `${name} ${level}: gameplay BGM survived settlement`);
             console.log(`  ✓ ${name} ${level}: real game completed and saved (${result.history} actions)`);
             if (name === 'ai') {
-                const code = await page.evaluate(async () => {
-                    const { encodeShareCode } = await import('/src/utils/replay-workshop.js');
-                    return encodeShareCode(JSON.parse(localStorage.getItem('ddz_full_games'))[0]);
-                });
+                const code = encodeShareCode(await page.evaluate(() => JSON.parse(localStorage.getItem('ddz_full_games'))[0]));
                 assert(code, 'a full game must fit in a workshop share code');
                 await page.evaluate(() => window.gameApp.showWorkshop());
                 await page.fill('#workshop-import-input', code);

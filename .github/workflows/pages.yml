@@ -17,7 +17,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -50,10 +50,15 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Build
-        run: npm run build -- --base "${{ steps.pages.outputs.base_path }}/"
+        env:
+          GITHUB_PAGES: 'true'
+        run: npm run build -- --base "${{ github.event_name == 'pull_request' && format('/{0}', github.event.repository.name) || steps.pages.outputs.base_path }}/"
 
       - name: Test Pages artifact
-        run: npm run test:pages -- "${{ steps.pages.outputs.base_path }}/"
+        run: npm run test:pages -- "${{ github.event_name == 'pull_request' && format('/{0}', github.event.repository.name) || steps.pages.outputs.base_path }}/"
+
+      - name: Test Pages in browser
+        run: npm run test:pages:browser -- "${{ github.event_name == 'pull_request' && format('/{0}', github.event.repository.name) || steps.pages.outputs.base_path }}/"
 
       - name: Upload UI test screenshots on failure
         if: failure()
